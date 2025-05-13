@@ -1,0 +1,99 @@
+<!-- Player Interface (public/play/index.html) -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Master - Joueur</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Quiz Master</h1>
+            <div id="player-info" class="hidden">
+                <span id="player-name-display"></span>
+                <span id="player-score">Score: <span id="score-value">0</span></span>
+            </div>
+        </header>
+
+        <main>
+            <div id="join-screen" class="screen active">
+                <h2>Rejoindre un quiz</h2>
+                <div class="join-form">
+                    <div class="form-group">
+                        <label for="player-name">Votre nom:</label>
+                        <input type="text" id="player-name" placeholder="Entrez votre nom" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="session-code">Code de session:</label>
+                        <input type="text" id="session-code" placeholder="Ex: 123456" required>
+                    </div>
+                    <button id="join-btn" class="btn primary-btn">Rejoindre</button>
+                </div>
+                <div id="join-error" class="error-message hidden"></div>
+            </div>
+
+            <div id="waiting-screen" class="screen">
+                <h2>En attente du début du quiz</h2>
+                <div class="loader"></div>
+                <p>Le quiz commencera dès que l'hôte le lancera.</p>
+                <p><small>Gardez votre téléphone à portée de main!</small></p>
+            </div>
+
+            <div id="question-screen" class="screen">
+                <div class="question-header">
+                    <div class="question-counter">Question <span id="question-number"></span>/<span id="total-questions"></span></div>
+                    <div class="timer">Temps: <span id="time-left"></span>s</div>
+                </div>
+                <div id="options-container" class="options-container"></div>
+            </div>
+
+            <div id="answer-result-screen" class="screen">
+                <div id="result-status"></div>
+                <div id="points-earned"></div>
+                <div id="current-score">Votre score: <span id="current-score-value">0</span></div>
+                <p>En attente de la prochaine question...</p>
+            </div>
+
+            <div id="question-results-screen" class="screen">
+                <h2>Résultat de la question</h2>
+                <div class="correct-answer">
+                    <h3>Réponse correcte:</h3>
+                    <p id="correct-answer-text"></p>
+                </div>
+                <div id="explanation-container">
+                    <h3>Explication:</h3>
+                    <p id="explanation-text"></p>
+                </div>
+                <p>En attente de la prochaine question...</p>
+            </div>
+
+            <div id="final-screen" class="screen">
+                <h2>Fin du quiz!</h2>
+                <div id="final-result"></div>
+                <div class="leaderboard-container">
+                    <h3>Classement final:</h3>
+                    <table id="final-leaderboard">
+                        <thead>
+                            <tr>
+                                <th>Position</th>
+                                <th>Joueur</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="final-leaderboard-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Quiz App © 2025</p>
+        </footer>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
