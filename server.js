@@ -7,6 +7,10 @@ const session = require('express-session');
 const { initDatabase } = require('./config/database');
 const { verifyCredentials, requireAuth } = require('./config/auth');
 
+// Récupération de la version depuis package.json
+const packageInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+const appVersion = packageInfo.version;
+
 // Initialisation de l'application Express
 const app = express();
 const server = http.createServer(app);
@@ -108,7 +112,8 @@ io.on('connection', (socket) => {
       questions: questions.map(q => ({
         question: q.question,
         options: q.options
-      }))
+      })),
+      appVersion: appVersion
     });
   });
 

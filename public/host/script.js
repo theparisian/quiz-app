@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerCountValue = document.getElementById('player-count-value');
     const playerList = document.getElementById('player-list');
     const startGameBtn = document.getElementById('start-game-btn');
+    const appVersion = document.getElementById('app-version');
     
     const waitingScreen = document.getElementById('waiting-screen');
     const questionScreen = document.getElementById('question-screen');
@@ -47,6 +48,11 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionCode.textContent = data.sessionCode;
         joinCode.textContent = data.sessionCode;
         playerCountValue.textContent = data.playerCount;
+        
+        // Afficher la version de l'application
+        if (data.appVersion) {
+            appVersion.textContent = data.appVersion;
+        }
         
         // Mettre à jour le bouton de démarrage
         updateStartButton(data.playerCount);
