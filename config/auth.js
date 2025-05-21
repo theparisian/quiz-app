@@ -1,5 +1,4 @@
 const bcrypt = require('bcrypt');
-const { pool } = require('./database');
 const database = require('./database');
 
 /**

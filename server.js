@@ -4,6 +4,7 @@ const socketIO = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 const session = require('express-session');
+require('dotenv').config();
 const { initDatabase } = require('./config/database');
 const { verifyCredentials, requireAuth } = require('./config/auth');
 
@@ -21,7 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configuration des sessions
 app.use(session({
-  secret: 'quiz-master-secret-key',
+  secret: process.env.SESSION_SECRET || 'quiz-master-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 3600000 } // 1 heure
@@ -252,67 +253,75 @@ io.on('connection', (socket) => {
       timeLimit: gameState.timePerQuestion
     });
     
-    // Démarrer le timer
     startTimer();
   }
-
+  
   function startTimer() {
     gameState.timer = setInterval(() => {
       gameState.timeLeft--;
       
+      io.to('host-room').emit('timer-update', {
+        timeLeft: gameState.timeLeft
+      });
+      
       if (gameState.timeLeft <= 0) {
         clearInterval(gameState.timer);
-        io.emit('time-up');
-        
-        // Attendre 3 secondes avant d'envoyer les résultats
-        setTimeout(() => {
-          sendQuestionResults();
-        }, 3000);
-      } else {
-        io.emit('timer-update', { timeLeft: gameState.timeLeft });
+        sendQuestionResults();
       }
     }, 1000);
   }
-
+  
   function sendQuestionResults() {
     const currentQuestion = questions[gameState.currentQuestionIndex];
     
+    if (!currentQuestion) return;
+    
+    // Préparer le classement actuel
+    const scores = Object.values(gameState.players)
+      .sort((a, b) => b.score - a.score)
+      .map(player => ({ name: player.name, score: player.score }));
+    
+    // Envoyer les résultats à tous
     io.to('host-room').emit('question-results', {
       correctIndex: currentQuestion.correctIndex,
-      explanation: currentQuestion.explanation || '',
-      scores: Object.values(gameState.players).sort((a, b) => b.score - a.score)
-    });
-    
-    io.to('player-room').emit('question-results', {
-      correctIndex: currentQuestion.correctIndex,
-      explanation: currentQuestion.explanation || ''
+      correctText: currentQuestion.options[currentQuestion.correctIndex],
+      explanation: currentQuestion.explanation || "Pas d'explication disponible",
+      scores: scores
     });
   }
-
+  
   function endGame() {
     gameState.isActive = false;
     
-    // Trier les joueurs par score
-    const sortedPlayers = Object.values(gameState.players)
-      .sort((a, b) => b.score - a.score);
+    // Préparer le classement final
+    const finalScores = Object.values(gameState.players)
+      .sort((a, b) => b.score - a.score)
+      .map((player, index) => ({
+        position: index + 1,
+        name: player.name,
+        score: player.score
+      }));
     
-    io.to('host-room').emit('game-over', {
-      leaderboard: sortedPlayers
+    // Déterminer le gagnant
+    const winner = finalScores.length > 0 ? finalScores[0] : null;
+    
+    // Envoyer les résultats finaux
+    io.to('host-room').emit('game-end', {
+      winner: winner,
+      leaderboard: finalScores
     });
     
-    io.to('player-room').emit('game-over', {
-      leaderboard: sortedPlayers.map(p => ({
-        name: p.name,
-        score: p.score
-      }))
-    });
+    // Sauvegarder les résultats (pourrait être implémenté dans le futur)
+    console.log('Fin du jeu, résultats:', finalScores);
   }
-
+  
   function resetGame() {
     clearTimeout(gameState.timer);
     gameState.isActive = false;
     gameState.currentQuestionIndex = -1;
     gameState.sessionCode = generateSessionCode();
+    
+    // Réinitialiser les scores des joueurs connectés
     Object.keys(gameState.players).forEach(id => {
       gameState.scores[id] = 0;
       gameState.players[id].score = 0;
@@ -320,8 +329,10 @@ io.on('connection', (socket) => {
   }
 });
 
-// Démarrage du serveur
+// Démarrer le serveur
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
+  console.log(`Version de l'application: ${appVersion}`);
+  console.log(`Environnement: ${process.env.NODE_ENV || 'development'}`);
 });
