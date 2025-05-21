@@ -2,28 +2,25 @@ name: Deploy to VPS
 
 on:
   push:
-    branches: [ master ]  # ou master, selon votre branche principale
+    branches: [ main ]  # Adaptez selon votre branche principale (main ou master)
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
         with:
-          fetch-depth: 0
-
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@master
-        with:
-          host: 146.59.225.24
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.PORT }}
-          script: |
-            cd /home/ubuntu/quiz-app
-            git pull origin main
-            # Ajoutez ici d'autres commandes nécessaires pour votre déploiement
-            # Par exemple :
-            # npm install
-            # npm run build
-            # service votre-app restart
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
+            cd ${{ secrets.PROJECT_PATH }} &&
+            git pull origin main &&
+            # Commandes pour redémarrer votre application (à adapter selon votre projet)
+            # Par exemple: npm install && npm run build && pm2 restart app
+          '
