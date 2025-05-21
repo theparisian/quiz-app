@@ -16,4 +16,4 @@ jobs:
         
       - name: Deploy to VPS
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd ${{ secrets.PROJECT_PATH }} && git pull origin master && echo 'Déploiement terminé avec succès!'"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd ${{ secrets.PROJECT_PATH }} && git stash && git pull --no-rebase origin master && echo 'Déploiement terminé avec succès!'"
