@@ -2,7 +2,7 @@ name: Deploy to VPS
 
 on:
   push:
-    branches: [ main ]  # Adaptez selon votre branche principale (main ou master)
+    branches: [ master ]  # Branche principale configurée sur master
 
 jobs:
   deploy:
@@ -20,7 +20,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
             cd ${{ secrets.PROJECT_PATH }} &&
-            git pull origin main &&
+            git pull origin master &&
             # Commandes pour redémarrer votre application (à adapter selon votre projet)
             # Par exemple: npm install && npm run build && pm2 restart app
           '
