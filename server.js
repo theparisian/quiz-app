@@ -86,7 +86,9 @@ app.post('/auth', async (req, res) => {
   const { username, password } = req.body;
   
   // Vérifier les identifiants
+  console.log('Tentative de connexion:', username);
   const user = await verifyCredentials(username, password);
+  console.log('Utilisateur trouvé:', user);
   
   if (user) {
     // Stocker l'utilisateur dans la session
