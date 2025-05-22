@@ -42,6 +42,19 @@ async function initDatabase() {
       )
     `);
     
+    // Création de la table questions
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        question TEXT NOT NULL,
+        options JSON NOT NULL,
+        correct_index INT NOT NULL,
+        explanation TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    
     console.log('Base de données initialisée avec succès');
     
     // Vérifier si un compte existe déjà
@@ -58,6 +71,24 @@ async function initDatabase() {
       );
       
       console.log('Compte administrateur par défaut créé (admin/admin123)');
+    }
+
+    // Vérifier si des questions existent déjà
+    const [questionRows] = await pool.query('SELECT COUNT(*) as count FROM questions');
+    
+    if (questionRows[0].count === 0) {
+      // Si aucune question n'existe, importer les questions du fichier JSON
+      const questionsFilePath = path.join(__dirname, '../data/questions.json');
+      if (fs.existsSync(questionsFilePath)) {
+        const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
+        for (const q of questionsData) {
+          await pool.query(
+            'INSERT INTO questions (question, options, correct_index, explanation) VALUES (?, ?, ?, ?)',
+            [q.question, JSON.stringify(q.options), q.correctIndex, q.explanation]
+          );
+        }
+        console.log('Questions importées avec succès depuis le fichier JSON');
+      }
     }
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de la base de données:', error);
@@ -97,16 +128,18 @@ const database = {
   // Méthode pour récupérer toutes les questions
   async getQuestions() {
     try {
-      // Utiliser le fichier JSON local pour les questions
-      const questionsFilePath = path.join(__dirname, '../data/questions.json');
-      
-      if (fs.existsSync(questionsFilePath)) {
-        const questionsData = fs.readFileSync(questionsFilePath, 'utf8');
-        return JSON.parse(questionsData);
-      } else {
-        console.warn('Fichier de questions introuvable:', questionsFilePath);
+      if (!pool) {
+        console.error('Aucune connexion à la base de données disponible');
         return [];
       }
+
+      const [rows] = await pool.query('SELECT * FROM questions ORDER BY id');
+      return rows.map(row => ({
+        question: row.question,
+        options: JSON.parse(row.options),
+        correctIndex: row.correct_index,
+        explanation: row.explanation
+      }));
     } catch (error) {
       console.error('Erreur lors de la récupération des questions:', error);
       return [];
@@ -126,6 +159,60 @@ const database = {
       return true;
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des résultats du jeu:', error);
+      return false;
+    }
+  },
+  
+  // Méthode pour ajouter une nouvelle question
+  async addQuestion(questionData) {
+    try {
+      if (!pool) {
+        console.error('Aucune connexion à la base de données disponible');
+        return false;
+      }
+
+      await pool.query(
+        'INSERT INTO questions (question, options, correct_index, explanation) VALUES (?, ?, ?, ?)',
+        [questionData.question, JSON.stringify(questionData.options), questionData.correctIndex, questionData.explanation]
+      );
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout de la question:', error);
+      return false;
+    }
+  },
+
+  // Méthode pour mettre à jour une question
+  async updateQuestion(id, questionData) {
+    try {
+      if (!pool) {
+        console.error('Aucune connexion à la base de données disponible');
+        return false;
+      }
+
+      await pool.query(
+        'UPDATE questions SET question = ?, options = ?, correct_index = ?, explanation = ? WHERE id = ?',
+        [questionData.question, JSON.stringify(questionData.options), questionData.correctIndex, questionData.explanation, id]
+      );
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de la question:', error);
+      return false;
+    }
+  },
+
+  // Méthode pour supprimer une question
+  async deleteQuestion(id) {
+    try {
+      if (!pool) {
+        console.error('Aucune connexion à la base de données disponible');
+        return false;
+      }
+
+      await pool.query('DELETE FROM questions WHERE id = ?', [id]);
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la suppression de la question:', error);
       return false;
     }
   },
