@@ -120,6 +120,12 @@ document.addEventListener('DOMContentLoaded', () => {
         joinCode.textContent = data.sessionCode;
         playerCountValue.textContent = data.playerCount;
         
+        // Afficher le nom d'utilisateur connecté
+        const usernameElement = document.getElementById('username');
+        if (usernameElement) {
+            usernameElement.textContent = data.username || 'Non connecté';
+        }
+        
         // Afficher la version de l'application
         if (data.appVersion) {
             appVersion.textContent = data.appVersion;

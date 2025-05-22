@@ -216,6 +216,7 @@ io.on('connection', (socket) => {
     // Récupérer la session
     const session = socket.request.session;
     const isAdmin = !!(session && session.user && session.user.isAdmin);
+    const username = session && session.user ? session.user.username : 'Non connecté';
     
     socket.emit('game-setup', { 
       sessionCode: gameState.sessionCode,
@@ -225,7 +226,8 @@ io.on('connection', (socket) => {
         options: q.options
       })),
       appVersion: appVersion,
-      isAdmin: isAdmin
+      isAdmin: isAdmin,
+      username: username
     });
   });
 
