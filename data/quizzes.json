@@ -1,0 +1,66 @@
+[
+  {
+    "id": "211b687e-a05c-4121-baf8-60725dcbd22e",
+    "name": "Quiz par défaut",
+    "description": "Quiz généré automatiquement",
+    "questions": [
+      {
+        "question": "Quelle est la capitale de la France?",
+        "options": [
+          "Berlin",
+          "Londres",
+          "Paris",
+          "Madrid"
+        ],
+        "correctIndex": 2,
+        "explanation": "Paris est la capitale de la France depuis 987."
+      },
+      {
+        "question": "Quel est le plus grand océan du monde?",
+        "options": [
+          "Atlantique",
+          "Indien",
+          "Arctique",
+          "Pacifique"
+        ],
+        "correctIndex": 3,
+        "explanation": "L'océan Pacifique couvre environ 30% de la surface terrestre."
+      },
+      {
+        "question": "Quelle planète est connue comme la planète rouge?",
+        "options": [
+          "Jupiter",
+          "Mars",
+          "Vénus",
+          "Saturne"
+        ],
+        "correctIndex": 1,
+        "explanation": "Mars apparaît rouge en raison de l'oxyde de fer présent sur sa surface."
+      },
+      {
+        "question": "Qui a peint La Joconde?",
+        "options": [
+          "Van Gogh",
+          "Picasso",
+          "Michel-Ange",
+          "Léonard de Vinci"
+        ],
+        "correctIndex": 3,
+        "explanation": "Léonard de Vinci a peint La Joconde entre 1503 et 1506."
+      },
+      {
+        "question": "Quel est l'élément chimique le plus abondant dans l'univers?",
+        "options": [
+          "Oxygène",
+          "Carbone",
+          "Hydrogène",
+          "Hélium"
+        ],
+        "correctIndex": 2,
+        "explanation": "L'hydrogène constitue environ 75% de la matière visible de l'univers."
+      }
+    ],
+    "active": true,
+    "createdAt": "2025-05-22T12:38:37.648Z"
+  }
+]
