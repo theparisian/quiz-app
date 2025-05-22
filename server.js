@@ -20,9 +20,13 @@ const server = http.createServer(app);
 // Configuration des sessions
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'quiz-master-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { maxAge: 3600000 } // 1 heure
+  resave: true, // Forcer la sauvegarde même si la session n'a pas changé
+  saveUninitialized: true, // Sauvegarder les sessions non initialisées
+  cookie: { 
+    maxAge: 3600000, // 1 heure
+    httpOnly: true,
+    secure: false // Mettre à true en production si HTTPS
+  }
 });
 
 app.use(sessionMiddleware);
@@ -38,12 +42,20 @@ const io = socketIO(server, {
 
 // Middleware pour permettre à Socket.IO d'accéder à la session Express
 io.use((socket, next) => {
-  sessionMiddleware(socket.request, socket.request.res || {}, next);
-  // Log pour debug
-  console.log('Socket.IO session access:', {
-    hasSession: !!socket.request.session,
-    hasUser: !!(socket.request.session && socket.request.session.user),
-    isAdmin: !!(socket.request.session && socket.request.session.user && socket.request.session.user.isAdmin)
+  // Appliquer le middleware de session
+  sessionMiddleware(socket.request, {}, () => {
+    // Vérifier que la session est chargée
+    if (socket.request.session) {
+      console.log('Session chargée dans Socket.IO:', { 
+        id: socket.request.session.id,
+        hasUser: !!socket.request.session.user,
+        isAdmin: socket.request.session.user ? !!socket.request.session.user.isAdmin : false
+      });
+      next();
+    } else {
+      console.error('Pas de session disponible dans Socket.IO');
+      next(new Error('Session non disponible'));
+    }
   });
 });
 
@@ -80,12 +92,19 @@ app.post('/auth', async (req, res) => {
     // Stocker l'utilisateur dans la session
     req.session.user = user;
     
-    // Rediriger vers la page admin si l'utilisateur est admin
-    if (user.isAdmin) {
-      res.redirect('/admin');
-    } else {
-      res.redirect('/host');
-    }
+    // Forcer la sauvegarde de la session
+    req.session.save(err => {
+      if (err) {
+        console.error('Erreur lors de la sauvegarde de la session:', err);
+      }
+      
+      // Rediriger vers la page admin si l'utilisateur est admin
+      if (user.isAdmin) {
+        res.redirect('/admin');
+      } else {
+        res.redirect('/host');
+      }
+    });
   } else {
     res.redirect('/login?error=1');
   }
