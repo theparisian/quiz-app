@@ -140,6 +140,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 answerIndex: -1 // Indique qu'aucune réponse n'a été donnée
             });
         }
+        
+        // Désactiver toutes les options
+        const options = optionsContainer.querySelectorAll('.option');
+        options.forEach(opt => {
+            opt.style.pointerEvents = 'none';
+            opt.style.opacity = '0.5';
+        });
+        
+        // Forcer l'affichage de l'écran de résultat
+        showScreen(answerResultScreen);
     });
     
     socket.on('answer-result', (data) => {

@@ -260,12 +260,19 @@ io.on('connection', (socket) => {
     gameState.timer = setInterval(() => {
       gameState.timeLeft--;
       
+      // Envoyer la mise à jour du timer à l'hôte et aux joueurs
       io.to('host-room').emit('timer-update', {
+        timeLeft: gameState.timeLeft
+      });
+      io.to('player-room').emit('timer-update', {
         timeLeft: gameState.timeLeft
       });
       
       if (gameState.timeLeft <= 0) {
         clearInterval(gameState.timer);
+        // Informer tous les clients que le temps est écoulé
+        io.to('host-room').emit('time-up');
+        io.to('player-room').emit('time-up');
         sendQuestionResults();
       }
     }, 1000);
