@@ -181,37 +181,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     socket.on('game-over', (data) => {
-        // Trouver ma position dans le classement
-        const myPosition = data.leaderboard.findIndex(player => player.name === playerName) + 1;
-        
-        // Afficher le message final
+        // Afficher un message simple de fin de quiz
         finalResult.innerHTML = `
-            <p>Vous avez terminé à la <strong>${myPosition}${getOrdinalSuffix(myPosition)}</strong> place!</p>
-            <p>Votre score final: <strong>${currentScore}</strong> points</p>
+            <div class="quiz-end-message">
+                <h2>Quiz Terminé!</h2>
+                <p>Merci d'avoir participé au quiz.</p>
+                <p>Votre score final: <strong>${currentScore}</strong> points</p>
+                <button onclick="window.location.href='/play'" class="btn primary-btn">Retour à l'accueil</button>
+            </div>
         `;
-        
-        // Mettre à jour le classement final
-        finalLeaderboardBody.innerHTML = '';
-        data.leaderboard.forEach((player, index) => {
-            const row = document.createElement('tr');
-            
-            const positionCell = document.createElement('td');
-            positionCell.textContent = index + 1;
-            
-            const nameCell = document.createElement('td');
-            nameCell.textContent = player.name;
-            if (player.name === playerName) {
-                nameCell.style.fontWeight = 'bold';
-            }
-            
-            const scoreCell = document.createElement('td');
-            scoreCell.textContent = player.score;
-            
-            row.appendChild(positionCell);
-            row.appendChild(nameCell);
-            row.appendChild(scoreCell);
-            finalLeaderboardBody.appendChild(row);
-        });
         
         showScreen(finalScreen);
     });

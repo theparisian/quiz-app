@@ -312,9 +312,14 @@ io.on('connection', (socket) => {
     // Déterminer le gagnant
     const winner = finalScores.length > 0 ? finalScores[0] : null;
     
-    // Envoyer les résultats finaux
+    // Envoyer les résultats finaux à l'hôte
     io.to('host-room').emit('game-end', {
       winner: winner,
+      leaderboard: finalScores
+    });
+    
+    // Envoyer les résultats finaux aux joueurs
+    io.to('player-room').emit('game-over', {
       leaderboard: finalScores
     });
     
