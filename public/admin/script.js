@@ -31,7 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let pendingAction = null;
 
     // Connexion Socket.IO
-    const socket = io();
+    const socket = io({
+        withCredentials: true
+    });
     
     // Événements Socket.IO
     socket.on('connect', () => {
@@ -41,6 +43,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     socket.on('admin-init-response', (data) => {
+        // Vérifier s'il y a une erreur
+        if (data.error) {
+            showNotification('Erreur: ' + data.error, 'error');
+            // Rediriger vers la page de connexion après un délai
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+            return;
+        }
+        
         // Afficher le nom d'utilisateur
         username.textContent = data.username || 'Admin';
         

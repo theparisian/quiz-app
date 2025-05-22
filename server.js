@@ -28,11 +28,23 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 
 // Initialisation de Socket.IO avec accès aux sessions
-const io = socketIO(server);
+const io = socketIO(server, {
+    cors: {
+        origin: true,
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
 
 // Middleware pour permettre à Socket.IO d'accéder à la session Express
 io.use((socket, next) => {
   sessionMiddleware(socket.request, socket.request.res || {}, next);
+  // Log pour debug
+  console.log('Socket.IO session access:', {
+    hasSession: !!socket.request.session,
+    hasUser: !!(socket.request.session && socket.request.session.user),
+    isAdmin: !!(socket.request.session && socket.request.session.user && socket.request.session.user.isAdmin)
+  });
 });
 
 // Middleware pour parser les formulaires
@@ -290,6 +302,13 @@ io.on('connection', (socket) => {
   // Événements de l'admin
   socket.on('admin-init', () => {
     const session = socket.request.session;
+    console.log('admin-init event, session:', {
+      hasSession: !!session,
+      hasUser: !!(session && session.user),
+      isAdmin: !!(session && session.user && session.user.isAdmin),
+      sessionId: session ? session.id : null
+    });
+    
     if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('admin-init-response', { 
         error: 'Non autorisé',

@@ -27,7 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const newGameBtn = document.getElementById('new-game-btn');
     
     // Initialiser Socket.IO
-    const socket = io();
+    const socket = io({
+        withCredentials: true
+    });
     
     // Déterminer l'adresse IP du serveur pour l'affichage
     serverAddress.textContent = window.location.host;

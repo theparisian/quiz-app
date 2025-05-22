@@ -32,7 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const finalScreen = document.getElementById('final-screen');
     
     // Connexion Socket.IO
-    const socket = io();
+    const socket = io({
+        withCredentials: true
+    });
     
     // Variables d'état local
     let playerName = '';
