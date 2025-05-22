@@ -7,6 +7,7 @@ const session = require('express-session');
 require('dotenv').config();
 const { initDatabase } = require('./config/database');
 const { verifyCredentials, requireAuth } = require('./config/auth');
+const { v4: uuidv4 } = require('uuid');
 
 // Récupération de la version depuis package.json
 const packageInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
@@ -19,6 +20,7 @@ const io = socketIO(server);
 
 // Middleware pour parser les formulaires
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 // Configuration des sessions
 app.use(session({
@@ -77,13 +79,70 @@ app.get('/play', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/play/index.html'));
 });
 
+// Nouvelle route pour l'interface admin
+app.get('/admin', requireAuth, (req, res) => {
+  // Vérifier si l'utilisateur a des droits d'administration
+  if (req.session.user && req.session.user.isAdmin) {
+    res.sendFile(path.join(__dirname, 'public/admin/index.html'));
+  } else {
+    res.redirect('/host');
+  }
+});
+
 // API pour obtenir une nouvelle session (utile pour intégration future)
 app.get('/api/session', requireAuth, (req, res) => {
   res.json({ sessionCode: gameState.sessionCode });
 });
 
-// Chargement des questions du quiz
-const questions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/questions.json'), 'utf8'));
+// Gestion des quiz
+const QUIZZES_FILE = path.join(__dirname, 'data/quizzes.json');
+
+// Assurer que le dossier data existe
+if (!fs.existsSync(path.join(__dirname, 'data'))) {
+  fs.mkdirSync(path.join(__dirname, 'data'));
+}
+
+// Assurer que le fichier quizzes.json existe
+if (!fs.existsSync(QUIZZES_FILE)) {
+  // Créer un fichier initial avec un quiz par défaut
+  const defaultQuiz = {
+    id: uuidv4(),
+    name: "Quiz par défaut",
+    description: "Quiz généré automatiquement",
+    questions: JSON.parse(fs.readFileSync(path.join(__dirname, 'data/questions.json'), 'utf8')),
+    active: true,
+    createdAt: new Date().toISOString()
+  };
+  
+  fs.writeFileSync(QUIZZES_FILE, JSON.stringify([defaultQuiz], null, 2));
+}
+
+// Charger tous les quiz
+function loadQuizzes() {
+  try {
+    return JSON.parse(fs.readFileSync(QUIZZES_FILE, 'utf8'));
+  } catch (err) {
+    console.error('Erreur lors du chargement des quiz:', err);
+    return [];
+  }
+}
+
+// Sauvegarder tous les quiz
+function saveQuizzes(quizzes) {
+  try {
+    fs.writeFileSync(QUIZZES_FILE, JSON.stringify(quizzes, null, 2));
+    return true;
+  } catch (err) {
+    console.error('Erreur lors de la sauvegarde des quiz:', err);
+    return false;
+  }
+}
+
+// Obtenir le quiz actif
+function getActiveQuiz() {
+  const quizzes = loadQuizzes();
+  return quizzes.find(quiz => quiz.active) || quizzes[0];
+}
 
 // États du jeu
 let gameState = {
@@ -93,7 +152,8 @@ let gameState = {
   players: {},
   sessionCode: generateSessionCode(),
   timePerQuestion: 20, // secondes
-  timer: null
+  timer: null,
+  activeQuiz: getActiveQuiz()
 };
 
 function generateSessionCode() {
@@ -107,10 +167,14 @@ io.on('connection', (socket) => {
   // Quand un hôte se connecte
   socket.on('host-join', () => {
     socket.join('host-room');
+    
+    // S'assurer que le quiz actif est chargé
+    gameState.activeQuiz = getActiveQuiz();
+    
     socket.emit('game-setup', { 
       sessionCode: gameState.sessionCode,
       playerCount: Object.keys(gameState.players).length,
-      questions: questions.map(q => ({
+      questions: gameState.activeQuiz.questions.map(q => ({
         question: q.question,
         options: q.options
       })),
@@ -155,6 +219,9 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // S'assurer que le quiz actif est chargé
+    gameState.activeQuiz = getActiveQuiz();
+
     gameState.isActive = true;
     gameState.currentQuestionIndex = -1;
     Object.keys(gameState.players).forEach(id => {
@@ -169,7 +236,7 @@ io.on('connection', (socket) => {
   socket.on('submit-answer', (data) => {
     if (!gameState.isActive) return;
     
-    const currentQuestion = questions[gameState.currentQuestionIndex];
+    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
     if (!currentQuestion) return;
     
     const isCorrect = data.answerIndex === currentQuestion.correctIndex;
@@ -211,6 +278,153 @@ io.on('connection', (socket) => {
     io.to('player-room').emit('game-reset');
   });
 
+  // Événements de l'admin
+  socket.on('admin-init', () => {
+    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+      return;
+    }
+    
+    socket.emit('admin-init-response', {
+      username: socket.request.session.user.username,
+      appVersion: appVersion,
+      quizzes: loadQuizzes()
+    });
+  });
+  
+  socket.on('get-quiz-list', () => {
+    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+      return;
+    }
+    
+    socket.emit('quiz-list-updated', {
+      quizzes: loadQuizzes()
+    });
+  });
+  
+  socket.on('save-quiz', (data) => {
+    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+      socket.emit('quiz-saved', { success: false, message: 'Non autorisé' });
+      return;
+    }
+    
+    try {
+      const quizzes = loadQuizzes();
+      
+      if (data.id) {
+        // Modifier un quiz existant
+        const index = quizzes.findIndex(q => q.id === data.id);
+        if (index !== -1) {
+          quizzes[index] = {
+            ...quizzes[index],
+            name: data.name,
+            description: data.description,
+            questions: data.questions,
+            updatedAt: new Date().toISOString()
+          };
+        } else {
+          socket.emit('quiz-saved', { success: false, message: 'Quiz non trouvé' });
+          return;
+        }
+      } else {
+        // Créer un nouveau quiz
+        quizzes.push({
+          id: uuidv4(),
+          name: data.name,
+          description: data.description,
+          questions: data.questions,
+          active: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+      
+      if (saveQuizzes(quizzes)) {
+        socket.emit('quiz-saved', { success: true });
+      } else {
+        socket.emit('quiz-saved', { success: false, message: 'Erreur lors de la sauvegarde' });
+      }
+    } catch (err) {
+      console.error('Erreur lors de la sauvegarde du quiz:', err);
+      socket.emit('quiz-saved', { success: false, message: err.message });
+    }
+  });
+  
+  socket.on('delete-quiz', (data) => {
+    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+      socket.emit('quiz-deleted', { success: false, message: 'Non autorisé' });
+      return;
+    }
+    
+    try {
+      const quizzes = loadQuizzes();
+      const index = quizzes.findIndex(q => q.id === data.id);
+      
+      if (index === -1) {
+        socket.emit('quiz-deleted', { success: false, message: 'Quiz non trouvé' });
+        return;
+      }
+      
+      // Vérifier si c'est le seul quiz
+      if (quizzes.length === 1) {
+        socket.emit('quiz-deleted', { success: false, message: 'Impossible de supprimer le dernier quiz' });
+        return;
+      }
+      
+      // Vérifier si c'est le quiz actif
+      if (quizzes[index].active) {
+        socket.emit('quiz-deleted', { success: false, message: 'Impossible de supprimer le quiz actif' });
+        return;
+      }
+      
+      quizzes.splice(index, 1);
+      
+      if (saveQuizzes(quizzes)) {
+        socket.emit('quiz-deleted', { success: true });
+      } else {
+        socket.emit('quiz-deleted', { success: false, message: 'Erreur lors de la suppression' });
+      }
+    } catch (err) {
+      console.error('Erreur lors de la suppression du quiz:', err);
+      socket.emit('quiz-deleted', { success: false, message: err.message });
+    }
+  });
+  
+  socket.on('activate-quiz', (data) => {
+    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+      socket.emit('quiz-activated', { success: false, message: 'Non autorisé' });
+      return;
+    }
+    
+    try {
+      const quizzes = loadQuizzes();
+      
+      // Désactiver tous les quiz
+      quizzes.forEach(quiz => {
+        quiz.active = false;
+      });
+      
+      // Activer le quiz sélectionné
+      const quizToActivate = quizzes.find(q => q.id === data.id);
+      if (!quizToActivate) {
+        socket.emit('quiz-activated', { success: false, message: 'Quiz non trouvé' });
+        return;
+      }
+      
+      quizToActivate.active = true;
+      
+      if (saveQuizzes(quizzes)) {
+        // Mettre à jour le quiz actif dans le gameState
+        gameState.activeQuiz = quizToActivate;
+        
+        socket.emit('quiz-activated', { success: true });
+      } else {
+        socket.emit('quiz-activated', { success: false, message: 'Erreur lors de l\'activation' });
+      }
+    } catch (err) {
+      console.error('Erreur lors de l\'activation du quiz:', err);
+      socket.emit('quiz-activated', { success: false, message: err.message });
+    }
+  });
+
   // Déconnexion
   socket.on('disconnect', () => {
     console.log('Déconnexion:', socket.id);
@@ -229,12 +443,15 @@ io.on('connection', (socket) => {
     clearTimeout(gameState.timer);
     gameState.currentQuestionIndex++;
     
-    if (gameState.currentQuestionIndex >= questions.length) {
+    // S'assurer que le quiz actif est chargé
+    gameState.activeQuiz = getActiveQuiz();
+    
+    if (gameState.currentQuestionIndex >= gameState.activeQuiz.questions.length) {
       endGame();
       return;
     }
     
-    const currentQuestion = questions[gameState.currentQuestionIndex];
+    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
     gameState.timeLeft = gameState.timePerQuestion;
     
     // Envoyer la question à l'hôte et aux joueurs
@@ -242,14 +459,14 @@ io.on('connection', (socket) => {
       question: currentQuestion.question,
       options: currentQuestion.options,
       questionNumber: gameState.currentQuestionIndex + 1,
-      totalQuestions: questions.length,
+      totalQuestions: gameState.activeQuiz.questions.length,
       timeLimit: gameState.timePerQuestion
     });
     
     io.to('player-room').emit('new-question', {
       options: currentQuestion.options,
       questionNumber: gameState.currentQuestionIndex + 1,
-      totalQuestions: questions.length,
+      totalQuestions: gameState.activeQuiz.questions.length,
       timeLimit: gameState.timePerQuestion
     });
     
@@ -279,7 +496,7 @@ io.on('connection', (socket) => {
   }
   
   function sendQuestionResults() {
-    const currentQuestion = questions[gameState.currentQuestionIndex];
+    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
     
     if (!currentQuestion) return;
     
@@ -338,6 +555,9 @@ io.on('connection', (socket) => {
       gameState.scores[id] = 0;
       gameState.players[id].score = 0;
     });
+    
+    // S'assurer que le quiz actif est chargé
+    gameState.activeQuiz = getActiveQuiz();
   }
 });
 

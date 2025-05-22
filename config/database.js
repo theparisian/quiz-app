@@ -37,6 +37,7 @@ async function initDatabase() {
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(50) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
+        is_admin BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
@@ -66,11 +67,21 @@ async function initDatabase() {
       const hashedPassword = await bcrypt.hash(defaultPassword, 10);
       
       await pool.query(
-        'INSERT INTO quiz_host_credentials (username, password_hash) VALUES (?, ?)',
-        ['admin', hashedPassword]
+        'INSERT INTO quiz_host_credentials (username, password_hash, is_admin) VALUES (?, ?, ?)',
+        ['admin', hashedPassword, true]
       );
       
       console.log('Compte administrateur par défaut créé (admin/admin123)');
+    } else {
+      // Vérifier si les comptes existants ont le champ is_admin défini
+      try {
+        // Cette requête peut échouer si la colonne n'existe pas encore, ce qui est normal
+        // lors de la première mise à jour
+        await pool.query('UPDATE quiz_host_credentials SET is_admin = TRUE WHERE username = ?', ['admin']);
+        console.log('Permissions d\'administrateur mises à jour');
+      } catch (err) {
+        console.log('Note: Mise à jour des permissions ignorée, sera effectuée après le redémarrage');
+      }
     }
 
     // Vérifier si des questions existent déjà
@@ -114,7 +125,8 @@ const database = {
         if (passwordMatch) {
           return {
             id: user.id,
-            username: user.username
+            username: user.username,
+            isAdmin: user.is_admin === 1 // Convertir en booléen car MySQL retourne 0/1
           };
         }
       }

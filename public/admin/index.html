@@ -1,0 +1,138 @@
+<!-- Admin Interface (public/admin/index.html) -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Master - Administration</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Quiz Master - Administration</h1>
+            <div id="admin-info">
+                <div id="user-display">Utilisateur: <span id="username"></span></div>
+                <a href="/logout" class="btn secondary-btn small-btn">Déconnexion</a>
+            </div>
+        </header>
+
+        <main>
+            <div class="admin-panel">
+                <div class="quiz-management-section">
+                    <h2>Gestion des Quiz</h2>
+                    <div class="quiz-actions">
+                        <button id="create-quiz-btn" class="btn primary-btn">Créer un nouveau Quiz</button>
+                    </div>
+                    
+                    <div class="quiz-list-container">
+                        <h3>Quiz disponibles</h3>
+                        <table id="quiz-table">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Questions</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="quiz-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="quiz-editor" class="hidden">
+                    <h2><span id="editor-title">Créer un nouveau Quiz</span></h2>
+                    <div class="quiz-form">
+                        <div class="form-group">
+                            <label for="quiz-name">Nom du quiz:</label>
+                            <input type="text" id="quiz-name" placeholder="Entrez un nom pour ce quiz">
+                        </div>
+                        <div class="form-group">
+                            <label for="quiz-description">Description:</label>
+                            <textarea id="quiz-description" placeholder="Décrivez ce quiz (optionnel)"></textarea>
+                        </div>
+                        <h3>Questions</h3>
+                        <div id="questions-container"></div>
+                        <button id="add-question-btn" class="btn secondary-btn">Ajouter une question</button>
+                        <div class="quiz-form-actions">
+                            <button id="save-quiz-btn" class="btn primary-btn">Enregistrer</button>
+                            <button id="cancel-edit-btn" class="btn secondary-btn">Annuler</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Modèles pour le JavaScript -->
+        <template id="question-template">
+            <div class="question-item">
+                <div class="question-header">
+                    <h4>Question <span class="question-number"></span></h4>
+                    <button class="remove-question-btn btn danger-btn small-btn">Supprimer</button>
+                </div>
+                <div class="form-group">
+                    <label>Texte de la question:</label>
+                    <input type="text" class="question-text" placeholder="Entrez la question">
+                </div>
+                <div class="form-group">
+                    <label>Options (la correcte est marquée par *):</label>
+                    <div class="options-container">
+                        <div class="option-item">
+                            <input type="radio" name="correct-option-{index}" class="correct-option" value="0">
+                            <input type="text" class="option-text" placeholder="Option 1">
+                        </div>
+                        <div class="option-item">
+                            <input type="radio" name="correct-option-{index}" class="correct-option" value="1">
+                            <input type="text" class="option-text" placeholder="Option 2">
+                        </div>
+                        <div class="option-item">
+                            <input type="radio" name="correct-option-{index}" class="correct-option" value="2">
+                            <input type="text" class="option-text" placeholder="Option 3">
+                        </div>
+                        <div class="option-item">
+                            <input type="radio" name="correct-option-{index}" class="correct-option" value="3">
+                            <input type="text" class="option-text" placeholder="Option 4">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Explication (optionnel):</label>
+                    <textarea class="question-explanation" placeholder="Explication de la bonne réponse"></textarea>
+                </div>
+            </div>
+        </template>
+        
+        <template id="quiz-row-template">
+            <tr class="quiz-row">
+                <td class="quiz-name"></td>
+                <td class="quiz-questions"></td>
+                <td class="quiz-status"></td>
+                <td class="quiz-actions">
+                    <button class="activate-quiz-btn btn success-btn small-btn">Activer</button>
+                    <button class="edit-quiz-btn btn primary-btn small-btn">Modifier</button>
+                    <button class="delete-quiz-btn btn danger-btn small-btn">Supprimer</button>
+                </td>
+            </tr>
+        </template>
+
+        <footer>
+            <p>Quiz App © 2025 | Version <span id="app-version">-</span></p>
+        </footer>
+    </div>
+
+    <div id="confirmation-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Confirmation</h3>
+            <p id="modal-message">Êtes-vous sûr de vouloir effectuer cette action?</p>
+            <div class="modal-actions">
+                <button id="confirm-action-btn" class="btn danger-btn">Confirmer</button>
+                <button id="cancel-action-btn" class="btn secondary-btn">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
