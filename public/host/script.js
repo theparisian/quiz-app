@@ -1,5 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Éléments DOM
+    // Éléments DOM pour les onglets
+    const adminTab = document.getElementById('admin-tab');
+    const hostTab = document.getElementById('host-tab');
+    const adminContent = document.getElementById('admin-content');
+    const hostContent = document.getElementById('host-content');
+
+    // Par défaut, masquer l'onglet admin
+    adminTab.style.display = 'none';
+
+    // Éléments DOM de la partie host
     const sessionCode = document.getElementById('session-code');
     const joinCode = document.getElementById('join-code');
     const serverAddress = document.getElementById('server-address');
@@ -25,6 +34,34 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const nextQuestionBtn = document.getElementById('next-question-btn');
     const newGameBtn = document.getElementById('new-game-btn');
+
+    // Éléments DOM de la partie admin
+    const createQuizBtn = document.getElementById('create-quiz-btn');
+    const quizList = document.getElementById('quiz-list');
+    const quizEditor = document.getElementById('quiz-editor');
+    const editorTitle = document.getElementById('editor-title');
+    const questionsContainer = document.getElementById('questions-container');
+    const addQuestionBtn = document.getElementById('add-question-btn');
+    const saveQuizBtn = document.getElementById('save-quiz-btn');
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    const quizNameInput = document.getElementById('quiz-name');
+    const quizDescriptionInput = document.getElementById('quiz-description');
+    
+    // Modal elements
+    const confirmationModal = document.getElementById('confirmation-modal');
+    const modalMessage = document.getElementById('modal-message');
+    const confirmActionBtn = document.getElementById('confirm-action-btn');
+    const cancelActionBtn = document.getElementById('cancel-action-btn');
+    
+    // Templates
+    const questionTemplate = document.getElementById('question-template');
+    const quizRowTemplate = document.getElementById('quiz-row-template');
+    
+    // Variables d'état de la partie admin
+    let quizzes = [];
+    let currentEditingQuizId = null;
+    let questionCounter = 0;
+    let pendingAction = null;
     
     // Initialiser Socket.IO
     const socket = io({
@@ -34,17 +71,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // Déterminer l'adresse IP du serveur pour l'affichage
     serverAddress.textContent = window.location.host;
     
-    // Variables d'état
+    // Variables d'état de la partie host
     let currentQuestionData = null;
+
+    // Gestion des onglets
+    adminTab.addEventListener('click', () => {
+        switchTab('admin');
+    });
+    
+    hostTab.addEventListener('click', () => {
+        switchTab('host');
+    });
+    
+    function switchTab(tabName) {
+        // Reset active state
+        adminTab.classList.remove('active');
+        hostTab.classList.remove('active');
+        adminContent.classList.remove('active');
+        hostContent.classList.remove('active');
+        
+        // Set active tab and content
+        if (tabName === 'admin') {
+            adminTab.classList.add('active');
+            adminContent.classList.add('active');
+            
+            // Initialiser la partie admin si elle n'a pas encore été chargée
+            if (quizzes.length === 0) {
+                socket.emit('admin-init');
+            }
+        } else {
+            hostTab.classList.add('active');
+            hostContent.classList.add('active');
+        }
+    }
     
     // Rejoindre en tant qu'hôte
     socket.emit('host-join');
     
-    // Événements Socket.IO
+    // Événements Socket.IO communs
     socket.on('connect', () => {
-        console.log('Connecté au serveur en tant qu\'hôte');
+        console.log('Connecté au serveur');
     });
     
+    // Événements Socket.IO partie host
     socket.on('game-setup', (data) => {
         console.log('Game setup received:', data);
         sessionCode.textContent = data.sessionCode;
@@ -54,6 +123,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Afficher la version de l'application
         if (data.appVersion) {
             appVersion.textContent = data.appVersion;
+        }
+        
+        // Afficher l'onglet admin si l'utilisateur est administrateur
+        if (data.isAdmin) {
+            adminTab.style.display = 'block';
         }
         
         // Mettre à jour le bouton de démarrage
@@ -202,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Erreur: ' + data.message);
     });
     
-    // Gestionnaires d'événements
+    // Gestionnaires d'événements partie host
     startGameBtn.addEventListener('click', () => {
         socket.emit('start-game');
     });
@@ -215,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('reset-game');
     });
     
-    // Fonctions utilitaires
+    // Fonctions utilitaires partie host
     let timerInterval = null;
     
     function startTimer(seconds) {
@@ -252,4 +326,357 @@ document.addEventListener('DOMContentLoaded', () => {
             startGameBtn.disabled = true;
         }
     }
+
+    // Événements Socket.IO partie admin
+    socket.on('admin-init-response', (data) => {
+        // Vérifier s'il y a une erreur
+        if (data.error) {
+            showNotification('Erreur: ' + data.error, 'error');
+            return;
+        }
+        
+        // Afficher la version de l'application
+        if (data.appVersion) {
+            appVersion.textContent = data.appVersion;
+        }
+        
+        // Charger la liste des quiz
+        quizzes = data.quizzes || [];
+        renderQuizList();
+    });
+    
+    socket.on('quiz-list-updated', (data) => {
+        quizzes = data.quizzes || [];
+        renderQuizList();
+    });
+    
+    socket.on('quiz-saved', (data) => {
+        if (data.success) {
+            // Fermer l'éditeur et rafraîchir la liste
+            hideEditor();
+            socket.emit('get-quiz-list');
+            showNotification('Quiz enregistré avec succès!', 'success');
+        } else {
+            showNotification('Erreur lors de l\'enregistrement du quiz: ' + data.message, 'error');
+        }
+    });
+    
+    socket.on('quiz-deleted', (data) => {
+        if (data.success) {
+            socket.emit('get-quiz-list');
+            showNotification('Quiz supprimé avec succès!', 'success');
+        } else {
+            showNotification('Erreur lors de la suppression du quiz: ' + data.message, 'error');
+        }
+    });
+    
+    socket.on('quiz-activated', (data) => {
+        if (data.success) {
+            socket.emit('get-quiz-list');
+            showNotification('Le quiz a été activé avec succès!', 'success');
+        } else {
+            showNotification('Erreur lors de l\'activation du quiz: ' + data.message, 'error');
+        }
+    });
+
+    // Gestionnaires d'événements partie admin
+    if (createQuizBtn) {
+        createQuizBtn.addEventListener('click', () => {
+            showEditor();
+        });
+    }
+    
+    if (addQuestionBtn) {
+        addQuestionBtn.addEventListener('click', () => {
+            addNewQuestion();
+        });
+    }
+    
+    if (saveQuizBtn) {
+        saveQuizBtn.addEventListener('click', () => {
+            saveQuiz();
+        });
+    }
+    
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', () => {
+            hideEditor();
+        });
+    }
+    
+    if (confirmActionBtn) {
+        confirmActionBtn.addEventListener('click', () => {
+            if (pendingAction) {
+                pendingAction();
+                pendingAction = null;
+            }
+            hideModal();
+        });
+    }
+    
+    if (cancelActionBtn) {
+        cancelActionBtn.addEventListener('click', () => {
+            pendingAction = null;
+            hideModal();
+        });
+    }
+    
+    // Fonctions de gestion des quiz pour la partie admin
+    function renderQuizList() {
+        if (!quizList) return;
+        
+        quizList.innerHTML = '';
+        
+        if (quizzes.length === 0) {
+            const emptyRow = document.createElement('tr');
+            emptyRow.innerHTML = '<td colspan="4" style="text-align: center;">Aucun quiz disponible</td>';
+            quizList.appendChild(emptyRow);
+            return;
+        }
+        
+        quizzes.forEach(quiz => {
+            const quizRow = quizRowTemplate.content.cloneNode(true);
+            
+            // Remplir les informations du quiz
+            quizRow.querySelector('.quiz-name').textContent = quiz.name;
+            quizRow.querySelector('.quiz-questions').textContent = quiz.questions ? quiz.questions.length : 0;
+            
+            const statusCell = quizRow.querySelector('.quiz-status');
+            if (quiz.active) {
+                statusCell.innerHTML = '<span class="status-active">Actif</span>';
+                quizRow.querySelector('.activate-quiz-btn').disabled = true;
+                quizRow.querySelector('.activate-quiz-btn').textContent = 'Actif';
+            } else {
+                statusCell.innerHTML = '<span class="status-inactive">Inactif</span>';
+            }
+            
+            // Ajouter les gestionnaires d'événements pour les boutons
+            quizRow.querySelector('.activate-quiz-btn').addEventListener('click', () => {
+                activateQuiz(quiz.id);
+            });
+            
+            quizRow.querySelector('.edit-quiz-btn').addEventListener('click', () => {
+                editQuiz(quiz.id);
+            });
+            
+            quizRow.querySelector('.delete-quiz-btn').addEventListener('click', () => {
+                confirmDeleteQuiz(quiz.id, quiz.name);
+            });
+            
+            quizList.appendChild(quizRow);
+        });
+    }
+    
+    function showEditor(quizData = null) {
+        // Réinitialiser l'éditeur
+        questionCounter = 0;
+        questionsContainer.innerHTML = '';
+        
+        if (quizData) {
+            // Mode édition
+            currentEditingQuizId = quizData.id;
+            editorTitle.textContent = 'Modifier Quiz';
+            quizNameInput.value = quizData.name || '';
+            quizDescriptionInput.value = quizData.description || '';
+            
+            // Ajouter les questions existantes
+            if (quizData.questions && quizData.questions.length > 0) {
+                quizData.questions.forEach(question => {
+                    addNewQuestion(question);
+                });
+            }
+        } else {
+            // Mode création
+            currentEditingQuizId = null;
+            editorTitle.textContent = 'Créer un nouveau Quiz';
+            quizNameInput.value = '';
+            quizDescriptionInput.value = '';
+            
+            // Ajouter une question vide par défaut
+            addNewQuestion();
+        }
+        
+        // Afficher l'éditeur
+        document.querySelector('.quiz-management-section').classList.add('hidden');
+        quizEditor.classList.remove('hidden');
+    }
+    
+    function hideEditor() {
+        document.querySelector('.quiz-management-section').classList.remove('hidden');
+        quizEditor.classList.add('hidden');
+        currentEditingQuizId = null;
+    }
+    
+    function addNewQuestion(questionData = null) {
+        questionCounter++;
+        
+        // Cloner le template
+        const newQuestion = questionTemplate.content.cloneNode(true);
+        
+        // Mettre à jour le numéro de question
+        newQuestion.querySelector('.question-number').textContent = questionCounter;
+        
+        // Mettre à jour les noms des boutons radio pour ce groupe
+        const radioInputs = newQuestion.querySelectorAll('.correct-option');
+        radioInputs.forEach(input => {
+            input.name = `correct-option-${questionCounter}`;
+        });
+        
+        // Remplir les données si disponibles
+        if (questionData) {
+            newQuestion.querySelector('.question-text').value = questionData.question || '';
+            newQuestion.querySelector('.question-explanation').value = questionData.explanation || '';
+            
+            // Remplir les options et sélectionner la correcte
+            const optionInputs = newQuestion.querySelectorAll('.option-text');
+            const radioInputs = newQuestion.querySelectorAll('.correct-option');
+            
+            questionData.options.forEach((option, index) => {
+                if (index < optionInputs.length) {
+                    optionInputs[index].value = option;
+                }
+            });
+            
+            // Sélectionner la bonne réponse
+            if (questionData.correctIndex !== undefined && questionData.correctIndex < radioInputs.length) {
+                radioInputs[questionData.correctIndex].checked = true;
+            }
+        }
+        
+        // Ajouter l'événement de suppression
+        newQuestion.querySelector('.remove-question-btn').addEventListener('click', function() {
+            this.closest('.question-item').remove();
+            updateQuestionNumbers();
+        });
+        
+        // Ajouter la question au conteneur
+        questionsContainer.appendChild(newQuestion);
+    }
+    
+    function updateQuestionNumbers() {
+        const questions = document.querySelectorAll('.question-item');
+        questions.forEach((question, index) => {
+            question.querySelector('.question-number').textContent = index + 1;
+        });
+    }
+    
+    function saveQuiz() {
+        // Valider le formulaire
+        if (!quizNameInput.value) {
+            alert('Veuillez entrer un nom pour le quiz');
+            quizNameInput.focus();
+            return;
+        }
+        
+        // Récupérer les questions
+        const questions = [];
+        const questionItems = document.querySelectorAll('.question-item');
+        
+        if (questionItems.length === 0) {
+            alert('Veuillez ajouter au moins une question');
+            return;
+        }
+        
+        for (let i = 0; i < questionItems.length; i++) {
+            const item = questionItems[i];
+            const questionText = item.querySelector('.question-text').value;
+            const explanation = item.querySelector('.question-explanation').value;
+            
+            if (!questionText) {
+                alert(`La question ${i+1} n'a pas de texte`);
+                item.querySelector('.question-text').focus();
+                return;
+            }
+            
+            // Récupérer les options
+            const options = [];
+            const optionInputs = item.querySelectorAll('.option-text');
+            let hasEmptyOption = false;
+            
+            optionInputs.forEach(input => {
+                if (!input.value) {
+                    hasEmptyOption = true;
+                }
+                options.push(input.value);
+            });
+            
+            if (hasEmptyOption) {
+                alert(`Une ou plusieurs options de la question ${i+1} sont vides`);
+                return;
+            }
+            
+            // Récupérer l'index de la réponse correcte
+            const correctRadios = item.querySelectorAll('.correct-option');
+            let correctIndex = -1;
+            
+            correctRadios.forEach((radio, index) => {
+                if (radio.checked) {
+                    correctIndex = index;
+                }
+            });
+            
+            if (correctIndex === -1) {
+                alert(`Veuillez sélectionner une réponse correcte pour la question ${i+1}`);
+                return;
+            }
+            
+            questions.push({
+                question: questionText,
+                options: options,
+                correctIndex: correctIndex,
+                explanation: explanation
+            });
+        }
+        
+        // Créer l'objet quiz
+        const quizData = {
+            id: currentEditingQuizId,
+            name: quizNameInput.value,
+            description: quizDescriptionInput.value,
+            questions: questions
+        };
+        
+        // Envoyer au serveur
+        socket.emit('save-quiz', quizData);
+    }
+    
+    function editQuiz(quizId) {
+        const quiz = quizzes.find(q => q.id === quizId);
+        if (quiz) {
+            showEditor(quiz);
+        }
+    }
+    
+    function confirmDeleteQuiz(quizId, quizName) {
+        modalMessage.textContent = `Êtes-vous sûr de vouloir supprimer le quiz "${quizName}" ?`;
+        pendingAction = () => deleteQuiz(quizId);
+        showModal();
+    }
+    
+    function deleteQuiz(quizId) {
+        socket.emit('delete-quiz', { id: quizId });
+    }
+    
+    function activateQuiz(quizId) {
+        socket.emit('activate-quiz', { id: quizId });
+    }
+    
+    function showModal() {
+        confirmationModal.classList.remove('hidden');
+    }
+    
+    function hideModal() {
+        confirmationModal.classList.add('hidden');
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Dans une application réelle, nous afficherions une notification
+        console.log(`[${type}] ${message}`);
+        
+        // Alternative simple: utiliser alert()
+        alert(message);
+    }
+
+    // Initialiser l'interface
+    socket.emit('host-join');
 });

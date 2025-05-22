@@ -127,12 +127,8 @@ app.get('/play', (req, res) => {
 
 // Nouvelle route pour l'interface admin
 app.get('/admin', requireAuth, (req, res) => {
-  // Vérifier si l'utilisateur a des droits d'administration
-  if (req.session.user && req.session.user.isAdmin) {
-    res.sendFile(path.join(__dirname, 'public/admin/index.html'));
-  } else {
-    res.redirect('/host');
-  }
+  // Rediriger vers la page host, qui contient maintenant les fonctionnalités admin
+  res.redirect('/host');
 });
 
 // API pour obtenir une nouvelle session (utile pour intégration future)
@@ -217,6 +213,10 @@ io.on('connection', (socket) => {
     // S'assurer que le quiz actif est chargé
     gameState.activeQuiz = getActiveQuiz();
     
+    // Récupérer la session
+    const session = socket.request.session;
+    const isAdmin = !!(session && session.user && session.user.isAdmin);
+    
     socket.emit('game-setup', { 
       sessionCode: gameState.sessionCode,
       playerCount: Object.keys(gameState.players).length,
@@ -224,7 +224,8 @@ io.on('connection', (socket) => {
         question: q.question,
         options: q.options
       })),
-      appVersion: appVersion
+      appVersion: appVersion,
+      isAdmin: isAdmin
     });
   });
 
@@ -334,6 +335,8 @@ io.on('connection', (socket) => {
       sessionId: session ? session.id : null
     });
     
+    // Dans la nouvelle conception, nous permettons d'accéder aux fonctionnalités admin depuis la page host,
+    // mais seulement si l'utilisateur est un administrateur
     if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('admin-init-response', { 
         error: 'Non autorisé',
