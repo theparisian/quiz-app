@@ -58,6 +58,12 @@ header h1 {
     color: var(--light-text);
 }
 
+.username-highlight {
+    color: var(--primary-color);
+    font-weight: bold;
+    margin-left: 5px;
+}
+
 main {
     margin-bottom: 40px;
 }

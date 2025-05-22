@@ -56,6 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Afficher le nom d'utilisateur
         username.textContent = data.username || 'Admin';
         
+        // Ajouter un attribut title pour afficher plus d'info en hover
+        if (data.userInfo) {
+            username.title = `ID: ${data.userId || 'N/A'} | Admin: ${data.userInfo.isAdmin ? 'Oui' : 'Non'}`;
+        }
+        
         // Afficher la version de l'application
         if (data.appVersion) {
             appVersion.textContent = data.appVersion;

@@ -325,6 +325,11 @@ io.on('connection', (socket) => {
     
     socket.emit('admin-init-response', {
       username: session.user.username,
+      userId: session.user.id,
+      userInfo: {
+        username: session.user.username,
+        isAdmin: session.user.isAdmin
+      },
       appVersion: appVersion,
       quizzes: loadQuizzes()
     });
