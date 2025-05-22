@@ -79,7 +79,13 @@ app.post('/auth', async (req, res) => {
   if (user) {
     // Stocker l'utilisateur dans la session
     req.session.user = user;
-    res.redirect('/host');
+    
+    // Rediriger vers la page admin si l'utilisateur est admin
+    if (user.isAdmin) {
+      res.redirect('/admin');
+    } else {
+      res.redirect('/host');
+    }
   } else {
     res.redirect('/login?error=1');
   }
