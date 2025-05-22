@@ -16,19 +16,28 @@ const appVersion = packageInfo.version;
 // Initialisation de l'application Express
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server);
-
-// Middleware pour parser les formulaires
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
 // Configuration des sessions
-app.use(session({
+const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'quiz-master-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 3600000 } // 1 heure
-}));
+});
+
+app.use(sessionMiddleware);
+
+// Initialisation de Socket.IO avec accès aux sessions
+const io = socketIO(server);
+
+// Middleware pour permettre à Socket.IO d'accéder à la session Express
+io.use((socket, next) => {
+  sessionMiddleware(socket.request, socket.request.res || {}, next);
+});
+
+// Middleware pour parser les formulaires
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 // Dossiers statiques
 app.use(express.static(path.join(__dirname, 'public')));
@@ -280,19 +289,29 @@ io.on('connection', (socket) => {
 
   // Événements de l'admin
   socket.on('admin-init', () => {
-    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+    const session = socket.request.session;
+    if (!session || !session.user || !session.user.isAdmin) {
+      socket.emit('admin-init-response', { 
+        error: 'Non autorisé',
+        quizzes: []
+      });
       return;
     }
     
     socket.emit('admin-init-response', {
-      username: socket.request.session.user.username,
+      username: session.user.username,
       appVersion: appVersion,
       quizzes: loadQuizzes()
     });
   });
   
   socket.on('get-quiz-list', () => {
-    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+    const session = socket.request.session;
+    if (!session || !session.user || !session.user.isAdmin) {
+      socket.emit('quiz-list-updated', { 
+        error: 'Non autorisé',
+        quizzes: []
+      });
       return;
     }
     
@@ -302,7 +321,8 @@ io.on('connection', (socket) => {
   });
   
   socket.on('save-quiz', (data) => {
-    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+    const session = socket.request.session;
+    if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('quiz-saved', { success: false, message: 'Non autorisé' });
       return;
     }
@@ -349,7 +369,8 @@ io.on('connection', (socket) => {
   });
   
   socket.on('delete-quiz', (data) => {
-    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+    const session = socket.request.session;
+    if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('quiz-deleted', { success: false, message: 'Non autorisé' });
       return;
     }
@@ -389,7 +410,8 @@ io.on('connection', (socket) => {
   });
   
   socket.on('activate-quiz', (data) => {
-    if (!socket.request.session || !socket.request.session.user || !socket.request.session.user.isAdmin) {
+    const session = socket.request.session;
+    if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('quiz-activated', { success: false, message: 'Non autorisé' });
       return;
     }
