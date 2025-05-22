@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const explanationText = document.getElementById('explanation-text');
     
     const finalResult = document.getElementById('final-result');
-    const finalLeaderboardBody = document.getElementById('final-leaderboard-body');
     
     // Écrans
     const joinScreen = document.getElementById('join-screen');

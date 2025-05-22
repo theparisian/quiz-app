@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen(resultsScreen);
     });
     
-    socket.on('game-over', (data) => {
+    socket.on('game-end', (data) => {
         console.log('Game over:', data);
         
         // Afficher le gagnant
