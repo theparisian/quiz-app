@@ -122,8 +122,23 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Afficher le nom d'utilisateur connecté
         const usernameElement = document.getElementById('username');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const isConnected = data.username && data.username !== 'Non connecté';
+        
         if (usernameElement) {
             usernameElement.textContent = data.username || 'Non connecté';
+        }
+        
+        // Afficher le bouton approprié en fonction de l'état de connexion
+        if (loginBtn && logoutBtn) {
+            if (isConnected) {
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'inline-block';
+            } else {
+                loginBtn.style.display = 'inline-block';
+                logoutBtn.style.display = 'none';
+            }
         }
         
         // Afficher la version de l'application
