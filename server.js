@@ -10,6 +10,14 @@ const { verifyCredentials, requireAuth } = require('./config/auth');
 const { sendWinnerEmail } = require('./config/email');
 const { addGameToHistory } = require('./config/history');
 const { v4: uuidv4 } = require('uuid');
+const { 
+  getActiveQuiz, 
+  getAllQuizzes, 
+  createQuiz, 
+  updateQuiz, 
+  activateQuiz, 
+  deleteQuiz 
+} = require('./config/database');
 
 // Récupération de la version depuis package.json
 const packageInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
@@ -136,56 +144,6 @@ app.get('/api/session', requireAuth, (req, res) => {
   res.json({ sessionCode: gameState.sessionCode });
 });
 
-// Gestion des quiz
-const QUIZZES_FILE = path.join(__dirname, 'data/quizzes.json');
-
-// Assurer que le dossier data existe
-if (!fs.existsSync(path.join(__dirname, 'data'))) {
-  fs.mkdirSync(path.join(__dirname, 'data'));
-}
-
-// Assurer que le fichier quizzes.json existe
-if (!fs.existsSync(QUIZZES_FILE)) {
-  // Créer un fichier initial avec un quiz par défaut
-  const defaultQuiz = {
-    id: uuidv4(),
-    name: "Quiz par défaut",
-    description: "Quiz généré automatiquement",
-    questions: JSON.parse(fs.readFileSync(path.join(__dirname, 'data/questions.json'), 'utf8')),
-    active: true,
-    createdAt: new Date().toISOString()
-  };
-  
-  fs.writeFileSync(QUIZZES_FILE, JSON.stringify([defaultQuiz], null, 2));
-}
-
-// Charger tous les quiz
-function loadQuizzes() {
-  try {
-    return JSON.parse(fs.readFileSync(QUIZZES_FILE, 'utf8'));
-  } catch (err) {
-    console.error('Erreur lors du chargement des quiz:', err);
-    return [];
-  }
-}
-
-// Sauvegarder tous les quiz
-function saveQuizzes(quizzes) {
-  try {
-    fs.writeFileSync(QUIZZES_FILE, JSON.stringify(quizzes, null, 2));
-    return true;
-  } catch (err) {
-    console.error('Erreur lors de la sauvegarde des quiz:', err);
-    return false;
-  }
-}
-
-// Obtenir le quiz actif
-function getActiveQuiz() {
-  const quizzes = loadQuizzes();
-  return quizzes.find(quiz => quiz.active) || quizzes[0];
-}
-
 // États du jeu
 let gameState = {
   isActive: false,
@@ -195,8 +153,19 @@ let gameState = {
   sessionCode: generateSessionCode(),
   timePerQuestion: 20, // secondes
   timer: null,
-  activeQuiz: getActiveQuiz()
+  activeQuiz: null
 };
+
+// Chargement initial du quiz actif
+async function loadActiveQuiz() {
+  gameState.activeQuiz = await getActiveQuiz();
+  return gameState.activeQuiz;
+}
+
+// Charger initialement le quiz actif
+loadActiveQuiz().catch(err => {
+  console.error('Erreur lors du chargement du quiz actif:', err);
+});
 
 function generateSessionCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -207,11 +176,11 @@ io.on('connection', (socket) => {
   console.log('Nouvelle connexion:', socket.id);
 
   // Quand un hôte se connecte
-  socket.on('host-join', () => {
+  socket.on('host-join', async () => {
     socket.join('host-room');
     
     // S'assurer que le quiz actif est chargé
-    gameState.activeQuiz = getActiveQuiz();
+    gameState.activeQuiz = await getActiveQuiz();
     
     // Récupérer la session
     const session = socket.request.session;
@@ -264,14 +233,14 @@ io.on('connection', (socket) => {
   });
 
   // Quand l'hôte démarre le jeu
-  socket.on('start-game', () => {
+  socket.on('start-game', async () => {
     if (Object.keys(gameState.players).length === 0) {
       socket.emit('game-error', { message: 'Aucun joueur connecté' });
       return;
     }
 
     // S'assurer que le quiz actif est chargé
-    gameState.activeQuiz = getActiveQuiz();
+    gameState.activeQuiz = await getActiveQuiz();
 
     gameState.isActive = true;
     gameState.currentQuestionIndex = -1;
@@ -330,7 +299,7 @@ io.on('connection', (socket) => {
   });
 
   // Événements de l'admin
-  socket.on('admin-init', () => {
+  socket.on('admin-init', async () => {
     const session = socket.request.session;
     console.log('admin-init event, session:', {
       hasSession: !!session,
@@ -349,6 +318,8 @@ io.on('connection', (socket) => {
       return;
     }
     
+    const quizzes = await getAllQuizzes();
+    
     socket.emit('admin-init-response', {
       username: session.user.username,
       userId: session.user.id,
@@ -357,11 +328,11 @@ io.on('connection', (socket) => {
         isAdmin: session.user.isAdmin
       },
       appVersion: appVersion,
-      quizzes: loadQuizzes()
+      quizzes: quizzes
     });
   });
   
-  socket.on('get-quiz-list', () => {
+  socket.on('get-quiz-list', async () => {
     const session = socket.request.session;
     if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('quiz-list-updated', { 
@@ -371,12 +342,14 @@ io.on('connection', (socket) => {
       return;
     }
     
+    const quizzes = await getAllQuizzes();
+    
     socket.emit('quiz-list-updated', {
-      quizzes: loadQuizzes()
+      quizzes: quizzes
     });
   });
   
-  socket.on('save-quiz', (data) => {
+  socket.on('save-quiz', async (data) => {
     const session = socket.request.session;
     if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('quiz-saved', { success: false, message: 'Non autorisé' });
@@ -384,36 +357,27 @@ io.on('connection', (socket) => {
     }
     
     try {
-      const quizzes = loadQuizzes();
+      let success = false;
       
       if (data.id) {
         // Modifier un quiz existant
-        const index = quizzes.findIndex(q => q.id === data.id);
-        if (index !== -1) {
-          quizzes[index] = {
-            ...quizzes[index],
-            name: data.name,
-            description: data.description,
-            questions: data.questions,
-            updatedAt: new Date().toISOString()
-          };
-        } else {
-          socket.emit('quiz-saved', { success: false, message: 'Quiz non trouvé' });
-          return;
-        }
+        success = await updateQuiz(data.id, {
+          name: data.name,
+          description: data.description,
+          questions: data.questions
+        });
       } else {
         // Créer un nouveau quiz
-        quizzes.push({
+        success = await createQuiz({
           id: uuidv4(),
           name: data.name,
           description: data.description,
           questions: data.questions,
-          active: false,
-          createdAt: new Date().toISOString()
+          active: false
         });
       }
       
-      if (saveQuizzes(quizzes)) {
+      if (success) {
         socket.emit('quiz-saved', { success: true });
       } else {
         socket.emit('quiz-saved', { success: false, message: 'Erreur lors de la sauvegarde' });
@@ -424,7 +388,7 @@ io.on('connection', (socket) => {
     }
   });
   
-  socket.on('delete-quiz', (data) => {
+  socket.on('delete-quiz', async (data) => {
     const session = socket.request.session;
     if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('quiz-deleted', { success: false, message: 'Non autorisé' });
@@ -432,32 +396,18 @@ io.on('connection', (socket) => {
     }
     
     try {
-      const quizzes = loadQuizzes();
-      const index = quizzes.findIndex(q => q.id === data.id);
+      const result = await deleteQuiz(data.id);
       
-      if (index === -1) {
-        socket.emit('quiz-deleted', { success: false, message: 'Quiz non trouvé' });
-        return;
-      }
-      
-      // Vérifier si c'est le seul quiz
-      if (quizzes.length === 1) {
-        socket.emit('quiz-deleted', { success: false, message: 'Impossible de supprimer le dernier quiz' });
-        return;
-      }
-      
-      // Vérifier si c'est le quiz actif
-      if (quizzes[index].active) {
-        socket.emit('quiz-deleted', { success: false, message: 'Impossible de supprimer le quiz actif' });
-        return;
-      }
-      
-      quizzes.splice(index, 1);
-      
-      if (saveQuizzes(quizzes)) {
+      if (result.success) {
         socket.emit('quiz-deleted', { success: true });
       } else {
-        socket.emit('quiz-deleted', { success: false, message: 'Erreur lors de la suppression' });
+        if (result.reason === 'active') {
+          socket.emit('quiz-deleted', { success: false, message: 'Impossible de supprimer le quiz actif' });
+        } else if (result.reason === 'last') {
+          socket.emit('quiz-deleted', { success: false, message: 'Impossible de supprimer le dernier quiz' });
+        } else {
+          socket.emit('quiz-deleted', { success: false, message: 'Erreur lors de la suppression' });
+        }
       }
     } catch (err) {
       console.error('Erreur lors de la suppression du quiz:', err);
@@ -465,7 +415,7 @@ io.on('connection', (socket) => {
     }
   });
   
-  socket.on('activate-quiz', (data) => {
+  socket.on('activate-quiz', async (data) => {
     const session = socket.request.session;
     if (!session || !session.user || !session.user.isAdmin) {
       socket.emit('quiz-activated', { success: false, message: 'Non autorisé' });
@@ -473,25 +423,11 @@ io.on('connection', (socket) => {
     }
     
     try {
-      const quizzes = loadQuizzes();
+      const success = await activateQuiz(data.id);
       
-      // Désactiver tous les quiz
-      quizzes.forEach(quiz => {
-        quiz.active = false;
-      });
-      
-      // Activer le quiz sélectionné
-      const quizToActivate = quizzes.find(q => q.id === data.id);
-      if (!quizToActivate) {
-        socket.emit('quiz-activated', { success: false, message: 'Quiz non trouvé' });
-        return;
-      }
-      
-      quizToActivate.active = true;
-      
-      if (saveQuizzes(quizzes)) {
+      if (success) {
         // Mettre à jour le quiz actif dans le gameState
-        gameState.activeQuiz = quizToActivate;
+        gameState.activeQuiz = await getActiveQuiz();
         
         socket.emit('quiz-activated', { success: true });
       } else {
@@ -517,12 +453,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  function nextQuestion() {
+  async function nextQuestion() {
     clearTimeout(gameState.timer);
     gameState.currentQuestionIndex++;
     
     // S'assurer que le quiz actif est chargé
-    gameState.activeQuiz = getActiveQuiz();
+    gameState.activeQuiz = await getActiveQuiz();
     
     if (gameState.currentQuestionIndex >= gameState.activeQuiz.questions.length) {
       endGame();
@@ -592,7 +528,7 @@ io.on('connection', (socket) => {
     });
   }
   
-  function endGame() {
+  async function endGame() {
     gameState.isActive = false;
     
     // Préparer le classement final
@@ -624,9 +560,9 @@ io.on('connection', (socket) => {
     
     // Enregistrer l'historique de la partie
     if (finalScores.length > 0) {
-      addGameToHistory({
-        quizName: gameState.activeQuiz.name,
+      await addGameToHistory({
         quizId: gameState.activeQuiz.id,
+        quizName: gameState.activeQuiz.name,
         players: finalScores.length,
         winner: winner ? {
           name: winner.name,
@@ -638,7 +574,7 @@ io.on('connection', (socket) => {
       
       // Envoyer un email au gagnant si présent
       if (winner && winner.email) {
-        sendWinnerEmail({
+        await sendWinnerEmail({
           name: winner.name,
           email: winner.email,
           score: winner.score
@@ -660,7 +596,7 @@ io.on('connection', (socket) => {
     });
     
     // S'assurer que le quiz actif est chargé
-    gameState.activeQuiz = getActiveQuiz();
+    gameState.activeQuiz = loadActiveQuiz();
   }
 });
 
