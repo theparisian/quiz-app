@@ -100,12 +100,8 @@ app.post('/auth', async (req, res) => {
         console.error('Erreur lors de la sauvegarde de la session:', err);
       }
       
-      // Rediriger vers la page admin si l'utilisateur est admin
-      if (user.isAdmin) {
-        res.redirect('/admin');
-      } else {
-        res.redirect('/host');
-      }
+      // Rediriger vers la page host dans tous les cas
+      res.redirect('/host');
     });
   } else {
     res.redirect('/login?error=1');
