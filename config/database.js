@@ -137,12 +137,32 @@ async function initDatabase() {
       // Si aucun quiz n'existe, créer un quiz par défaut avec les questions de la base de données
       const [questions] = await pool.query('SELECT * FROM questions');
       
-      const formattedQuestions = questions.map(q => ({
-        question: q.question,
-        options: JSON.parse(q.options),
-        correctIndex: q.correct_index,
-        explanation: q.explanation
-      }));
+      const formattedQuestions = questions.map(q => {
+        let options;
+        try {
+          // Vérifier si options est déjà un objet ou une chaîne à parser
+          if (typeof q.options === 'string') {
+            options = JSON.parse(q.options);
+          } else if (q.options && typeof q.options === 'object') {
+            options = q.options;
+          } else {
+            // Fallback au cas où le format ne serait pas reconnu
+            console.warn('Format d\'options non reconnu:', typeof q.options, q.options);
+            options = Array.isArray(q.options) ? q.options : [];
+          }
+        } catch (err) {
+          console.error('Erreur lors du parsing des options:', err, q.options);
+          // Utiliser un tableau vide en cas d'erreur
+          options = [];
+        }
+        
+        return {
+          question: q.question,
+          options: options,
+          correctIndex: q.correct_index,
+          explanation: q.explanation
+        };
+      });
       
       if (formattedQuestions.length > 0) {
         const uuid = require('uuid').v4();
@@ -204,12 +224,32 @@ const database = {
       }
 
       const [rows] = await pool.query('SELECT * FROM questions ORDER BY id');
-      return rows.map(row => ({
-        question: row.question,
-        options: JSON.parse(row.options),
-        correctIndex: row.correct_index,
-        explanation: row.explanation
-      }));
+      return rows.map(row => {
+        let options;
+        try {
+          // Vérifier si options est déjà un objet ou une chaîne à parser
+          if (typeof row.options === 'string') {
+            options = JSON.parse(row.options);
+          } else if (row.options && typeof row.options === 'object') {
+            options = row.options;
+          } else {
+            // Fallback au cas où le format ne serait pas reconnu
+            console.warn('Format d\'options non reconnu:', typeof row.options, row.options);
+            options = Array.isArray(row.options) ? row.options : [];
+          }
+        } catch (err) {
+          console.error('Erreur lors du parsing des options:', err, row.options);
+          // Utiliser un tableau vide en cas d'erreur
+          options = [];
+        }
+        
+        return {
+          question: row.question,
+          options: options,
+          correctIndex: row.correct_index,
+          explanation: row.explanation
+        };
+      });
     } catch (error) {
       console.error('Erreur lors de la récupération des questions:', error);
       return [];
@@ -296,15 +336,35 @@ const database = {
       }
 
       const [rows] = await pool.query('SELECT * FROM quizzes ORDER BY created_at DESC');
-      return rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        questions: JSON.parse(row.questions),
-        active: row.active === 1,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      }));
+      return rows.map(row => {
+        let questions;
+        try {
+          // Vérifier si questions est déjà un objet ou une chaîne à parser
+          if (typeof row.questions === 'string') {
+            questions = JSON.parse(row.questions);
+          } else if (row.questions && typeof row.questions === 'object') {
+            questions = row.questions;
+          } else {
+            // Fallback au cas où le format ne serait pas reconnu
+            console.warn('Format de questions non reconnu:', typeof row.questions);
+            questions = [];
+          }
+        } catch (err) {
+          console.error('Erreur lors du parsing des questions du quiz:', err);
+          // Utiliser un tableau vide en cas d'erreur
+          questions = [];
+        }
+
+        return {
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          questions: questions,
+          active: row.active === 1,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        };
+      });
     } catch (error) {
       console.error('Erreur lors de la récupération des quiz:', error);
       return [];
@@ -326,22 +386,58 @@ const database = {
         const [allQuizzes] = await pool.query('SELECT * FROM quizzes LIMIT 1');
         if (allQuizzes.length === 0) return null;
         
+        let questions;
+        try {
+          // Vérifier si questions est déjà un objet ou une chaîne à parser
+          if (typeof allQuizzes[0].questions === 'string') {
+            questions = JSON.parse(allQuizzes[0].questions);
+          } else if (allQuizzes[0].questions && typeof allQuizzes[0].questions === 'object') {
+            questions = allQuizzes[0].questions;
+          } else {
+            // Fallback au cas où le format ne serait pas reconnu
+            console.warn('Format de questions non reconnu:', typeof allQuizzes[0].questions);
+            questions = [];
+          }
+        } catch (err) {
+          console.error('Erreur lors du parsing des questions du quiz:', err);
+          // Utiliser un tableau vide en cas d'erreur
+          questions = [];
+        }
+        
         return {
           id: allQuizzes[0].id,
           name: allQuizzes[0].name,
           description: allQuizzes[0].description,
-          questions: JSON.parse(allQuizzes[0].questions),
+          questions: questions,
           active: allQuizzes[0].active === 1,
           createdAt: allQuizzes[0].created_at,
           updatedAt: allQuizzes[0].updated_at
         };
       }
       
+      let questions;
+      try {
+        // Vérifier si questions est déjà un objet ou une chaîne à parser
+        if (typeof rows[0].questions === 'string') {
+          questions = JSON.parse(rows[0].questions);
+        } else if (rows[0].questions && typeof rows[0].questions === 'object') {
+          questions = rows[0].questions;
+        } else {
+          // Fallback au cas où le format ne serait pas reconnu
+          console.warn('Format de questions non reconnu:', typeof rows[0].questions);
+          questions = [];
+        }
+      } catch (err) {
+        console.error('Erreur lors du parsing des questions du quiz:', err);
+        // Utiliser un tableau vide en cas d'erreur
+        questions = [];
+      }
+      
       return {
         id: rows[0].id,
         name: rows[0].name,
         description: rows[0].description,
-        questions: JSON.parse(rows[0].questions),
+        questions: questions,
         active: rows[0].active === 1,
         createdAt: rows[0].created_at,
         updatedAt: rows[0].updated_at
@@ -476,19 +572,39 @@ const database = {
       }
 
       const [rows] = await pool.query('SELECT * FROM game_history ORDER BY timestamp DESC');
-      return rows.map(row => ({
-        id: row.id,
-        quizId: row.quiz_id,
-        quizName: row.quiz_name,
-        players: row.player_count,
-        winner: row.winner_name ? {
-          name: row.winner_name,
-          email: row.winner_email,
-          score: row.winner_score
-        } : null,
-        leaderboard: JSON.parse(row.leaderboard),
-        timestamp: row.timestamp
-      }));
+      return rows.map(row => {
+        let leaderboard;
+        try {
+          // Vérifier si leaderboard est déjà un objet ou une chaîne à parser
+          if (typeof row.leaderboard === 'string') {
+            leaderboard = JSON.parse(row.leaderboard);
+          } else if (row.leaderboard && typeof row.leaderboard === 'object') {
+            leaderboard = row.leaderboard;
+          } else {
+            // Fallback au cas où le format ne serait pas reconnu
+            console.warn('Format de leaderboard non reconnu:', typeof row.leaderboard);
+            leaderboard = [];
+          }
+        } catch (err) {
+          console.error('Erreur lors du parsing du leaderboard:', err);
+          // Utiliser un tableau vide en cas d'erreur
+          leaderboard = [];
+        }
+
+        return {
+          id: row.id,
+          quizId: row.quiz_id,
+          quizName: row.quiz_name,
+          players: row.player_count,
+          winner: row.winner_name ? {
+            name: row.winner_name,
+            email: row.winner_email,
+            score: row.winner_score
+          } : null,
+          leaderboard: leaderboard,
+          timestamp: row.timestamp
+        };
+      });
     } catch (error) {
       console.error('Erreur lors de la récupération de l\'historique des parties:', error);
       return [];
