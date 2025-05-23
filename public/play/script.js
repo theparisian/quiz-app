@@ -2,6 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Éléments DOM
     const playerNameInput = document.getElementById('player-name');
+    const playerEmailInput = document.getElementById('player-email');
     const sessionCodeInput = document.getElementById('session-code');
     const joinBtn = document.getElementById('join-btn');
     const joinError = document.getElementById('join-error');
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Variables d'état local
     let playerName = '';
+    let playerEmail = '';
     let currentScore = 0;
     let currentOptions = [];
     let selectedAnswerIndex = null;
@@ -46,10 +48,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Gestionnaires d'événements
     joinBtn.addEventListener('click', () => {
         const name = playerNameInput.value.trim();
+        const email = playerEmailInput.value.trim();
         const code = sessionCodeInput.value.trim();
         
         if (!name) {
             showError('Veuillez entrer votre nom.');
+            return;
+        }
+        
+        if (!email) {
+            showError('Veuillez entrer votre email.');
+            return;
+        }
+        
+        if (!isValidEmail(email)) {
+            showError('Veuillez entrer un email valide.');
             return;
         }
         
@@ -59,10 +72,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         playerName = name;
+        playerEmail = email;
         
         // Envoyer la demande de connexion
         socket.emit('player-join', {
             playerName: name,
+            playerEmail: email,
             sessionCode: code
         });
     });
@@ -230,5 +245,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function getOrdinalSuffix(n) {
         if (n === 1) return 'ère';
         return 'ème';
+    }
+    
+    function isValidEmail(email) {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailPattern.test(email);
     }
 });

@@ -7,6 +7,8 @@ const session = require('express-session');
 require('dotenv').config();
 const { initDatabase } = require('./config/database');
 const { verifyCredentials, requireAuth } = require('./config/auth');
+const { sendWinnerEmail } = require('./config/email');
+const { addGameToHistory } = require('./config/history');
 const { v4: uuidv4 } = require('uuid');
 
 // Récupération de la version depuis package.json
@@ -240,6 +242,7 @@ io.on('connection', (socket) => {
     gameState.players[socket.id] = {
       id: socket.id,
       name: data.playerName,
+      email: data.playerEmail,
       score: 0
     };
     
@@ -255,7 +258,8 @@ io.on('connection', (socket) => {
     
     // Confirmer au joueur qu'il a rejoint
     socket.emit('join-success', {
-      playerName: data.playerName
+      playerName: data.playerName,
+      playerEmail: data.playerEmail
     });
   });
 
@@ -597,6 +601,7 @@ io.on('connection', (socket) => {
       .map((player, index) => ({
         position: index + 1,
         name: player.name,
+        email: player.email,
         score: player.score
       }));
     
@@ -614,8 +619,32 @@ io.on('connection', (socket) => {
       leaderboard: finalScores
     });
     
-    // Sauvegarder les résultats (pourrait être implémenté dans le futur)
+    // Sauvegarder les résultats dans l'historique
     console.log('Fin du jeu, résultats:', finalScores);
+    
+    // Enregistrer l'historique de la partie
+    if (finalScores.length > 0) {
+      addGameToHistory({
+        quizName: gameState.activeQuiz.name,
+        quizId: gameState.activeQuiz.id,
+        players: finalScores.length,
+        winner: winner ? {
+          name: winner.name,
+          email: winner.email,
+          score: winner.score
+        } : null,
+        leaderboard: finalScores
+      });
+      
+      // Envoyer un email au gagnant si présent
+      if (winner && winner.email) {
+        sendWinnerEmail({
+          name: winner.name,
+          email: winner.email,
+          score: winner.score
+        }, gameState.activeQuiz.name);
+      }
+    }
   }
   
   function resetGame() {
