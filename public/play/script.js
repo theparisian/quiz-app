@@ -114,8 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentOptions = data.options;
         
         data.options.forEach((option, index) => {
-            const optionElement = document.createElement('div');
-            optionElement.className = 'option';
+            const optionElement = document.createElement('button');
+            optionElement.className = 'option-btn btn w-100 text-start';
             optionElement.textContent = option;
             optionElement.dataset.index = index;
             
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (hasAnswered) return;
                 
                 // Supprimer la sélection précédente
-                const options = optionsContainer.querySelectorAll('.option');
+                const options = optionsContainer.querySelectorAll('.option-btn');
                 options.forEach(opt => opt.classList.remove('selected'));
                 
                 // Sélectionner cette option
@@ -158,10 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Désactiver toutes les options
-        const options = optionsContainer.querySelectorAll('.option');
+        const options = optionsContainer.querySelectorAll('.option-btn');
         options.forEach(opt => {
-            opt.style.pointerEvents = 'none';
-            opt.style.opacity = '0.5';
+            opt.classList.add('disabled');
+            opt.setAttribute('disabled', 'disabled');
         });
         
         // Forcer l'affichage de l'écran de résultat
@@ -177,11 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Afficher le résultat
         if (data.correct) {
             resultStatus.textContent = 'Correct!';
-            resultStatus.className = 'correct-status';
+            resultStatus.className = 'mb-2 fs-5 fw-bold correct';
             pointsEarned.textContent = `+${data.points} points`;
         } else {
             resultStatus.textContent = 'Incorrect!';
-            resultStatus.className = 'incorrect-status';
+            resultStatus.className = 'mb-2 fs-5 fw-bold incorrect';
             pointsEarned.textContent = '0 point';
         }
         
@@ -235,11 +235,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function showError(message) {
         joinError.textContent = message;
         joinError.classList.remove('hidden');
-        
-        // Masquer l'erreur après 3 secondes
         setTimeout(() => {
             joinError.classList.add('hidden');
-        }, 3000);
+        }, 5000);
     }
     
     function getOrdinalSuffix(n) {

@@ -1,275 +1,90 @@
 /* Player Interface CSS (public/play/style.css) */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+:root {
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --correct-color: #28a745;
+    --incorrect-color: #dc3545;
 }
 
 body {
     font-family: 'Poppins', sans-serif;
-    background-color: #f5f7fa;
-    color: #333;
-    line-height: 1.6;
-}
-
-.container {
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 15px;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
 }
 
-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 0;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #e0e0e0;
+.bg-gradient {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
 }
 
-h1 {
-    color: #4a69bd;
-    font-size: 1.8rem;
-}
-
-#player-info {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    font-size: 1rem;
-}
-
-#player-name-display {
-    font-weight: 600;
-    color: #4a69bd;
-}
-
-#player-score {
-    font-size: 0.9rem;
-}
-
+/* Écrans */
 .screen {
     display: none;
-    flex-direction: column;
-    align-items: center;
-    flex: 1;
 }
 
 .screen.active {
-    display: flex;
-}
-
-.join-form {
-    background-color: white;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 400px;
-    margin-top: 30px;
-}
-
-.form-group {
-    margin-bottom: 20px;
-}
-
-label {
     display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
 }
 
-input[type="text"] {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 1rem;
-    font-family: 'Poppins', sans-serif;
-}
-
-.btn {
-    background-color: #4a69bd;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 12px 24px;
-    font-size: 1.1rem;
+/* Boutons de réponse */
+.option-btn {
+    background-color: #fff;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
     cursor: pointer;
-    transition: background-color 0.3s;
-    width: 100%;
-    margin-top: 10px;
-}
-
-.btn:hover {
-    background-color: #3a559c;
-}
-
-.error-message {
-    color: #d32f2f;
-    background-color: #ffebee;
-    padding: 10px;
-    border-radius: 5px;
-    margin-top: 20px;
-    text-align: center;
-    width: 100%;
-    max-width: 400px;
-}
-
-.hidden {
-    display: none;
-}
-
-.loader {
-    border: 5px solid #f3f3f3;
-    border-top: 5px solid #4a69bd;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
-    margin: 30px 0;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.question-header {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    margin-bottom: 20px;
-}
-
-.question-counter, .timer {
-    font-size: 1rem;
-    font-weight: 500;
-}
-
-.timer {
-    color: #e53935;
-}
-
-.options-container {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    width: 100%;
-}
-
-.option {
-    background-color: #dfe6e9;
-    padding: 15px;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.3s;
-    text-align: center;
-}
-
-.option:hover, .option:active {
-    background-color: #cad3d8;
-}
-
-.option.selected {
-    background-color: #4a69bd;
-    color: white;
-}
-
-.option.correct {
-    background-color: #a5d6a7;
-    color: #1b5e20;
-}
-
-.option.incorrect {
-    background-color: #ef9a9a;
-    color: #b71c1c;
-}
-
-#result-status {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 20px 0 10px;
-}
-
-.correct-status {
-    color: #43a047;
-}
-
-.incorrect-status {
-    color: #e53935;
-}
-
-#points-earned {
-    font-size: 2rem;
-    margin: 10px 0;
-}
-
-#current-score {
-    font-size: 1.2rem;
-    margin: 10px 0 30px;
-}
-
-.correct-answer {
-    background-color: #a5d6a7;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 15px 0;
-    width: 100%;
-}
-
-#explanation-container {
-    background-color: #e8f5e9;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 15px 0;
-    width: 100%;
-}
-
-#final-result {
-    background-color: #bbdefb;
-    padding: 20px;
-    border-radius: 10px;
-    margin: 20px 0;
-    text-align: center;
-    width: 100%;
-}
-
-.leaderboard-container {
-    width: 100%;
-    margin: 20px 0;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
-
-th, td {
-    padding: 12px;
+    transition: all 0.3s ease;
     text-align: left;
-    border-bottom: 1px solid #ddd;
+    font-size: 1rem;
 }
 
-th {
-    background-color: #4a69bd;
-    color: white;
+.option-btn:hover {
+    border-color: var(--primary-color);
+    background-color: rgba(102, 126, 234, 0.05);
 }
 
-#final-leaderboard-body tr:nth-child(even) {
-    background-color: #f2f2f2;
+.option-btn.selected {
+    border-color: var(--primary-color);
+    background-color: rgba(102, 126, 234, 0.1);
 }
 
-footer {
-    text-align: center;
-    margin-top: auto;
-    padding: 15px 0;
-    color: #777;
-    font-size: 0.8rem;
+.option-btn.correct {
+    border-color: var(--correct-color);
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.option-btn.incorrect {
+    border-color: var(--incorrect-color);
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Classes utilitaires */
+.hidden {
+    display: none !important;
+}
+
+/* Résultats */
+#result-status.correct {
+    color: var(--correct-color);
+}
+
+#result-status.incorrect {
+    color: var(--incorrect-color);
+}
+
+/* Surcharge des styles Bootstrap */
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: #5a6fd6;
+    border-color: #5a6fd6;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
 }

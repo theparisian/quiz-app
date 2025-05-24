@@ -5,150 +5,168 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz Master - Écran principal</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Quiz Master</h1>
-            <div id="session-info">
-                <div id="user-info" class="user-info">
-                    <span id="username-label">Connecté en tant que :</span> 
-                    <span id="username" class="username-highlight"></span>
-                    <a href="/login" id="login-btn" class="btn primary-btn small-btn">Connexion</a>
-                    <a href="/logout" id="logout-btn" class="btn secondary-btn small-btn">Déconnexion</a>
+<body class="bg-light">
+    <div class="container-fluid px-4 py-3">
+        <header class="mb-4">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1 class="mb-0">Quiz Master</h1>
                 </div>
-                <div id="session-code-display">Session: <span id="session-code"></span></div>
-                <div id="player-count">Joueurs: <span id="player-count-value">0</span></div>
+                <div class="col-md-6">
+                    <div id="session-info" class="d-flex flex-column flex-md-row justify-content-md-end align-items-md-center">
+                        <div id="user-info" class="user-info me-md-4 mb-2 mb-md-0">
+                            <span id="username-label">Connecté en tant que :</span> 
+                            <span id="username" class="fw-bold text-primary"></span>
+                            <a href="/login" id="login-btn" class="btn btn-primary btn-sm ms-2">Connexion</a>
+                            <a href="/logout" id="logout-btn" class="btn btn-outline-secondary btn-sm ms-2">Déconnexion</a>
+                        </div>
+                        <div id="session-info-group" class="d-flex">
+                            <div id="session-code-display" class="me-3">Session: <span id="session-code" class="badge bg-secondary"></span></div>
+                            <div id="player-count">Joueurs: <span id="player-count-value" class="badge bg-primary">0</span></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
 
         <!-- Tabs Navigation -->
-        <div class="tabs-container">
-            <div class="tabs">
-                <button class="tab-btn" id="admin-tab">Gestion QUIZ</button>
-                <button class="tab-btn active" id="host-tab">Quiz ACTIF</button>
-            </div>
+        <div class="tabs-container mb-4">
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin-content" type="button" role="tab">Gestion QUIZ</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="host-tab" data-bs-toggle="tab" data-bs-target="#host-content" type="button" role="tab">Quiz ACTIF</button>
+                </li>
+            </ul>
         </div>
 
         <main>
-            <!-- Admin Tab Content -->
-            <div id="admin-content" class="tab-content">
-                <div class="admin-panel">
-                    <div class="quiz-management-section">
-                        <h2>Gestion des Quiz</h2>
-                        <div class="quiz-actions">
-                            <button id="create-quiz-btn" class="btn primary-btn">Créer un nouveau Quiz</button>
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Admin Tab Content -->
+                <div id="admin-content" class="tab-pane fade" role="tabpanel">
+                    <div class="admin-panel">
+                        <div class="quiz-management-section">
+                            <h2>Gestion des Quiz</h2>
+                            <div class="quiz-actions">
+                                <button id="create-quiz-btn" class="btn primary-btn">Créer un nouveau Quiz</button>
+                            </div>
+                            
+                            <div class="quiz-list-container">
+                                <h3>Quiz disponibles</h3>
+                                <table id="quiz-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nom</th>
+                                            <th>Questions</th>
+                                            <th>Statut</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="quiz-list"></tbody>
+                                </table>
+                            </div>
                         </div>
-                        
-                        <div class="quiz-list-container">
-                            <h3>Quiz disponibles</h3>
-                            <table id="quiz-table">
+
+                        <div id="quiz-editor" class="hidden">
+                            <h2><span id="editor-title">Créer un nouveau Quiz</span></h2>
+                            <div class="quiz-form">
+                                <div class="form-group">
+                                    <label for="quiz-name">Nom du quiz:</label>
+                                    <input type="text" id="quiz-name" placeholder="Entrez un nom pour ce quiz">
+                                </div>
+                                <div class="form-group">
+                                    <label for="quiz-description">Description:</label>
+                                    <textarea id="quiz-description" placeholder="Décrivez ce quiz (optionnel)"></textarea>
+                                </div>
+                                <h3>Questions</h3>
+                                <div id="questions-container"></div>
+                                <button id="add-question-btn" class="btn secondary-btn">Ajouter une question</button>
+                                <div class="quiz-form-actions">
+                                    <button id="save-quiz-btn" class="btn primary-btn">Enregistrer</button>
+                                    <button id="cancel-edit-btn" class="btn secondary-btn">Annuler</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Host Tab Content -->
+                <div id="host-content" class="tab-pane fade show active" role="tabpanel">
+                    <div id="waiting-screen" class="screen active">
+                        <h2>En attente de joueurs</h2>
+                        <p>Demandez aux joueurs de se connecter à ce quiz en visitant cette URL:</p>
+                        <div class="connection-info">
+                            <p class="url-display">http://<span id="server-address"></span>/play</p>
+                            <p class="code-display">Code de session: <span id="join-code"></span></p>
+                        </div>
+                        <div class="player-list-container">
+                            <h3>Joueurs connectés:</h3>
+                            <ul id="player-list"></ul>
+                        </div>
+                        <button id="start-game-btn" class="btn primary-btn">Démarrer le quiz</button>
+                    </div>
+
+                    <div id="question-screen" class="screen">
+                        <div class="question-header">
+                            <div class="question-counter">Question <span id="question-number"></span>/<span id="total-questions"></span></div>
+                            <div class="timer">Temps: <span id="time-left"></span>s</div>
+                        </div>
+                        <div class="question-content">
+                            <h2 id="question-text"></h2>
+                            <div class="options-container" id="options-container"></div>
+                        </div>
+                    </div>
+
+                    <div id="results-screen" class="screen">
+                        <h2>Résultats de la question</h2>
+                        <div class="correct-answer">
+                            <h3>Réponse correcte:</h3>
+                            <p id="correct-answer-text"></p>
+                        </div>
+                        <div id="explanation-container">
+                            <h3>Explication:</h3>
+                            <p id="explanation-text"></p>
+                        </div>
+                        <div class="score-table-container">
+                            <h3>Classement actuel:</h3>
+                            <table id="score-table">
                                 <thead>
                                     <tr>
-                                        <th>Nom</th>
-                                        <th>Questions</th>
-                                        <th>Statut</th>
-                                        <th>Actions</th>
+                                        <th>Joueur</th>
+                                        <th>Score</th>
                                     </tr>
                                 </thead>
-                                <tbody id="quiz-list"></tbody>
+                                <tbody id="score-table-body"></tbody>
                             </table>
                         </div>
+                        <button id="next-question-btn" class="btn primary-btn">Question suivante</button>
                     </div>
 
-                    <div id="quiz-editor" class="hidden">
-                        <h2><span id="editor-title">Créer un nouveau Quiz</span></h2>
-                        <div class="quiz-form">
-                            <div class="form-group">
-                                <label for="quiz-name">Nom du quiz:</label>
-                                <input type="text" id="quiz-name" placeholder="Entrez un nom pour ce quiz">
-                            </div>
-                            <div class="form-group">
-                                <label for="quiz-description">Description:</label>
-                                <textarea id="quiz-description" placeholder="Décrivez ce quiz (optionnel)"></textarea>
-                            </div>
-                            <h3>Questions</h3>
-                            <div id="questions-container"></div>
-                            <button id="add-question-btn" class="btn secondary-btn">Ajouter une question</button>
-                            <div class="quiz-form-actions">
-                                <button id="save-quiz-btn" class="btn primary-btn">Enregistrer</button>
-                                <button id="cancel-edit-btn" class="btn secondary-btn">Annuler</button>
-                            </div>
+                    <div id="final-screen" class="screen">
+                        <h2>Fin du quiz!</h2>
+                        <div class="winner-display" id="winner-display"></div>
+                        <div class="leaderboard-container">
+                            <h3>Classement final:</h3>
+                            <table id="final-leaderboard">
+                                <thead>
+                                    <tr>
+                                        <th>Position</th>
+                                        <th>Joueur</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="final-leaderboard-body"></tbody>
+                            </table>
                         </div>
+                        <button id="new-game-btn" class="btn primary-btn">Nouveau quiz</button>
                     </div>
-                </div>
-            </div>
-
-            <!-- Host Tab Content -->
-            <div id="host-content" class="tab-content active">
-                <div id="waiting-screen" class="screen active">
-                    <h2>En attente de joueurs</h2>
-                    <p>Demandez aux joueurs de se connecter à ce quiz en visitant cette URL:</p>
-                    <div class="connection-info">
-                        <p class="url-display">http://<span id="server-address"></span>/play</p>
-                        <p class="code-display">Code de session: <span id="join-code"></span></p>
-                    </div>
-                    <div class="player-list-container">
-                        <h3>Joueurs connectés:</h3>
-                        <ul id="player-list"></ul>
-                    </div>
-                    <button id="start-game-btn" class="btn primary-btn">Démarrer le quiz</button>
-                </div>
-
-                <div id="question-screen" class="screen">
-                    <div class="question-header">
-                        <div class="question-counter">Question <span id="question-number"></span>/<span id="total-questions"></span></div>
-                        <div class="timer">Temps: <span id="time-left"></span>s</div>
-                    </div>
-                    <div class="question-content">
-                        <h2 id="question-text"></h2>
-                        <div class="options-container" id="options-container"></div>
-                    </div>
-                </div>
-
-                <div id="results-screen" class="screen">
-                    <h2>Résultats de la question</h2>
-                    <div class="correct-answer">
-                        <h3>Réponse correcte:</h3>
-                        <p id="correct-answer-text"></p>
-                    </div>
-                    <div id="explanation-container">
-                        <h3>Explication:</h3>
-                        <p id="explanation-text"></p>
-                    </div>
-                    <div class="score-table-container">
-                        <h3>Classement actuel:</h3>
-                        <table id="score-table">
-                            <thead>
-                                <tr>
-                                    <th>Joueur</th>
-                                    <th>Score</th>
-                                </tr>
-                            </thead>
-                            <tbody id="score-table-body"></tbody>
-                        </table>
-                    </div>
-                    <button id="next-question-btn" class="btn primary-btn">Question suivante</button>
-                </div>
-
-                <div id="final-screen" class="screen">
-                    <h2>Fin du quiz!</h2>
-                    <div class="winner-display" id="winner-display"></div>
-                    <div class="leaderboard-container">
-                        <h3>Classement final:</h3>
-                        <table id="final-leaderboard">
-                            <thead>
-                                <tr>
-                                    <th>Position</th>
-                                    <th>Joueur</th>
-                                    <th>Score</th>
-                                </tr>
-                            </thead>
-                            <tbody id="final-leaderboard-body"></tbody>
-                        </table>
-                    </div>
-                    <button id="new-game-btn" class="btn primary-btn">Nouveau quiz</button>
                 </div>
             </div>
         </main>
@@ -221,6 +239,8 @@
         </div>
     </div>
 
+    <!-- Bootstrap 5 JS Bundle with Popper -->
+    <script src="/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>

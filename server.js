@@ -75,6 +75,8 @@ app.use(express.json());
 
 // Dossiers statiques
 app.use(express.static(path.join(__dirname, 'public')));
+// Ajouter Bootstrap
+app.use('/bootstrap', express.static(path.join(__dirname, 'node_modules/bootstrap')));
 
 // Initialiser la base de données au démarrage
 initDatabase().catch(err => {

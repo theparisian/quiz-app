@@ -74,34 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Variables d'état de la partie host
     let currentQuestionData = null;
 
-    // Gestion des onglets
-    adminTab.addEventListener('click', () => {
-        switchTab('admin');
-    });
-    
-    hostTab.addEventListener('click', () => {
-        switchTab('host');
-    });
-    
-    function switchTab(tabName) {
-        // Reset active state
-        adminTab.classList.remove('active');
-        hostTab.classList.remove('active');
-        adminContent.classList.remove('active');
-        hostContent.classList.remove('active');
+    // Fonctions d'initialisation
+    function initTabs() {
+        // Les onglets sont maintenant gérés par Bootstrap, donc nous n'avons pas besoin
+        // d'ajouter des gestionnaires d'événements personnalisés pour les changements d'onglets
         
-        // Set active tab and content
-        if (tabName === 'admin') {
-            adminTab.classList.add('active');
-            adminContent.classList.add('active');
-            
-            // Initialiser la partie admin si elle n'a pas encore été chargée
-            if (quizzes.length === 0) {
-                socket.emit('admin-init');
-            }
-        } else {
-            hostTab.classList.add('active');
-            hostContent.classList.add('active');
+        // Par défaut, nous voulons vérifier si l'utilisateur est admin et afficher/masquer l'onglet admin en conséquence
+        if (!isAdmin) {
+            document.getElementById('admin-tab').parentElement.classList.add('d-none');
         }
     }
     
@@ -700,4 +680,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialiser l'interface
     socket.emit('host-join');
+
+    // Bootstrap Tab Events
+    document.getElementById('admin-tab').addEventListener('shown.bs.tab', function (e) {
+        // Initialiser la partie admin si elle n'a pas encore été chargée
+        if (quizzes.length === 0) {
+            socket.emit('admin-init');
+        }
+    });
 });
