@@ -3,6 +3,24 @@
  * Fichier CSS centralisé pour toutes les interfaces
  */
 
+
+
+ @font-face {
+    font-family: "Brandon-Black";
+    src: url("font/BrandonText-Black.ttf") format("truetype")
+}
+
+@font-face {
+    font-family: "Brandon-Regular";
+    src: url("font/BrandonText-Regular.ttf") format("truetype")
+}
+
+@font-face {
+    font-family: "Brandon-Light";
+    src: url("font/BrandonText-Light.ttf") format("truetype")
+}
+
+
 /* ===== STYLES GLOBAUX ===== */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
@@ -15,7 +33,7 @@
 }
 
 body {
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Brandon-Black',Helvetica,Arial,Lucida,sans-serif;
     min-height: 100vh;
 }
 
