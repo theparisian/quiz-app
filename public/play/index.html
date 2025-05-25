@@ -16,7 +16,7 @@
       </video>
     <div class="container py-4">
         <header class="text-center mb-4">
-            <h1 class="mb-3">Quiz Master</h1>
+            <h1 class="mb-3 text-white">Quiz Master</h1>
             <div id="player-info" class="hidden">
                 <span id="player-name-display" class="badge bg-secondary me-2"></span>
                 <span id="player-score" class="badge bg-primary">Score: <span id="score-value">0</span></span>
@@ -29,16 +29,13 @@
                     <h2 class="text-center mb-4">Rejoindre un quiz</h2>
                     <div class="join-form">
                         <div class="mb-3">
-                            <label for="player-name" class="form-label">Votre nom:</label>
-                            <input type="text" class="form-control" id="player-name" placeholder="Entrez votre nom" required>
+                            <input type="text" class="form-control" id="player-name" placeholder="Pseudonyme" required>
                         </div>
                         <div class="mb-3">
-                            <label for="player-email" class="form-label">Votre email:</label>
-                            <input type="email" class="form-control" id="player-email" placeholder="Entrez votre email" required>
+                            <input type="email" class="form-control" id="player-email" placeholder="eMail" required>
                         </div>
                         <div class="mb-4">
-                            <label for="session-code" class="form-label">Code de session:</label>
-                            <input type="text" class="form-control" id="session-code" placeholder="Ex: 123456" required>
+                            <input type="text" class="form-control" id="session-code" placeholder="Code session (Ex: 123456)" required>
                         </div>
                     </div>
                     <div id="join-error" class="alert alert-danger mt-3 hidden"></div>
