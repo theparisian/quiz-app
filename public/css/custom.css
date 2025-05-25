@@ -327,8 +327,8 @@ body {
 }
 
 .bg-client {
-    background: url('img/4k0321.mp4') no-repeat center center;
-    background-size: cover;
+    /*background: url('img/4k0321.mp4') no-repeat center center;
+    background-size: cover;*/
 }
 
 .bg-client-video {
