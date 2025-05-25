@@ -323,6 +323,10 @@ body {
 
 /* CUSTOM AVI */
 
+.form-control-input {
+    background:rgba(0, 0, 0, .06) !important;
+}
+
 .bg-custom {
     background:#5478D9;
 }
