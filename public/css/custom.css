@@ -314,8 +314,11 @@ body {
     font-size: 0.875rem;
 } 
 
-
-
+/* CUSTOM BOOTSTRAP AVI */
+.rounded-circle-relative,
+.form-control {
+    border-radius:100rem !important;
+}
 
 /* CUSTOM AVI */
 
