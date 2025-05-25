@@ -322,3 +322,8 @@ body {
 .bg-custom {
     background:#5478D9;
 }
+
+.bg-client {
+    background: url('img/4k0321.mp4') no-repeat center center;
+    background-size: cover;
+}
