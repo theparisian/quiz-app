@@ -23,10 +23,11 @@
             </div>
         </header>
 
-        <main class="card shadow border-0 rounded-4 mb-4">
-            <div class="card-body p-4">
+        <main class="mb-4">
+            <div class="p-4">
                 <div id="join-screen" class="screen active">
-                    <h2 class="text-center mb-4">Rejoindre un quiz</h2>
+                    <div  class="bg-white rounded-4 shadow p-4">
+                        <h2 class="text-center mb-4">Rejoindre un quiz</h2>
                     <div class="join-form">
                         <div class="mb-3">
                             <input type="text" class="form-control" id="player-name" placeholder="Pseudonyme" required>
@@ -39,6 +40,8 @@
                         </div>
                     </div>
                     <div id="join-error" class="alert alert-danger mt-3 hidden"></div>
+                    </div>
+                    <button id="join-btn" class="btn btn-primary w-100 py-2 fs-2">Rejoindre</button>
                 </div>
 
                 <div id="waiting-screen" class="screen text-center">
@@ -87,7 +90,7 @@
                     <div id="final-result" class="mb-3"></div>
                 </div>
             </div>
-            <button id="join-btn" class="btn btn-primary w-100 py-2 fs-2">Rejoindre</button>
+            
         </main>
     </div>
 
