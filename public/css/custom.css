@@ -99,6 +99,12 @@ body {
     background-color: rgba(102, 126, 234, 0.1);
 }
 
+.option-btn.active {
+    border-color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.1);
+    font-weight: 500;
+}
+
 .option-btn.correct {
     border-color: var(--correct-color);
     background-color: rgba(40, 167, 69, 0.1);

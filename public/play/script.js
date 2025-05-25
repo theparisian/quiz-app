@@ -125,10 +125,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Supprimer la sélection précédente
                 const options = optionsContainer.querySelectorAll('.option-btn');
-                options.forEach(opt => opt.classList.remove('selected'));
+                options.forEach(opt => opt.classList.remove('active'));
                 
-                // Sélectionner cette option
-                optionElement.classList.add('selected');
+                // Sélectionner cette option avec la classe 'active'
+                optionElement.classList.add('active');
                 selectedAnswerIndex = index;
                 
                 // Envoyer la réponse
