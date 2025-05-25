@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentOptions = [];
     let selectedAnswerIndex = null;
     let hasAnswered = false;
+    let answerResultData = null; // Stocker les données de résultat pour les afficher plus tard
     
     // Gestionnaires d'événements
     joinBtn.addEventListener('click', () => {
@@ -108,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Réinitialiser l'état
         selectedAnswerIndex = null;
         hasAnswered = false;
+        answerResultData = null;
         
         // Afficher les options
         optionsContainer.innerHTML = '';
@@ -164,15 +166,27 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.setAttribute('disabled', 'disabled');
         });
         
-        // Forcer l'affichage de l'écran de résultat
-        showScreen(answerResultScreen);
+        // Si nous avons déjà reçu le résultat, l'afficher maintenant
+        if (answerResultData) {
+            displayAnswerResult(answerResultData);
+        }
     });
     
     socket.on('answer-result', (data) => {
-        // Mettre à jour le score
+        // Stocker les données de résultat mais ne pas les afficher immédiatement
+        answerResultData = data;
+        
+        // Mettre à jour le score dans la barre supérieure (discrètement)
         currentScore = data.totalScore;
         scoreValue.textContent = currentScore;
-        currentScoreValue.textContent = currentScore;
+        
+        // On n'affiche pas encore le résultat - on attend que le timer se termine
+    });
+    
+    // Fonction pour afficher les résultats (appelée après la fin du timer)
+    function displayAnswerResult(data) {
+        // Mettre à jour l'affichage du score
+        currentScoreValue.textContent = data.totalScore;
         
         // Afficher le résultat
         if (data.correct) {
@@ -186,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         showScreen(answerResultScreen);
-    });
+    }
     
     socket.on('question-results', (data) => {
         // Afficher la réponse correcte
