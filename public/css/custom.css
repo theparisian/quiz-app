@@ -132,21 +132,25 @@ body {
     left:4px;
     width:calc(100% - 8px);
     height:calc(100% - 8px);
-    background-color:red;
+    background-color:white;
     border-radius:100rem;
+    z-index:3;
 }
 
-.options-container.active .option-btn.active::before {
+.options-container .option-btn::before {
+    aspect-ratio:1/1;
+    margin-top:-50%;
     content:'';
     position:absolute;
     top:50%;
     left:0;
-    width:100%;
+    width:0%;
+}
+
+.options-container.active .option-btn.active::before {
     background: linear-gradient(90deg,rgba(235, 234, 2, 1) 0%, rgba(128, 194, 3, 1) 100%);
     border-radius:100%;
     z-index:2;
-    aspect-ratio:1/1;
-    margin-top:-50%;
     animation: rotating-green 2s linear infinite;
 }
 
