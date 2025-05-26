@@ -113,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Afficher les options
         optionsContainer.innerHTML = '';
+        optionsContainer.classList.remove('active');
         currentOptions = data.options;
         
         data.options.forEach((option, index) => {
@@ -131,6 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Sélectionner cette option avec la classe 'active'
                 optionElement.classList.add('active');
+                
+                // Ajouter la classe 'active' au conteneur parent
+                optionsContainer.classList.add('active');
+                
                 selectedAnswerIndex = index;
                 
                 // Envoyer la réponse
@@ -230,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playerInfo.classList.add('hidden');
         currentScore = 0;
         scoreValue.textContent = currentScore;
+        optionsContainer.classList.remove('active');
     });
     
     // Fonctions utilitaires
