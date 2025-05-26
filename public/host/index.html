@@ -25,10 +25,6 @@
                             <a href="/login" id="login-btn" class="btn btn-primary btn-sm ms-2">Connexion</a>
                             <a href="/logout" id="logout-btn" class="btn btn-outline-secondary btn-sm ms-2">Déconnexion</a>
                         </div>
-                        <div id="session-info-group" class="d-flex">
-                            <div id="session-code-display" class="me-3">Session: <span id="session-code" class="badge bg-secondary"></span></div>
-                            <div id="player-count">Joueurs: <span id="player-count-value" class="badge bg-primary">0</span></div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -99,6 +95,10 @@
 
                 <!-- Host Tab Content -->
                 <div id="host-content" class="tab-pane fade show active" role="tabpanel">
+                    <div id="session-info-group" class="d-flex justify-content-end mb-3">
+                        <div id="session-code-display" class="me-3">Session: <span id="session-code" class="badge bg-secondary"></span></div>
+                        <div id="player-count">Joueurs: <span id="player-count-value" class="badge bg-primary">0</span></div>
+                    </div>
                     <div id="waiting-screen" class="screen active">
                         <h2>En attente de joueurs</h2>
                         <p>Demandez aux joueurs de se connecter à ce quiz en visitant cette URL:</p>
