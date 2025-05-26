@@ -145,6 +145,7 @@ body {
     top:50%;
     left:0;
     width:0%;
+    transition:0.2s ease all 0s;
 }
 
 .options-container.active .option-btn.active::before {
