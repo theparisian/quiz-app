@@ -113,6 +113,7 @@ body {
     transition:0.2s ease all 0s;
     position:relative;
     border:0 !important;
+    overflow:hidden;
 }
 
 .options-container.active .option-btn {
@@ -138,14 +139,27 @@ body {
 .options-container.active .option-btn.active::before {
     content:'';
     position:absolute;
-    top:0;
+    top:50%;
     left:0;
     width:100%;
-    height:100%;
-    background-color:blue;
+    background: linear-gradient(90deg,rgba(235, 234, 2, 1) 0%, rgba(128, 194, 3, 1) 100%);
     border-radius:100%;
     z-index:2;
+    aspect-ratio:1/1;
+    margin-top:-50%;
 }
+
+@keyframes rotating-green {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .rotating-green {
+    animation: rotating-green 2s linear infinite;
+  }
 
 /* Résultats */
 #result-status.correct {
