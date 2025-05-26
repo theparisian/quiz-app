@@ -528,6 +528,11 @@ document.addEventListener('DOMContentLoaded', () => {
             newQuestion.querySelector('.question-text').value = questionData.question || '';
             newQuestion.querySelector('.question-explanation').value = questionData.explanation || '';
             
+            // Remplir le timer personnalisé si disponible
+            if (questionData.timer) {
+                newQuestion.querySelector('.question-timer').value = questionData.timer;
+            }
+            
             // Remplir les options et sélectionner la correcte
             const optionInputs = newQuestion.querySelectorAll('.option-text');
             const radioInputs = newQuestion.querySelectorAll('.correct-option');
@@ -582,10 +587,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = questionItems[i];
             const questionText = item.querySelector('.question-text').value;
             const explanation = item.querySelector('.question-explanation').value;
+            const timerValue = parseInt(item.querySelector('.question-timer').value) || 20; // Valeur par défaut: 20s
             
             if (!questionText) {
                 alert(`La question ${i+1} n'a pas de texte`);
                 item.querySelector('.question-text').focus();
+                return;
+            }
+            
+            // Valider le timer
+            if (timerValue < 5 || timerValue > 120) {
+                alert(`Le temps limite pour la question ${i+1} doit être entre 5 et 120 secondes`);
+                item.querySelector('.question-timer').focus();
                 return;
             }
             
@@ -625,7 +638,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 question: questionText,
                 options: options,
                 correctIndex: correctIndex,
-                explanation: explanation
+                explanation: explanation,
+                timer: timerValue // Ajouter le timer personnalisé
             });
         }
         

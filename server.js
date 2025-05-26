@@ -359,6 +359,36 @@ io.on('connection', (socket) => {
     }
     
     try {
+      // Valider les données du quiz
+      if (!data.name || !data.name.trim()) {
+        socket.emit('quiz-saved', { success: false, message: 'Le nom du quiz est requis' });
+        return;
+      }
+      
+      if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+        socket.emit('quiz-saved', { success: false, message: 'Le quiz doit contenir au moins une question' });
+        return;
+      }
+      
+      // Valider chaque question
+      for (let i = 0; i < data.questions.length; i++) {
+        const q = data.questions[i];
+        
+        // Valider le timer de la question s'il existe
+        if (q.timer !== undefined) {
+          const timer = parseInt(q.timer);
+          if (isNaN(timer) || timer < 5 || timer > 120) {
+            socket.emit('quiz-saved', { 
+              success: false, 
+              message: `Le temps limite pour la question ${i+1} doit être entre 5 et 120 secondes` 
+            });
+            return;
+          }
+          // S'assurer que timer est un nombre
+          q.timer = timer;
+        }
+      }
+      
       let success = false;
       
       if (data.id) {
@@ -468,7 +498,9 @@ io.on('connection', (socket) => {
     }
     
     const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
-    gameState.timeLeft = gameState.timePerQuestion;
+    // Utiliser le timer spécifique de la question ou la valeur par défaut
+    const questionTimer = currentQuestion.timer || gameState.timePerQuestion;
+    gameState.timeLeft = questionTimer;
     
     // Envoyer la question à l'hôte et aux joueurs
     io.to('host-room').emit('new-question', {
@@ -476,14 +508,14 @@ io.on('connection', (socket) => {
       options: currentQuestion.options,
       questionNumber: gameState.currentQuestionIndex + 1,
       totalQuestions: gameState.activeQuiz.questions.length,
-      timeLimit: gameState.timePerQuestion
+      timeLimit: questionTimer
     });
     
     io.to('player-room').emit('new-question', {
       options: currentQuestion.options,
       questionNumber: gameState.currentQuestionIndex + 1,
       totalQuestions: gameState.activeQuiz.questions.length,
-      timeLimit: gameState.timePerQuestion
+      timeLimit: questionTimer
     });
     
     startTimer();

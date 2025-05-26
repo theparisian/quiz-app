@@ -353,3 +353,11 @@ body {
     bottom: 0;
     z-index: -1;
  }
+
+.options-container button {
+    transition:0.2s ease all 0s;
+}
+
+.options-container.active button {
+    opacity: 0.5;
+}
