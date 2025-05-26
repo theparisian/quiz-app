@@ -147,6 +147,7 @@ body {
     z-index:2;
     aspect-ratio:1/1;
     margin-top:-50%;
+    animation: rotating-green 2s linear infinite;
 }
 
 @keyframes rotating-green {
@@ -156,9 +157,6 @@ body {
     to {
       transform: rotate(360deg);
     }
-  }
-  .rotating-green {
-    animation: rotating-green 2s linear infinite;
   }
 
 /* Résultats */
