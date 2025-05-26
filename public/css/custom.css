@@ -99,12 +99,6 @@ body {
     background-color: rgba(102, 126, 234, 0.1);
 }
 
-.option-btn.active {
-    border-color: #6c757d;
-    background-color: rgba(108, 117, 125, 0.1);
-    font-weight: 500;
-}
-
 .option-btn.correct {
     border-color: var(--correct-color);
     background-color: rgba(40, 167, 69, 0.1);
@@ -113,6 +107,30 @@ body {
 .option-btn.incorrect {
     border-color: var(--incorrect-color);
     background-color: rgba(220, 53, 69, 0.1);
+}
+
+.options-container .option-btn {
+    transition:0.2s ease all 0s;
+    position:relative;
+}
+
+.options-container.active .option-btn {
+    opacity: 0.5;
+}
+
+.options-container.active .option-btn.active {
+    opacity:1;
+}
+
+.options-container.active .option-btn.active::after {
+    content:'';
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background-color:red;
+    border-radius:100rem;
 }
 
 /* Résultats */
@@ -354,10 +372,3 @@ body {
     z-index: -1;
  }
 
-.options-container button {
-    transition:0.2s ease all 0s;
-}
-
-.options-container.active button {
-    opacity: 0.5;
-}
