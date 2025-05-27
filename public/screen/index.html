@@ -77,11 +77,16 @@
             <div id="waiting-screen" class="screen active">
                 <div class="text-center mb-5">
                     <h2 class="display-4 mb-4">En attente de joueurs</h2>
-                    <p class="lead">Pour rejoindre le quiz, visitez :</p>
+                    <div class="mx-5 row d-flex align-items-center">
+                        <div class="col d-flex flex-column align-items-center justify-content-center bg-blur">
+                     <p class="lead">Pour rejoindre le quiz, visitez :</p>
                     <div class="connection-info my-4">
                         <p class="url-display fs-3">http://<span id="server-address"></span>/play</p>
                         <p class="code-display fs-1">Code: <span id="join-code" class="fw-bold"></span></p>
                     </div>
+                </div>
+                <div class="p-3"></div>
+                <div class="col d-flex flex-column align-items-center justify-content-center bg-blur">
                     
                     <div class="qrcode-container mb-4">
                         <h3 class="mb-3">Ou scannez ce QR code :</h3>
@@ -90,6 +95,8 @@
                         </div>
                         <p class="mt-2 text-muted">Le scan vous amène directement à l'écran de saisie du pseudo</p>
                     </div>
+                    </div>
+                </div>
                 </div>
                 
                 <div class="player-list-container">
