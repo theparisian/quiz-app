@@ -32,9 +32,6 @@
                         <div class="mb-3">
                             <input type="text" class="form-control form-control-input border-0" id="player-name" placeholder="Pseudonyme" required>
                         </div>
-                        <div class="mb-3">
-                            <input type="email" class="form-control form-control-input border-0" id="player-email" placeholder="eMail" required>
-                        </div>
                         <div class="mb-4">
                             <input type="text" class="form-control form-control-input border-0" id="session-code" placeholder="Code session (Ex: 123456)" required>
                         </div>
@@ -88,6 +85,18 @@
                 <div id="final-screen" class="screen text-center">
                     <h2 class="mb-4">Fin du quiz!</h2>
                     <div id="final-result" class="mb-3"></div>
+                    <div id="winner-form" class="mt-4 hidden">
+                        <div class="bg-white rounded-4 shadow p-4 mb-3">
+                            <h3 class="mb-3">Bravo, vous êtes en tête du classement!</h3>
+                            <p>Pour recevoir votre cadeau, laissez-nous votre e-mail:</p>
+                            <div class="mb-3">
+                                <input type="email" class="form-control form-control-input border-0" id="winner-email" placeholder="Votre e-mail" required>
+                            </div>
+                            <button id="submit-email-btn" class="btn btn-primary w-100">Recevoir mon cadeau</button>
+                        </div>
+                        <div id="email-success" class="alert alert-success mt-3 hidden">E-mail enregistré avec succès!</div>
+                        <div id="email-error" class="alert alert-danger mt-3 hidden"></div>
+                    </div>
                 </div>
             </div>
             

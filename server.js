@@ -213,7 +213,6 @@ io.on('connection', (socket) => {
     gameState.players[socket.id] = {
       id: socket.id,
       name: data.playerName,
-      email: data.playerEmail,
       score: 0
     };
     
@@ -229,8 +228,7 @@ io.on('connection', (socket) => {
     
     // Confirmer au joueur qu'il a rejoint
     socket.emit('join-success', {
-      playerName: data.playerName,
-      playerEmail: data.playerEmail
+      playerName: data.playerName
     });
   });
 
@@ -471,6 +469,35 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Nouvel événement pour recevoir l'email du gagnant
+  socket.on('submit-winner-email', async (data) => {
+    console.log('Email du gagnant reçu:', data);
+    
+    // Enregistrer l'email dans les données du joueur
+    if (gameState.players[socket.id]) {
+      gameState.players[socket.id].email = data.playerEmail;
+      
+      // Informer l'hôte de la mise à jour de l'email
+      io.to('host-room').emit('winner-email-submitted', {
+        playerName: data.playerName,
+        playerEmail: data.playerEmail,
+        score: data.score
+      });
+      
+      // Envoyer un email au gagnant
+      try {
+        await sendWinnerEmail({
+          name: data.playerName,
+          email: data.playerEmail,
+          score: data.score
+        }, gameState.activeQuiz.name);
+        console.log(`Email envoyé au gagnant: ${data.playerEmail}`);
+      } catch (error) {
+        console.error('Erreur lors de l\'envoi de l\'email au gagnant:', error);
+      }
+    }
+  });
+
   // Déconnexion
   socket.on('disconnect', () => {
     console.log('Déconnexion:', socket.id);
@@ -571,7 +598,7 @@ io.on('connection', (socket) => {
       .map((player, index) => ({
         position: index + 1,
         name: player.name,
-        email: player.email,
+        email: player.email || '',
         score: player.score
       }));
     
@@ -606,14 +633,7 @@ io.on('connection', (socket) => {
         leaderboard: finalScores
       });
       
-      // Envoyer un email au gagnant si présent
-      if (winner && winner.email) {
-        await sendWinnerEmail({
-          name: winner.name,
-          email: winner.email,
-          score: winner.score
-        }, gameState.activeQuiz.name);
-      }
+      // Note: L'email du gagnant sera envoyé lorsqu'il soumettra son email via l'événement 'submit-winner-email'
     }
   }
   

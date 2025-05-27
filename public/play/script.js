@@ -2,7 +2,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Éléments DOM
     const playerNameInput = document.getElementById('player-name');
-    const playerEmailInput = document.getElementById('player-email');
     const sessionCodeInput = document.getElementById('session-code');
     const joinBtn = document.getElementById('join-btn');
     const joinError = document.getElementById('join-error');
@@ -23,6 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const explanationText = document.getElementById('explanation-text');
     
     const finalResult = document.getElementById('final-result');
+    const winnerForm = document.getElementById('winner-form');
+    const winnerEmailInput = document.getElementById('winner-email');
+    const submitEmailBtn = document.getElementById('submit-email-btn');
+    const emailSuccess = document.getElementById('email-success');
+    const emailError = document.getElementById('email-error');
     
     // Écrans
     const joinScreen = document.getElementById('join-screen');
@@ -39,31 +43,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Variables d'état local
     let playerName = '';
-    let playerEmail = '';
     let currentScore = 0;
     let currentOptions = [];
     let selectedAnswerIndex = null;
     let hasAnswered = false;
     let answerResultData = null; // Stocker les données de résultat pour les afficher plus tard
+    let isWinner = false; // Indique si le joueur est le gagnant
     
     // Gestionnaires d'événements
     joinBtn.addEventListener('click', () => {
         const name = playerNameInput.value.trim();
-        const email = playerEmailInput.value.trim();
         const code = sessionCodeInput.value.trim();
         
         if (!name) {
             showError('Veuillez entrer votre nom.');
-            return;
-        }
-        
-        if (!email) {
-            showError('Veuillez entrer votre email.');
-            return;
-        }
-        
-        if (!isValidEmail(email)) {
-            showError('Veuillez entrer un email valide.');
             return;
         }
         
@@ -73,14 +66,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         playerName = name;
-        playerEmail = email;
         
         // Envoyer la demande de connexion
         socket.emit('player-join', {
             playerName: name,
-            playerEmail: email,
             sessionCode: code
         });
+    });
+    
+    // Événement pour soumettre l'email du gagnant
+    submitEmailBtn.addEventListener('click', () => {
+        const email = winnerEmailInput.value.trim();
+        
+        if (!email) {
+            showEmailError('Veuillez entrer votre email.');
+            return;
+        }
+        
+        if (!isValidEmail(email)) {
+            showEmailError('Veuillez entrer un email valide.');
+            return;
+        }
+        
+        // Envoyer l'email au serveur
+        socket.emit('submit-winner-email', {
+            playerName: playerName,
+            playerEmail: email,
+            score: currentScore
+        });
+        
+        // Afficher le message de succès
+        emailSuccess.classList.remove('hidden');
+        setTimeout(() => {
+            emailSuccess.classList.add('hidden');
+        }, 5000);
     });
     
     // Événements Socket.IO
@@ -216,16 +235,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     socket.on('game-over', (data) => {
-        // Afficher un message simple de fin de quiz
-        finalResult.innerHTML = `
-            <div class="quiz-end-message">
-                <h2>Quiz Terminé!</h2>
-                <p>Merci d'avoir participé au quiz.</p>
+        // Vérifier si le joueur est le gagnant (première position dans le classement)
+        isWinner = false;
+        if (data.leaderboard && data.leaderboard.length > 0) {
+            const topPlayer = data.leaderboard[0];
+            // Comparer avec le nom du joueur actuel
+            if (topPlayer.name === playerName) {
+                isWinner = true;
+                winnerForm.classList.remove('hidden');
+            }
+        }
+        
+        // Afficher le classement final
+        let leaderboardHTML = `
+            <div class="quiz-end-message mb-4">
                 <p>Votre score final: <strong>${currentScore}</strong> points</p>
-                <button onclick="window.location.href='/play'" class="btn primary-btn">Retour à l'accueil</button>
             </div>
+            <div class="card bg-light">
+                <div class="card-header">
+                    <h3 class="fs-5 mb-0">Classement final</h3>
+                </div>
+                <ul class="list-group list-group-flush">
         `;
         
+        if (data.leaderboard && data.leaderboard.length > 0) {
+            data.leaderboard.forEach((player, index) => {
+                const isCurrentPlayer = player.name === playerName;
+                leaderboardHTML += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center ${isCurrentPlayer ? 'bg-light' : ''}">
+                        <span>${index + 1}. ${player.name} ${isCurrentPlayer ? '(Vous)' : ''}</span>
+                        <span class="badge bg-primary rounded-pill">${player.score} pts</span>
+                    </li>
+                `;
+            });
+        } else {
+            leaderboardHTML += `<li class="list-group-item">Aucun joueur dans le classement</li>`;
+        }
+        
+        leaderboardHTML += `
+                </ul>
+            </div>
+            <button onclick="window.location.href='/play'" class="btn btn-primary mt-4">Retour à l'accueil</button>
+        `;
+        
+        finalResult.innerHTML = leaderboardHTML;
         showScreen(finalScreen);
     });
     
@@ -236,6 +289,12 @@ document.addEventListener('DOMContentLoaded', () => {
         currentScore = 0;
         scoreValue.textContent = currentScore;
         optionsContainer.classList.remove('active');
+        
+        // Réinitialiser le formulaire d'email
+        winnerForm.classList.add('hidden');
+        winnerEmailInput.value = '';
+        emailSuccess.classList.add('hidden');
+        emailError.classList.add('hidden');
     });
     
     // Fonctions utilitaires
@@ -257,6 +316,14 @@ document.addEventListener('DOMContentLoaded', () => {
         joinError.classList.remove('hidden');
         setTimeout(() => {
             joinError.classList.add('hidden');
+        }, 5000);
+    }
+    
+    function showEmailError(message) {
+        emailError.textContent = message;
+        emailError.classList.remove('hidden');
+        setTimeout(() => {
+            emailError.classList.add('hidden');
         }, 5000);
     }
     
