@@ -411,5 +411,9 @@ body {
 
  .bg-blur {
     backdrop-filter:blur(10px);
+    background:rgba(255, 255, 255, .08) !important;
  }
 
+ .rounded {
+    border-radius:2rem !important;
+ }
