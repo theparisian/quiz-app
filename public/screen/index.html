@@ -62,16 +62,12 @@
     <video class="bg-client-video" autoplay loop muted poster="https://theparisian.fr/FTP/QUIZZ/src/138553-769988105.mp4">
         <source src="https://theparisian.fr/FTP/QUIZZ/src/138553-769988105.mp4" type="video/mp4">
       </video>
-    <div class="container-fluid py-4 full-screen">
+    <div class="container-fluid full-screen">
         <header class="mb-4 text-white">
             <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h1 class="mb-0">Quiz Master</h1>
-                </div>
                 <div class="col-md-6 text-end">
                     <div id="session-info" class="d-flex justify-content-end align-items-center">
-                        <div id="session-code-display" class="me-3">Session: <span id="session-code" class="badge bg-secondary"></span></div>
-                        <div id="player-count">Joueurs: <span id="player-count-value" class="badge bg-primary">0</span></div>
+                        <div id="player-count"><span id="player-count-value" class="badge bg-primary">0</span>Joueurs</div>
                     </div>
                 </div>
             </div>
@@ -156,7 +152,7 @@
             </div>
 
             <div id="final-screen" class="screen">
-                <h2 class="display-4 mb-5">Fin du quiz!</h2>
+                <h2 class="display-4 mb-5 text-center">Fin du quiz!</h2>
                 
                 <div class="winner-display mb-5" id="winner-display">
                     <h3 class="mb-3">Vainqueur:</h3>
@@ -178,10 +174,6 @@
                 </div>
             </div>
         </main>
-
-        <footer class="mt-4 text-center text-white-50">
-            <p>Quiz App © 2025 | Version <span id="app-version">-</span></p>
-        </footer>
     </div>
 
     <!-- Bootstrap 5 JS Bundle with Popper -->
