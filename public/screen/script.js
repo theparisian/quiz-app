@@ -70,18 +70,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const baseUrl = data.baseUrl || window.location.origin;
             const directUrl = `${baseUrl}/play/${data.sessionCode}`;
             
-            // Générer le QR code
-            new QRCode(qrcodeContainer, {
-                text: directUrl,
-                width: 180,
-                height: 180,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
-            });
-            
-            // Ajouter un titre avec l'URL en dessous du QR code pour les tests
-            console.log('QR Code URL:', directUrl);
+            // Générer le QR code avec la bibliothèque qrcode
+            try {
+                if (typeof QRCode === 'function') {
+                    // Bibliothèque qrcode.js
+                    new QRCode(qrcodeContainer, {
+                        text: directUrl,
+                        width: 180,
+                        height: 180,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                } else if (typeof QRCode === 'object') {
+                    // Bibliothèque qrcode npm
+                    QRCode.toCanvas(qrcodeContainer, directUrl, {
+                        width: 180,
+                        margin: 1,
+                        color: {
+                            dark: '#000000',
+                            light: '#ffffff'
+                        }
+                    }, function(error) {
+                        if (error) {
+                            console.error('Erreur de génération du QR code:', error);
+                            qrcodeContainer.innerHTML = `<p class="text-dark">URL directe: <a href="${directUrl}" target="_blank">${directUrl}</a></p>`;
+                        }
+                    });
+                }
+                console.log('QR Code URL:', directUrl);
+            } catch (error) {
+                console.error('Erreur lors de la génération du QR code:', error);
+                qrcodeContainer.innerHTML = `<p class="text-dark">URL directe: <a href="${directUrl}" target="_blank">${directUrl}</a></p>`;
+            }
         }
     });
     
