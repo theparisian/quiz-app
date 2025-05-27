@@ -81,7 +81,6 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 // Exposer les dépendances nécessaires
 app.use('/bootstrap', express.static(path.join(__dirname, 'node_modules/bootstrap')));
-app.use('/qrcode', express.static(path.join(__dirname, 'node_modules/qrcode')));
 
 // Initialiser la base de données au démarrage
 initDatabase().catch(err => {

@@ -70,35 +70,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const baseUrl = data.baseUrl || window.location.origin;
             const directUrl = `${baseUrl}/play/${data.sessionCode}`;
             
-            // Générer le QR code avec la bibliothèque qrcode
+            // Générer le QR code avec qrcode-generator
             try {
-                if (typeof QRCode === 'function') {
-                    // Bibliothèque qrcode.js
-                    new QRCode(qrcodeContainer, {
-                        text: directUrl,
-                        width: 180,
-                        height: 180,
-                        colorDark: "#000000",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                } else if (typeof QRCode === 'object') {
-                    // Bibliothèque qrcode npm
-                    QRCode.toCanvas(qrcodeContainer, directUrl, {
-                        width: 180,
-                        margin: 1,
-                        color: {
-                            dark: '#000000',
-                            light: '#ffffff'
-                        }
-                    }, function(error) {
-                        if (error) {
-                            console.error('Erreur de génération du QR code:', error);
-                            qrcodeContainer.innerHTML = `<p class="text-dark">URL directe: <a href="${directUrl}" target="_blank">${directUrl}</a></p>`;
-                        }
-                    });
+                // Vérifier que la bibliothèque est chargée
+                if (typeof qrcode !== 'undefined') {
+                    // Créer une instance du générateur QR code (type=0 pour QR code standard)
+                    const qr = qrcode(0, 'L');
+                    // Ajouter les données (URL)
+                    qr.addData(directUrl);
+                    // Calculer la matrice QR code
+                    qr.make();
+                    
+                    // Ajouter le QR code au conteneur
+                    qrcodeContainer.innerHTML = qr.createImgTag(4);
+                    
+                    console.log('QR Code généré avec succès pour URL:', directUrl);
+                } else {
+                    throw new Error('Bibliothèque QR code non disponible');
                 }
-                console.log('QR Code URL:', directUrl);
             } catch (error) {
                 console.error('Erreur lors de la génération du QR code:', error);
                 qrcodeContainer.innerHTML = `<p class="text-dark">URL directe: <a href="${directUrl}" target="_blank">${directUrl}</a></p>`;
