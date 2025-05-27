@@ -639,7 +639,7 @@ function startTimer(seconds) {
       date: new Date(),
       quizName: gameState.activeQuiz.name,
       quizId: gameState.activeQuiz.id,
-      players: Object.values(gameState.players).map(p => p.name),
+      players: Object.keys(gameState.players).length,
       scores: gameState.scores,
       winner: winner ? winner.playerName : null
     });
