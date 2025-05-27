@@ -51,12 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Gestion des événements Socket.IO spécifiques
     socket.on('game-setup', (data) => {
         console.log('Game setup received:', data);
-        sessionCode.textContent = data.sessionCode;
-        joinCode.textContent = data.sessionCode;
-        playerCountValue.textContent = data.playerCount;
+        // Mettre à jour les codes de session
+        if (sessionCode) sessionCode.textContent = data.sessionCode;
+        if (joinCode) joinCode.textContent = data.sessionCode;
+        if (playerCountValue) playerCountValue.textContent = data.playerCount;
         
         // Afficher la version de l'application
-        if (data.appVersion) {
+        if (data.appVersion && appVersion) {
             appVersion.textContent = data.appVersion;
         }
         

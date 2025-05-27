@@ -11,6 +11,8 @@
     <style>
         .full-screen {
             min-height: 100vh;
+            position: relative;
+            z-index: 1;
         }
         .option {
             padding: 1rem;
@@ -56,6 +58,29 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+        
+        /* Styles pour la vidéo de fond */
+        .bg-client-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: 0;
+            object-fit: cover;
+        }
+        
+        /* Style pour les panneaux floutés */
+        .bg-blur {
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body class="bg-dark">
@@ -67,7 +92,8 @@
             <div class="row align-items-center">
                 <div class="col-md-6 text-end">
                     <div id="session-info" class="d-flex justify-content-end align-items-center">
-                        <div id="player-count"><span id="player-count-value" class="badge bg-primary">0</span>Joueurs</div>
+                        <div id="session-code-display" class="me-3" style="display: none;"><span id="session-code" class="badge bg-secondary"></span></div>
+                        <div id="player-count"><span id="player-count-value" class="badge bg-primary">0</span> Joueurs</div>
                     </div>
                 </div>
             </div>
@@ -87,13 +113,11 @@
                 </div>
                 <div class="p-3"></div>
                 <div class="col d-flex flex-column align-items-center justify-content-center bg-blur">
-                    
                     <div class="qrcode-container mb-4">
                         <h3 class="mb-3">Ou scannez ce QR code :</h3>
                         <div class="d-flex justify-content-center">
                             <div id="qrcode" class="bg-white p-3 rounded-3" style="width: 200px; height: 200px;"></div>
                         </div>
-                        <p class="mt-2 text-muted">Le scan vous amène directement à l'écran de saisie du pseudo</p>
                     </div>
                     </div>
                 </div>
