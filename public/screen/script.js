@@ -59,6 +59,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.appVersion) {
             appVersion.textContent = data.appVersion;
         }
+        
+        // Générer le QR code pour rejoindre directement avec le code de session
+        const qrcodeContainer = document.getElementById('qrcode');
+        if (qrcodeContainer) {
+            // Vider le conteneur au cas où
+            qrcodeContainer.innerHTML = '';
+            
+            // Construire l'URL directe
+            const baseUrl = data.baseUrl || window.location.origin;
+            const directUrl = `${baseUrl}/play/${data.sessionCode}`;
+            
+            // Générer le QR code
+            new QRCode(qrcodeContainer, {
+                text: directUrl,
+                width: 180,
+                height: 180,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            // Ajouter un titre avec l'URL en dessous du QR code pour les tests
+            console.log('QR Code URL:', directUrl);
+        }
     });
     
     socket.on('player-joined', (data) => {

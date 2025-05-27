@@ -4,6 +4,7 @@ const socketIO = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 const session = require('express-session');
+const QRCode = require('qrcode');
 require('dotenv').config();
 const { initDatabase } = require('./config/database');
 const { verifyCredentials, requireAuth } = require('./config/auth');
@@ -22,6 +23,9 @@ const {
 // Récupération de la version depuis package.json
 const packageInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 const appVersion = packageInfo.version;
+
+// URL de base du site (pour les QR codes)
+const baseUrl = process.env.BASE_URL || 'https://demo.uxii.fr';
 
 // Initialisation de l'application Express
 const app = express();
@@ -135,6 +139,11 @@ app.get('/play', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/play/index.html'));
 });
 
+// Route pour rejoindre un quiz directement avec un code de session
+app.get('/play/:sessionCode', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/play/index.html'));
+});
+
 // Nouvelle route pour l'interface screen
 app.get('/screen', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/screen/index.html'));
@@ -206,7 +215,7 @@ io.on('connection', (socket) => {
       username: username
     });
   });
-  
+
   // Quand un écran de présentation se connecte
   socket.on('screen-join', async () => {
     socket.join('screen-room');
@@ -221,7 +230,8 @@ io.on('connection', (socket) => {
         question: q.question,
         options: q.options
       })),
-      appVersion: appVersion
+      appVersion: appVersion,
+      baseUrl: baseUrl
     });
   });
 
@@ -259,7 +269,7 @@ io.on('connection', (socket) => {
     
     // Générer un ID unique pour le joueur
     const playerId = uuidv4();
-    
+
     // Enregistrer le joueur
     gameState.players[playerId] = {
       id: playerId,
@@ -292,7 +302,7 @@ io.on('connection', (socket) => {
       playerCount: Object.keys(gameState.players).length
     });
   });
-  
+
   // Quand un hôte démarre le jeu
   socket.on('start-game', async () => {
     // Vérifier que le quiz actif est chargé
@@ -307,7 +317,7 @@ io.on('connection', (socket) => {
     if (Object.keys(gameState.players).length === 0) {
       return socket.emit('game-error', { error: 'Aucun joueur connecté' });
     }
-    
+
     // Indiquer que le jeu est actif
     gameState.isActive = true;
     gameState.currentQuestionIndex = -1;
@@ -324,7 +334,7 @@ io.on('connection', (socket) => {
     // Passer à la première question
     nextQuestion();
   });
-  
+
   // Quand un joueur répond à une question
   socket.on('player-answer', (data) => {
     // Vérifier que le jeu est actif
@@ -396,7 +406,7 @@ io.on('connection', (socket) => {
   socket.on('next-question', () => {
     nextQuestion();
   });
-  
+
   // Quand un hôte veut démarrer un nouveau jeu
   socket.on('new-game', () => {
     resetGame();
@@ -458,9 +468,9 @@ io.on('connection', (socket) => {
       await activateQuiz(data.quizId);
       
       // Recharger le quiz actif
-      gameState.activeQuiz = await getActiveQuiz();
-      
-      socket.emit('quiz-activated', { success: true });
+        gameState.activeQuiz = await getActiveQuiz();
+        
+        socket.emit('quiz-activated', { success: true });
     } catch (error) {
       socket.emit('quiz-activated', { success: false, error: error.message });
     }
@@ -509,17 +519,17 @@ io.on('connection', (socket) => {
 });
 
 // Fonctions de gestion du jeu
-async function nextQuestion() {
+  async function nextQuestion() {
   // Incrémenter l'index de question
-  gameState.currentQuestionIndex++;
-  
+    gameState.currentQuestionIndex++;
+    
   // Vérifier si on a terminé toutes les questions
-  if (gameState.currentQuestionIndex >= gameState.activeQuiz.questions.length) {
+    if (gameState.currentQuestionIndex >= gameState.activeQuiz.questions.length) {
     return endGame();
-  }
-  
+    }
+    
   // Récupérer la question courante
-  const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
+    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
   
   // Réinitialiser les réponses des joueurs pour cette question
   currentQuestion.playerAnswers = {};
@@ -528,8 +538,8 @@ async function nextQuestion() {
   const questionData = {
     questionNumber: gameState.currentQuestionIndex + 1,
     totalQuestions: gameState.activeQuiz.questions.length,
-    question: currentQuestion.question,
-    options: currentQuestion.options,
+      question: currentQuestion.question,
+      options: currentQuestion.options,
     timeLimit: currentQuestion.timeLimit || gameState.timePerQuestion
   };
   
@@ -559,27 +569,27 @@ function startTimer(seconds) {
   }
   
   // Créer un nouveau timer
-  gameState.timer = setInterval(() => {
+    gameState.timer = setInterval(() => {
     // Décrémenter le temps
-    gameState.timeLeft--;
-    
+      gameState.timeLeft--;
+      
     // Vérifier si le temps est écoulé
-    if (gameState.timeLeft <= 0) {
-      clearInterval(gameState.timer);
+      if (gameState.timeLeft <= 0) {
+        clearInterval(gameState.timer);
       gameState.timer = null;
       
       // Envoyer les résultats de la question après un court délai
       setTimeout(() => {
         sendQuestionResults();
       }, 1000);
-    }
-  }, 1000);
-}
-
-function sendQuestionResults() {
-  // Récupérer la question courante
-  const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
+      }
+    }, 1000);
+  }
   
+  function sendQuestionResults() {
+  // Récupérer la question courante
+    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
+    
   // Préparer les données de score pour l'affichage
   const scoresData = Object.entries(gameState.scores).map(([playerId, score]) => ({
     playerId,
@@ -597,7 +607,7 @@ function sendQuestionResults() {
   
   // Envoyer les résultats à l'hôte et à l'écran
   const resultsData = {
-    correctIndex: currentQuestion.correctIndex,
+      correctIndex: currentQuestion.correctIndex,
     explanation: currentQuestion.explanation,
     scores: scoresData,
     playerAnswers: currentQuestion.playerAnswers || {}
@@ -605,12 +615,12 @@ function sendQuestionResults() {
   
   io.to('host-room').emit('question-results', resultsData);
   io.to('screen-room').emit('question-results', resultsData);
-}
-
-async function endGame() {
-  // Indiquer que le jeu est terminé
-  gameState.isActive = false;
+  }
   
+  async function endGame() {
+  // Indiquer que le jeu est terminé
+    gameState.isActive = false;
+    
   // Préparer les données de score pour l'affichage
   const leaderboard = Object.entries(gameState.scores)
     .map(([playerId, score]) => ({
@@ -619,8 +629,8 @@ async function endGame() {
       score
     }))
     .sort((a, b) => b.score - a.score);
-  
-  // Déterminer le gagnant
+    
+    // Déterminer le gagnant
   const winner = leaderboard.length > 0 ? leaderboard[0] : null;
   
   // Enregistrer le jeu dans l'historique
@@ -653,16 +663,16 @@ async function endGame() {
     winner,
     leaderboard
   });
-}
-
-function resetGame() {
+  }
+  
+  function resetGame() {
   // Réinitialiser l'état du jeu
-  gameState.isActive = false;
-  gameState.currentQuestionIndex = -1;
+    gameState.isActive = false;
+    gameState.currentQuestionIndex = -1;
   
   // Générer un nouveau code de session
-  gameState.sessionCode = generateSessionCode();
-  
+    gameState.sessionCode = generateSessionCode();
+    
   // Vider les listes de joueurs et de scores
   gameState.players = {};
   gameState.scores = {};

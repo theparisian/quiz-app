@@ -83,6 +83,14 @@
                         <p class="url-display fs-3">http://<span id="server-address"></span>/play</p>
                         <p class="code-display fs-1">Code: <span id="join-code" class="fw-bold"></span></p>
                     </div>
+                    
+                    <div class="qrcode-container mb-4">
+                        <h3 class="mb-3">Ou scannez ce QR code :</h3>
+                        <div class="d-flex justify-content-center">
+                            <div id="qrcode" class="bg-white p-3 rounded-3" style="width: 200px; height: 200px;"></div>
+                        </div>
+                        <p class="mt-2 text-muted">Le scan vous amène directement à l'écran de saisie du pseudo</p>
+                    </div>
                 </div>
                 
                 <div class="player-list-container">
@@ -176,6 +184,7 @@
     <!-- Bootstrap 5 JS Bundle with Popper -->
     <script src="/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode.js@1.0.0/qrcode.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html> 

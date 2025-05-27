@@ -58,6 +58,43 @@ document.addEventListener('DOMContentLoaded', () => {
     let answerResultData = null; // Stocker les données de résultat pour les afficher plus tard
     let isWinner = false; // Indique si le joueur est le gagnant
     
+    // Vérifier si un code de session est présent dans l'URL
+    function checkSessionCodeInUrl() {
+        // Récupérer le chemin de l'URL actuelle
+        const pathParts = window.location.pathname.split('/');
+        
+        // Si l'URL est du type /play/123456, le code de session est dans pathParts[2]
+        if (pathParts.length >= 3 && pathParts[1] === 'play') {
+            const codeFromUrl = pathParts[2];
+            
+            if (codeFromUrl && codeFromUrl.length > 0) {
+                // Enregistrer le code de session
+                sessionCode = codeFromUrl;
+                
+                // Afficher le code dans l'écran de pseudonyme
+                codeDisplay.textContent = sessionCode;
+                
+                // Vérifier le code de session
+                socket.emit('verify-session', {
+                    sessionCode: sessionCode
+                });
+                
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    // Initialisation
+    function init() {
+        // Vérifier si un code de session est présent dans l'URL
+        if (!checkSessionCodeInUrl()) {
+            // Si aucun code n'est présent, afficher l'écran de saisie du code
+            showScreen(sessionCodeScreen);
+        }
+    }
+    
     // Gestionnaires d'événements pour la vérification du code de session
     verifyCodeBtn.addEventListener('click', () => {
         const code = sessionCodeInput.value.trim();
@@ -140,6 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Passer à l'écran de saisie du pseudonyme
         showScreen(playerNameScreen);
+        
+        // Focus sur le champ de pseudonyme
+        playerNameInput.focus();
     });
     
     socket.on('session-invalid', (data) => {
@@ -426,4 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailPattern.test(email);
     }
+    
+    // Initialiser l'application
+    init();
 });
