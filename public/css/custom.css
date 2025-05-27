@@ -395,6 +395,10 @@ body {
     z-index: -1;
  }
 
+ .bg-client-lighter {
+    background:rgba(84,120,217,.8) !important;
+ }
+
  #next-question-btn,
  #start-game-btn {
     background:linear-gradient(90deg,rgba(235, 234, 2, 1) 0%, rgba(128, 194, 3, 1) 100%) !important;
