@@ -135,6 +135,11 @@ app.get('/play', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/play/index.html'));
 });
 
+// Nouvelle route pour l'interface screen
+app.get('/screen', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/screen/index.html'));
+});
+
 // Nouvelle route pour l'interface admin
 app.get('/admin', requireAuth, (req, res) => {
   // Rediriger vers la page host, qui contient maintenant les fonctionnalités admin
@@ -201,458 +206,463 @@ io.on('connection', (socket) => {
       username: username
     });
   });
-
-  // Quand un joueur se connecte
-  socket.on('player-join', (data) => {
-    if (data.sessionCode !== gameState.sessionCode) {
-      socket.emit('session-error', { message: 'Code de session incorrect' });
-      return;
-    }
-
-    // Enregistrer le joueur
-    gameState.players[socket.id] = {
-      id: socket.id,
-      name: data.playerName,
-      score: 0
-    };
+  
+  // Quand un écran de présentation se connecte
+  socket.on('screen-join', async () => {
+    socket.join('screen-room');
     
-    gameState.scores[socket.id] = 0;
-    
-    socket.join('player-room');
-    
-    // Informer l'hôte qu'un nouveau joueur a rejoint
-    io.to('host-room').emit('player-joined', {
-      playerCount: Object.keys(gameState.players).length,
-      playerName: data.playerName
-    });
-    
-    // Confirmer au joueur qu'il a rejoint
-    socket.emit('join-success', {
-      playerName: data.playerName
-    });
-  });
-
-  // Quand l'hôte démarre le jeu
-  socket.on('start-game', async () => {
-    if (Object.keys(gameState.players).length === 0) {
-      socket.emit('game-error', { message: 'Aucun joueur connecté' });
-      return;
-    }
-
     // S'assurer que le quiz actif est chargé
     gameState.activeQuiz = await getActiveQuiz();
-
-    gameState.isActive = true;
-    gameState.currentQuestionIndex = -1;
-    Object.keys(gameState.players).forEach(id => {
-      gameState.scores[id] = 0;
-      gameState.players[id].score = 0;
-    });
-
-    nextQuestion();
-  });
-
-  // Quand un joueur répond
-  socket.on('submit-answer', (data) => {
-    if (!gameState.isActive) return;
     
-    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
-    if (!currentQuestion) return;
-    
-    const isCorrect = data.answerIndex === currentQuestion.correctIndex;
-    
-    if (isCorrect) {
-      // Calcul du score (plus rapide = plus de points)
-      const timeLeft = gameState.timeLeft || 1;
-      const points = Math.ceil(timeLeft * 10);
-      
-      gameState.scores[socket.id] = (gameState.scores[socket.id] || 0) + points;
-      gameState.players[socket.id].score += points;
-      
-      socket.emit('answer-result', {
-        correct: true,
-        points: points,
-        totalScore: gameState.scores[socket.id]
-      });
-    } else {
-      socket.emit('answer-result', {
-        correct: false,
-        points: 0,
-        totalScore: gameState.scores[socket.id] || 0
-      });
-    }
-  });
-
-  // Quand l'hôte passe à la question suivante
-  socket.on('request-next-question', () => {
-    nextQuestion();
-  });
-
-  // Quand l'hôte reset le jeu
-  socket.on('reset-game', () => {
-    resetGame();
-    io.to('host-room').emit('game-reset', {
+    socket.emit('game-setup', { 
       sessionCode: gameState.sessionCode,
+      playerCount: Object.keys(gameState.players).length,
+      questions: gameState.activeQuiz.questions.map(q => ({
+        question: q.question,
+        options: q.options
+      })),
+      appVersion: appVersion
+    });
+  });
+
+  // Quand un joueur tente de rejoindre
+  socket.on('player-join', (data) => {
+    const { playerName, sessionCode } = data;
+    
+    // Vérifier si le code de session est valide
+    if (sessionCode !== gameState.sessionCode) {
+      return socket.emit('join-error', { error: 'Code de session invalide' });
+    }
+    
+    // Vérifier si un jeu est déjà en cours
+    if (gameState.isActive && gameState.currentQuestionIndex >= 0) {
+      return socket.emit('join-error', { error: 'Un quiz est déjà en cours, veuillez attendre le prochain' });
+    }
+    
+    // Générer un ID unique pour le joueur
+    const playerId = uuidv4();
+    
+    // Enregistrer le joueur
+    gameState.players[playerId] = {
+      id: playerId,
+      name: playerName,
+      socketId: socket.id
+    };
+    
+    // Initialiser le score du joueur
+    gameState.scores[playerId] = 0;
+    
+    // Rejoindre la salle de jeu
+    socket.join('game-room');
+    
+    // Dire au joueur que tout s'est bien passé
+    socket.emit('join-success', { 
+      playerId,
+      playerName
+    });
+    
+    // Informer l'hôte et l'écran qu'un nouveau joueur a rejoint
+    io.to('host-room').emit('player-joined', {
+      playerId,
+      playerName,
       playerCount: Object.keys(gameState.players).length
     });
-    io.to('player-room').emit('game-reset');
-  });
-
-  // Événements de l'admin
-  socket.on('admin-init', async () => {
-    const session = socket.request.session;
-    console.log('admin-init event, session:', {
-      hasSession: !!session,
-      hasUser: !!(session && session.user),
-      isAdmin: !!(session && session.user && session.user.isAdmin),
-      sessionId: session ? session.id : null
-    });
     
-    // Dans la nouvelle conception, nous permettons d'accéder aux fonctionnalités admin depuis la page host,
-    // mais seulement si l'utilisateur est un administrateur
-    if (!session || !session.user || !session.user.isAdmin) {
-      socket.emit('admin-init-response', { 
-        error: 'Non autorisé',
-        quizzes: []
-      });
-      return;
-    }
-    
-    const quizzes = await getAllQuizzes();
-    
-    socket.emit('admin-init-response', {
-      username: session.user.username,
-      userId: session.user.id,
-      userInfo: {
-        username: session.user.username,
-        isAdmin: session.user.isAdmin
-      },
-      appVersion: appVersion,
-      quizzes: quizzes
+    io.to('screen-room').emit('player-joined', {
+      playerId,
+      playerName,
+      playerCount: Object.keys(gameState.players).length
     });
   });
   
-  socket.on('get-quiz-list', async () => {
-    const session = socket.request.session;
-    if (!session || !session.user || !session.user.isAdmin) {
-      socket.emit('quiz-list-updated', { 
-        error: 'Non autorisé',
-        quizzes: []
-      });
+  // Quand un hôte démarre le jeu
+  socket.on('start-game', async () => {
+    // Vérifier que le quiz actif est chargé
+    if (!gameState.activeQuiz) {
+      gameState.activeQuiz = await getActiveQuiz();
+      if (!gameState.activeQuiz) {
+        return socket.emit('game-error', { error: 'Aucun quiz actif disponible' });
+      }
+    }
+    
+    // Vérifier qu'il y a au moins un joueur
+    if (Object.keys(gameState.players).length === 0) {
+      return socket.emit('game-error', { error: 'Aucun joueur connecté' });
+    }
+    
+    // Indiquer que le jeu est actif
+    gameState.isActive = true;
+    gameState.currentQuestionIndex = -1;
+    
+    // Réinitialiser les scores
+    for (const playerId in gameState.scores) {
+      gameState.scores[playerId] = 0;
+    }
+    
+    // Informer tous les joueurs que le jeu a commencé
+    io.to('game-room').emit('game-started');
+    io.to('screen-room').emit('game-started');
+    
+    // Passer à la première question
+    nextQuestion();
+  });
+  
+  // Quand un joueur répond à une question
+  socket.on('player-answer', (data) => {
+    // Vérifier que le jeu est actif
+    if (!gameState.isActive) {
       return;
     }
     
-    const quizzes = await getAllQuizzes();
+    const { playerId, answerIndex } = data;
     
-    socket.emit('quiz-list-updated', {
-      quizzes: quizzes
+    // Vérifier que le joueur existe
+    if (!gameState.players[playerId]) {
+      return;
+    }
+    
+    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
+    
+    // Vérifier si la réponse est correcte
+    const isCorrect = answerIndex === currentQuestion.correctIndex;
+    
+    // Calculer les points en fonction du temps restant
+    let pointsEarned = 0;
+    if (isCorrect) {
+      // Si le timer est toujours en cours, les points dépendent du temps restant
+      if (gameState.timer) {
+        const timeRatio = Math.max(0, gameState.timeLeft / currentQuestion.timeLimit);
+        pointsEarned = Math.round(1000 * timeRatio);
+      }
+      // Points minimum si la réponse est correcte
+      pointsEarned = Math.max(pointsEarned, 500);
+      
+      // Mettre à jour le score
+      gameState.scores[playerId] += pointsEarned;
+    }
+    
+    // Enregistrer la réponse du joueur pour les statistiques
+    if (!currentQuestion.playerAnswers) {
+      currentQuestion.playerAnswers = {};
+    }
+    
+    currentQuestion.playerAnswers[playerId] = {
+      answerIndex,
+      isCorrect,
+      pointsEarned
+    };
+    
+    // Informer le joueur du résultat de sa réponse
+    io.to(socket.id).emit('answer-result', {
+      isCorrect,
+      pointsEarned,
+      totalScore: gameState.scores[playerId]
+    });
+    
+    // Informer l'hôte et l'écran qu'un joueur a répondu
+    const playerName = gameState.players[playerId].name;
+    io.to('host-room').emit('player-answer', {
+      playerId,
+      playerName,
+      answerIndex
+    });
+    
+    io.to('screen-room').emit('player-answer', {
+      playerId,
+      playerName,
+      answerIndex
     });
   });
   
-  socket.on('save-quiz', async (data) => {
-    const session = socket.request.session;
-    if (!session || !session.user || !session.user.isAdmin) {
-      socket.emit('quiz-saved', { success: false, message: 'Non autorisé' });
-      return;
-    }
-    
-    try {
-      // Valider les données du quiz
-      if (!data.name || !data.name.trim()) {
-        socket.emit('quiz-saved', { success: false, message: 'Le nom du quiz est requis' });
-        return;
-      }
-      
-      if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
-        socket.emit('quiz-saved', { success: false, message: 'Le quiz doit contenir au moins une question' });
-        return;
-      }
-      
-      // Valider chaque question
-      for (let i = 0; i < data.questions.length; i++) {
-        const q = data.questions[i];
+  // Quand un hôte passe à la question suivante
+  socket.on('next-question', () => {
+    nextQuestion();
+  });
+  
+  // Quand un hôte veut démarrer un nouveau jeu
+  socket.on('new-game', () => {
+    resetGame();
+  });
+  
+  // Gestion des déconnexions
+  socket.on('disconnect', () => {
+    // Chercher si c'était un joueur
+    for (const playerId in gameState.players) {
+      if (gameState.players[playerId].socketId === socket.id) {
+        // Supprimer le joueur
+        const playerName = gameState.players[playerId].name;
+        delete gameState.players[playerId];
+        delete gameState.scores[playerId];
         
-        // Valider le timer de la question s'il existe
-        if (q.timer !== undefined) {
-          const timer = parseInt(q.timer);
-          if (isNaN(timer) || timer < 5 || timer > 120) {
-            socket.emit('quiz-saved', { 
-              success: false, 
-              message: `Le temps limite pour la question ${i+1} doit être entre 5 et 120 secondes` 
-            });
-            return;
-          }
-          // S'assurer que timer est un nombre
-          q.timer = timer;
-        }
-      }
-      
-      let success = false;
-      
-      if (data.id) {
-        // Modifier un quiz existant
-        success = await updateQuiz(data.id, {
-          name: data.name,
-          description: data.description,
-          questions: data.questions
+        // Informer l'hôte et l'écran qu'un joueur est parti
+        io.to('host-room').emit('player-left', {
+          playerId,
+          playerName,
+          playerCount: Object.keys(gameState.players).length
         });
-      } else {
-        // Créer un nouveau quiz
-        success = await createQuiz({
-          id: uuidv4(),
-          name: data.name,
-          description: data.description,
-          questions: data.questions,
-          active: false
+        
+        io.to('screen-room').emit('player-left', {
+          playerId,
+          playerName,
+          playerCount: Object.keys(gameState.players).length
         });
+        break;
       }
-      
-      if (success) {
-        socket.emit('quiz-saved', { success: true });
-      } else {
-        socket.emit('quiz-saved', { success: false, message: 'Erreur lors de la sauvegarde' });
-      }
-    } catch (err) {
-      console.error('Erreur lors de la sauvegarde du quiz:', err);
-      socket.emit('quiz-saved', { success: false, message: err.message });
     }
   });
   
-  socket.on('delete-quiz', async (data) => {
-    const session = socket.request.session;
-    if (!session || !session.user || !session.user.isAdmin) {
-      socket.emit('quiz-deleted', { success: false, message: 'Non autorisé' });
-      return;
-    }
-    
+  // Gestion des événements d'administration (CRUD des quiz)
+  socket.on('get-quizzes', async () => {
+    const quizzes = await getAllQuizzes();
+    socket.emit('quizzes-list', { quizzes });
+  });
+  
+  socket.on('create-quiz', async (data) => {
     try {
-      const result = await deleteQuiz(data.id);
-      
-      if (result.success) {
-        socket.emit('quiz-deleted', { success: true });
-      } else {
-        if (result.reason === 'active') {
-          socket.emit('quiz-deleted', { success: false, message: 'Impossible de supprimer le quiz actif' });
-        } else if (result.reason === 'last') {
-          socket.emit('quiz-deleted', { success: false, message: 'Impossible de supprimer le dernier quiz' });
-        } else {
-          socket.emit('quiz-deleted', { success: false, message: 'Erreur lors de la suppression' });
-        }
-      }
-    } catch (err) {
-      console.error('Erreur lors de la suppression du quiz:', err);
-      socket.emit('quiz-deleted', { success: false, message: err.message });
+      const result = await createQuiz(data.quiz);
+      socket.emit('quiz-created', { success: true, quizId: result.quizId });
+    } catch (error) {
+      socket.emit('quiz-created', { success: false, error: error.message });
+    }
+  });
+  
+  socket.on('update-quiz', async (data) => {
+    try {
+      await updateQuiz(data.quiz);
+      socket.emit('quiz-updated', { success: true });
+    } catch (error) {
+      socket.emit('quiz-updated', { success: false, error: error.message });
     }
   });
   
   socket.on('activate-quiz', async (data) => {
-    const session = socket.request.session;
-    if (!session || !session.user || !session.user.isAdmin) {
-      socket.emit('quiz-activated', { success: false, message: 'Non autorisé' });
-      return;
-    }
-    
     try {
-      const success = await activateQuiz(data.id);
+      await activateQuiz(data.quizId);
       
-      if (success) {
-        // Mettre à jour le quiz actif dans le gameState
-        gameState.activeQuiz = await getActiveQuiz();
-        
-        socket.emit('quiz-activated', { success: true });
-      } else {
-        socket.emit('quiz-activated', { success: false, message: 'Erreur lors de l\'activation' });
-      }
-    } catch (err) {
-      console.error('Erreur lors de l\'activation du quiz:', err);
-      socket.emit('quiz-activated', { success: false, message: err.message });
+      // Recharger le quiz actif
+      gameState.activeQuiz = await getActiveQuiz();
+      
+      socket.emit('quiz-activated', { success: true });
+    } catch (error) {
+      socket.emit('quiz-activated', { success: false, error: error.message });
     }
   });
-
-  // Nouvel événement pour recevoir l'email du gagnant
+  
+  socket.on('delete-quiz', async (data) => {
+    try {
+      await deleteQuiz(data.quizId);
+      socket.emit('quiz-deleted', { success: true });
+    } catch (error) {
+      socket.emit('quiz-deleted', { success: false, error: error.message });
+    }
+  });
+  
+  // Gestion des emails des gagnants
   socket.on('submit-winner-email', async (data) => {
-    console.log('Email du gagnant reçu:', data);
+    const { playerId, email } = data;
     
-    // Enregistrer l'email dans les données du joueur
-    if (gameState.players[socket.id]) {
-      gameState.players[socket.id].email = data.playerEmail;
-      
-      // Informer l'hôte de la mise à jour de l'email
-      io.to('host-room').emit('winner-email-submitted', {
-        playerName: data.playerName,
-        playerEmail: data.playerEmail,
-        score: data.score
-      });
-      
-      // Envoyer un email au gagnant
+    // Vérifier que c'est bien le gagnant
+    let isWinner = false;
+    let topScore = 0;
+    let topPlayerId = null;
+    
+    for (const pid in gameState.scores) {
+      if (gameState.scores[pid] > topScore) {
+        topScore = gameState.scores[pid];
+        topPlayerId = pid;
+      }
+    }
+    
+    isWinner = (playerId === topPlayerId);
+    
+    if (isWinner) {
       try {
-        await sendWinnerEmail({
-          name: data.playerName,
-          email: data.playerEmail,
-          score: data.score
-        }, gameState.activeQuiz.name);
-        console.log(`Email envoyé au gagnant: ${data.playerEmail}`);
+        // Envoyer l'email au gagnant
+        const playerName = gameState.players[playerId].name;
+        await sendWinnerEmail(email, playerName, topScore);
+        socket.emit('email-success', { message: 'Email envoyé avec succès' });
       } catch (error) {
-        console.error('Erreur lors de l\'envoi de l\'email au gagnant:', error);
+        socket.emit('email-error', { error: 'Erreur lors de l\'envoi de l\'email: ' + error.message });
       }
+    } else {
+      socket.emit('email-error', { error: 'Vous n\'êtes pas le gagnant de ce quiz' });
     }
   });
-
-  // Déconnexion
-  socket.on('disconnect', () => {
-    console.log('Déconnexion:', socket.id);
-    
-    if (gameState.players[socket.id]) {
-      delete gameState.players[socket.id];
-      delete gameState.scores[socket.id];
-      
-      io.to('host-room').emit('player-left', {
-        playerCount: Object.keys(gameState.players).length
-      });
-    }
-  });
-
-  async function nextQuestion() {
-    clearTimeout(gameState.timer);
-    gameState.currentQuestionIndex++;
-    
-    // S'assurer que le quiz actif est chargé
-    gameState.activeQuiz = await getActiveQuiz();
-    
-    if (gameState.currentQuestionIndex >= gameState.activeQuiz.questions.length) {
-      endGame();
-      return;
-    }
-    
-    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
-    // Utiliser le timer spécifique de la question ou la valeur par défaut
-    const questionTimer = currentQuestion.timer || gameState.timePerQuestion;
-    gameState.timeLeft = questionTimer;
-    
-    // Envoyer la question à l'hôte et aux joueurs
-    io.to('host-room').emit('new-question', {
-      question: currentQuestion.question,
-      options: currentQuestion.options,
-      questionNumber: gameState.currentQuestionIndex + 1,
-      totalQuestions: gameState.activeQuiz.questions.length,
-      timeLimit: questionTimer
-    });
-    
-    io.to('player-room').emit('new-question', {
-      options: currentQuestion.options,
-      questionNumber: gameState.currentQuestionIndex + 1,
-      totalQuestions: gameState.activeQuiz.questions.length,
-      timeLimit: questionTimer
-    });
-    
-    startTimer();
-  }
-  
-  function startTimer() {
-    gameState.timer = setInterval(() => {
-      gameState.timeLeft--;
-      
-      // Envoyer la mise à jour du timer à l'hôte et aux joueurs
-      io.to('host-room').emit('timer-update', {
-        timeLeft: gameState.timeLeft
-      });
-      io.to('player-room').emit('timer-update', {
-        timeLeft: gameState.timeLeft
-      });
-      
-      if (gameState.timeLeft <= 0) {
-        clearInterval(gameState.timer);
-        // Informer tous les clients que le temps est écoulé
-        io.to('host-room').emit('time-up');
-        io.to('player-room').emit('time-up');
-        sendQuestionResults();
-      }
-    }, 1000);
-  }
-  
-  function sendQuestionResults() {
-    const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
-    
-    if (!currentQuestion) return;
-    
-    // Préparer le classement actuel
-    const scores = Object.values(gameState.players)
-      .sort((a, b) => b.score - a.score)
-      .map(player => ({ name: player.name, score: player.score }));
-    
-    // Envoyer les résultats à tous
-    io.to('host-room').emit('question-results', {
-      correctIndex: currentQuestion.correctIndex,
-      correctText: currentQuestion.options[currentQuestion.correctIndex],
-      explanation: currentQuestion.explanation || "Pas d'explication disponible",
-      scores: scores
-    });
-  }
-  
-  async function endGame() {
-    gameState.isActive = false;
-    
-    // Préparer le classement final
-    const finalScores = Object.values(gameState.players)
-      .sort((a, b) => b.score - a.score)
-      .map((player, index) => ({
-        position: index + 1,
-        name: player.name,
-        email: player.email || '',
-        score: player.score
-      }));
-    
-    // Déterminer le gagnant
-    const winner = finalScores.length > 0 ? finalScores[0] : null;
-    
-    // Envoyer les résultats finaux à l'hôte
-    io.to('host-room').emit('game-end', {
-      winner: winner,
-      leaderboard: finalScores
-    });
-    
-    // Envoyer les résultats finaux aux joueurs
-    io.to('player-room').emit('game-over', {
-      leaderboard: finalScores
-    });
-    
-    // Sauvegarder les résultats dans l'historique
-    console.log('Fin du jeu, résultats:', finalScores);
-    
-    // Enregistrer l'historique de la partie
-    if (finalScores.length > 0) {
-      await addGameToHistory({
-        quizId: gameState.activeQuiz.id,
-        quizName: gameState.activeQuiz.name,
-        players: finalScores.length,
-        winner: winner ? {
-          name: winner.name,
-          email: winner.email,
-          score: winner.score
-        } : null,
-        leaderboard: finalScores
-      });
-      
-      // Note: L'email du gagnant sera envoyé lorsqu'il soumettra son email via l'événement 'submit-winner-email'
-    }
-  }
-  
-  function resetGame() {
-    clearTimeout(gameState.timer);
-    gameState.isActive = false;
-    gameState.currentQuestionIndex = -1;
-    gameState.sessionCode = generateSessionCode();
-    
-    // Réinitialiser les scores des joueurs connectés
-    Object.keys(gameState.players).forEach(id => {
-      gameState.scores[id] = 0;
-      gameState.players[id].score = 0;
-    });
-    
-    // S'assurer que le quiz actif est chargé
-    gameState.activeQuiz = loadActiveQuiz();
-  }
 });
+
+// Fonctions de gestion du jeu
+async function nextQuestion() {
+  // Incrémenter l'index de question
+  gameState.currentQuestionIndex++;
+  
+  // Vérifier si on a terminé toutes les questions
+  if (gameState.currentQuestionIndex >= gameState.activeQuiz.questions.length) {
+    return endGame();
+  }
+  
+  // Récupérer la question courante
+  const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
+  
+  // Réinitialiser les réponses des joueurs pour cette question
+  currentQuestion.playerAnswers = {};
+  
+  // Préparer les données à envoyer aux clients
+  const questionData = {
+    questionNumber: gameState.currentQuestionIndex + 1,
+    totalQuestions: gameState.activeQuiz.questions.length,
+    question: currentQuestion.question,
+    options: currentQuestion.options,
+    timeLimit: currentQuestion.timeLimit || gameState.timePerQuestion
+  };
+  
+  // Envoyer la question à tous les joueurs
+  io.to('game-room').emit('new-question', questionData);
+  
+  // Envoyer la question à l'hôte (avec l'index de la réponse correcte)
+  io.to('host-room').emit('new-question', {
+    ...questionData,
+    correctIndex: currentQuestion.correctIndex
+  });
+  
+  // Envoyer la question à l'écran (sans l'index de la réponse correcte)
+  io.to('screen-room').emit('new-question', questionData);
+  
+  // Démarrer le timer
+  startTimer(currentQuestion.timeLimit || gameState.timePerQuestion);
+}
+
+function startTimer(seconds) {
+  // Initialiser le temps restant
+  gameState.timeLeft = seconds;
+  
+  // Arrêter tout timer existant
+  if (gameState.timer) {
+    clearInterval(gameState.timer);
+  }
+  
+  // Créer un nouveau timer
+  gameState.timer = setInterval(() => {
+    // Décrémenter le temps
+    gameState.timeLeft--;
+    
+    // Vérifier si le temps est écoulé
+    if (gameState.timeLeft <= 0) {
+      clearInterval(gameState.timer);
+      gameState.timer = null;
+      
+      // Envoyer les résultats de la question après un court délai
+      setTimeout(() => {
+        sendQuestionResults();
+      }, 1000);
+    }
+  }, 1000);
+}
+
+function sendQuestionResults() {
+  // Récupérer la question courante
+  const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
+  
+  // Préparer les données de score pour l'affichage
+  const scoresData = Object.entries(gameState.scores).map(([playerId, score]) => ({
+    playerId,
+    playerName: gameState.players[playerId].name,
+    score
+  }));
+  
+  // Envoyer les résultats de la question à tous les joueurs
+  io.to('game-room').emit('question-results', {
+    correctIndex: currentQuestion.correctIndex,
+    correctAnswer: currentQuestion.options[currentQuestion.correctIndex],
+    explanation: currentQuestion.explanation,
+    scores: scoresData
+  });
+  
+  // Envoyer les résultats à l'hôte et à l'écran
+  const resultsData = {
+    correctIndex: currentQuestion.correctIndex,
+    explanation: currentQuestion.explanation,
+    scores: scoresData,
+    playerAnswers: currentQuestion.playerAnswers || {}
+  };
+  
+  io.to('host-room').emit('question-results', resultsData);
+  io.to('screen-room').emit('question-results', resultsData);
+}
+
+async function endGame() {
+  // Indiquer que le jeu est terminé
+  gameState.isActive = false;
+  
+  // Préparer les données de score pour l'affichage
+  const leaderboard = Object.entries(gameState.scores)
+    .map(([playerId, score]) => ({
+      playerId,
+      playerName: gameState.players[playerId].name,
+      score
+    }))
+    .sort((a, b) => b.score - a.score);
+  
+  // Déterminer le gagnant
+  const winner = leaderboard.length > 0 ? leaderboard[0] : null;
+  
+  // Enregistrer le jeu dans l'historique
+  try {
+    await addGameToHistory({
+      date: new Date(),
+      quizName: gameState.activeQuiz.name,
+      quizId: gameState.activeQuiz.id,
+      players: Object.values(gameState.players).map(p => p.name),
+      scores: gameState.scores,
+      winner: winner ? winner.playerName : null
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement du jeu dans l\'historique:', error);
+  }
+  
+  // Envoyer les résultats finaux à tous les joueurs
+  io.to('game-room').emit('game-end', {
+    winner,
+    leaderboard
+  });
+  
+  // Envoyer les résultats à l'hôte et à l'écran
+  io.to('host-room').emit('game-end', {
+    winner,
+    leaderboard
+  });
+  
+  io.to('screen-room').emit('game-end', {
+    winner,
+    leaderboard
+  });
+}
+
+function resetGame() {
+  // Réinitialiser l'état du jeu
+  gameState.isActive = false;
+  gameState.currentQuestionIndex = -1;
+  
+  // Générer un nouveau code de session
+  gameState.sessionCode = generateSessionCode();
+  
+  // Vider les listes de joueurs et de scores
+  gameState.players = {};
+  gameState.scores = {};
+  
+  // Informer tous les clients
+  io.to('host-room').emit('game-reset', {
+    sessionCode: gameState.sessionCode
+  });
+  
+  io.to('game-room').emit('game-reset');
+  
+  io.to('screen-room').emit('game-reset', {
+    sessionCode: gameState.sessionCode
+  });
+  
+  // Déconnecter tous les joueurs
+  io.in('game-room').disconnectSockets();
+}
 
 // Démarrer le serveur
 const PORT = process.env.PORT || 3000;
