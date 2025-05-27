@@ -283,11 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     nextQuestionBtn.addEventListener('click', () => {
-        socket.emit('request-next-question');
+        socket.emit('next-question');
     });
     
     newGameBtn.addEventListener('click', () => {
-        socket.emit('reset-game');
+        socket.emit('new-game');
     });
     
     // Fonctions utilitaires partie host

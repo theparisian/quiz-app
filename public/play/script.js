@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Variables d'état local
     let playerName = '';
+    let playerData = null; // Stocke les données du joueur, y compris son ID
     let currentScore = 0;
     let currentOptions = [];
     let selectedAnswerIndex = null;
@@ -90,9 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Envoyer l'email au serveur
         socket.emit('submit-winner-email', {
-            playerName: playerName,
-            playerEmail: email,
-            score: currentScore
+            playerId: playerData.playerId,
+            email: email
         });
         
         // Afficher le message de succès
@@ -107,11 +107,14 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Connecté au serveur');
     });
     
-    socket.on('session-error', (data) => {
-        showError(data.message);
+    socket.on('join-error', (data) => {
+        showError(data.error);
     });
     
     socket.on('join-success', (data) => {
+        // Stocker les données du joueur
+        playerData = data;
+        
         // Mettre à jour l'interface
         playerNameDisplay.textContent = data.playerName;
         playerInfo.classList.remove('hidden');
@@ -158,7 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedAnswerIndex = index;
                 
                 // Envoyer la réponse
-                socket.emit('submit-answer', {
+                socket.emit('player-answer', {
+                    playerId: playerData.playerId,
                     answerIndex: parseInt(index)
                 });
                 
@@ -178,8 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('time-up', () => {
         // Si le joueur n'a pas répondu, envoyer une réponse vide
         if (!hasAnswered && selectedAnswerIndex === null) {
-            socket.emit('submit-answer', {
-                answerIndex: -1 // Indique qu'aucune réponse n'a été donnée
+            socket.emit('player-answer', {
+                playerId: playerData.playerId,
+                answerIndex: null // Indique qu'aucune réponse n'a été donnée
             });
         }
         
@@ -234,51 +239,62 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen(questionResultsScreen);
     });
     
-    socket.on('game-over', (data) => {
-        // Vérifier si le joueur est le gagnant (première position dans le classement)
-        isWinner = false;
+    socket.on('game-end', (data) => {
+        console.log('Game over:', data);
+        
+        // Mettre à jour le score final
+        currentScoreValue.textContent = currentScore;
+        
+        // Afficher le résultat final
+        finalResult.innerHTML = '';
+        
         if (data.leaderboard && data.leaderboard.length > 0) {
-            const topPlayer = data.leaderboard[0];
-            // Comparer avec le nom du joueur actuel
-            if (topPlayer.name === playerName) {
-                isWinner = true;
-                winnerForm.classList.remove('hidden');
+            // Déterminer la position du joueur actuel
+            let playerPosition = -1;
+            let playerScore = 0;
+            
+            for (let i = 0; i < data.leaderboard.length; i++) {
+                const player = data.leaderboard[i];
+                if (player.playerName === playerName) {
+                    playerPosition = i + 1;
+                    playerScore = player.score;
+                    
+                    // Vérifier si le joueur est le gagnant
+                    isWinner = (playerPosition === 1);
+                    break;
+                }
             }
-        }
-        
-        // Afficher le classement final
-        let leaderboardHTML = `
-            <div class="quiz-end-message mb-4">
-                <p>Votre score final: <strong>${currentScore}</strong> points</p>
-            </div>
-            <div class="card bg-light">
-                <div class="card-header">
-                    <h3 class="fs-5 mb-0">Classement final</h3>
-                </div>
-                <ul class="list-group list-group-flush">
-        `;
-        
-        if (data.leaderboard && data.leaderboard.length > 0) {
-            data.leaderboard.forEach((player, index) => {
-                const isCurrentPlayer = player.name === playerName;
-                leaderboardHTML += `
-                    <li class="list-group-item d-flex justify-content-between align-items-center ${isCurrentPlayer ? 'bg-light' : ''}">
-                        <span>${index + 1}. ${player.name} ${isCurrentPlayer ? '(Vous)' : ''}</span>
-                        <span class="badge bg-primary rounded-pill">${player.score} pts</span>
-                    </li>
+            
+            if (playerPosition > 0) {
+                const positionText = getOrdinalSuffix(playerPosition);
+                finalResult.innerHTML = `
+                    <div class="alert ${playerPosition === 1 ? 'alert-success' : 'alert-primary'}">
+                        <h3>Vous avez terminé à la ${positionText} place!</h3>
+                        <p>Votre score final: ${playerScore}</p>
+                    </div>
                 `;
-            });
+                
+                // Afficher le formulaire d'email si le joueur est le gagnant
+                if (isWinner) {
+                    winnerForm.classList.remove('hidden');
+                }
+            } else {
+                finalResult.innerHTML = `
+                    <div class="alert alert-secondary">
+                        <h3>Merci d'avoir participé!</h3>
+                        <p>Votre score final: ${currentScore}</p>
+                    </div>
+                `;
+            }
         } else {
-            leaderboardHTML += `<li class="list-group-item">Aucun joueur dans le classement</li>`;
+            finalResult.innerHTML = `
+                <div class="alert alert-secondary">
+                    <h3>Fin du quiz</h3>
+                    <p>Aucun classement disponible.</p>
+                </div>
+            `;
         }
         
-        leaderboardHTML += `
-                </ul>
-            </div>
-            <button onclick="window.location.href='/play'" class="btn btn-primary mt-4">Retour à l'accueil</button>
-        `;
-        
-        finalResult.innerHTML = leaderboardHTML;
         showScreen(finalScreen);
     });
     
