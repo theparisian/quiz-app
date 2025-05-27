@@ -3,8 +3,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Éléments DOM
     const playerNameInput = document.getElementById('player-name');
     const sessionCodeInput = document.getElementById('session-code');
+    const verifyCodeBtn = document.getElementById('verify-code-btn');
     const joinBtn = document.getElementById('join-btn');
-    const joinError = document.getElementById('join-error');
+    const backBtn = document.getElementById('back-btn');
+    const sessionError = document.getElementById('session-error');
+    const nameError = document.getElementById('name-error');
+    const codeDisplay = document.getElementById('code-display');
     const playerNameDisplay = document.getElementById('player-name-display');
     const scoreValue = document.getElementById('score-value');
     const playerInfo = document.getElementById('player-info');
@@ -29,7 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const emailError = document.getElementById('email-error');
     
     // Écrans
-    const joinScreen = document.getElementById('join-screen');
+    const sessionCodeScreen = document.getElementById('session-code-screen');
+    const playerNameScreen = document.getElementById('player-name-screen');
     const waitingScreen = document.getElementById('waiting-screen');
     const questionScreen = document.getElementById('question-screen');
     const answerResultScreen = document.getElementById('answer-result-screen');
@@ -43,6 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Variables d'état local
     let playerName = '';
+    let sessionCode = '';
+    let isSessionValid = false;
     let playerData = null; // Stocke les données du joueur, y compris son ID
     let currentScore = 0;
     let currentOptions = [];
@@ -51,18 +58,35 @@ document.addEventListener('DOMContentLoaded', () => {
     let answerResultData = null; // Stocker les données de résultat pour les afficher plus tard
     let isWinner = false; // Indique si le joueur est le gagnant
     
-    // Gestionnaires d'événements
-    joinBtn.addEventListener('click', () => {
-        const name = playerNameInput.value.trim();
+    // Gestionnaires d'événements pour la vérification du code de session
+    verifyCodeBtn.addEventListener('click', () => {
         const code = sessionCodeInput.value.trim();
         
-        if (!name) {
-            showError('Veuillez entrer votre nom.');
+        if (!code) {
+            showSessionError('Veuillez entrer le code de session.');
             return;
         }
         
-        if (!code) {
-            showError('Veuillez entrer le code de session.');
+        // Envoyer la demande de vérification du code
+        socket.emit('verify-session', {
+            sessionCode: code
+        });
+        
+        // Stocker le code de session temporairement
+        sessionCode = code;
+    });
+    
+    // Événement pour revenir à l'écran de code session
+    backBtn.addEventListener('click', () => {
+        showScreen(sessionCodeScreen);
+    });
+    
+    // Gestionnaire d'événement pour la connexion finale
+    joinBtn.addEventListener('click', () => {
+        const name = playerNameInput.value.trim();
+        
+        if (!name) {
+            showNameError('Veuillez entrer votre pseudonyme.');
             return;
         }
         
@@ -71,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Envoyer la demande de connexion
         socket.emit('player-join', {
             playerName: name,
-            sessionCode: code
+            sessionCode: sessionCode
         });
     });
     
@@ -107,8 +131,23 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Connecté au serveur');
     });
     
+    // Réponse à la vérification du code session
+    socket.on('session-verified', (data) => {
+        isSessionValid = true;
+        
+        // Afficher le code dans l'écran de pseudonyme
+        codeDisplay.textContent = sessionCode;
+        
+        // Passer à l'écran de saisie du pseudonyme
+        showScreen(playerNameScreen);
+    });
+    
+    socket.on('session-invalid', (data) => {
+        showSessionError(data.error || 'Code de session invalide.');
+    });
+    
     socket.on('join-error', (data) => {
-        showError(data.error);
+        showNameError(data.error);
     });
     
     socket.on('join-success', (data) => {
@@ -218,10 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentScoreValue.textContent = data.totalScore;
         
         // Afficher le résultat
-        if (data.correct) {
+        if (data.isCorrect) {
             resultStatus.textContent = 'Correct!';
             resultStatus.className = 'mb-2 fs-5 fw-bold correct';
-            pointsEarned.textContent = `+${data.points} points`;
+            pointsEarned.textContent = `+${data.pointsEarned} points`;
         } else {
             resultStatus.textContent = 'Incorrect!';
             resultStatus.className = 'mb-2 fs-5 fw-bold incorrect';
@@ -300,23 +339,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     socket.on('game-reset', () => {
         // Retour à l'écran de connexion
-        showScreen(joinScreen);
-        playerInfo.classList.add('hidden');
-        currentScore = 0;
-        scoreValue.textContent = currentScore;
-        optionsContainer.classList.remove('active');
-        
-        // Réinitialiser le formulaire d'email
-        winnerForm.classList.add('hidden');
-        winnerEmailInput.value = '';
-        emailSuccess.classList.add('hidden');
-        emailError.classList.add('hidden');
+        resetGame();
     });
     
     // Fonctions utilitaires
     function showScreen(screenToShow) {
         // Cacher tous les écrans
-        joinScreen.classList.remove('active');
+        sessionCodeScreen.classList.remove('active');
+        playerNameScreen.classList.remove('active');
         waitingScreen.classList.remove('active');
         questionScreen.classList.remove('active');
         answerResultScreen.classList.remove('active');
@@ -325,13 +355,57 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Afficher l'écran demandé
         screenToShow.classList.add('active');
+        
+        // Focus sur le champ d'entrée approprié si présent
+        if (screenToShow === sessionCodeScreen) {
+            sessionCodeInput.focus();
+        } else if (screenToShow === playerNameScreen) {
+            playerNameInput.focus();
+        }
     }
     
-    function showError(message) {
-        joinError.textContent = message;
-        joinError.classList.remove('hidden');
+    function resetGame() {
+        // Réinitialiser les variables d'état
+        playerName = '';
+        sessionCode = '';
+        isSessionValid = false;
+        playerData = null;
+        currentScore = 0;
+        
+        // Réinitialiser les champs de formulaire
+        sessionCodeInput.value = '';
+        playerNameInput.value = '';
+        
+        // Cacher les informations du joueur
+        playerInfo.classList.add('hidden');
+        scoreValue.textContent = '0';
+        
+        // Réinitialiser l'interface
+        optionsContainer.classList.remove('active');
+        
+        // Réinitialiser le formulaire d'email
+        winnerForm.classList.add('hidden');
+        winnerEmailInput.value = '';
+        emailSuccess.classList.add('hidden');
+        emailError.classList.add('hidden');
+        
+        // Revenir à l'écran initial
+        showScreen(sessionCodeScreen);
+    }
+    
+    function showSessionError(message) {
+        sessionError.textContent = message;
+        sessionError.classList.remove('hidden');
         setTimeout(() => {
-            joinError.classList.add('hidden');
+            sessionError.classList.add('hidden');
+        }, 5000);
+    }
+    
+    function showNameError(message) {
+        nameError.textContent = message;
+        nameError.classList.remove('hidden');
+        setTimeout(() => {
+            nameError.classList.add('hidden');
         }, 5000);
     }
     

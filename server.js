@@ -225,6 +225,24 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Quand un joueur tente de vérifier un code de session
+  socket.on('verify-session', (data) => {
+    const { sessionCode } = data;
+    
+    // Vérifier si le code de session est valide
+    if (sessionCode !== gameState.sessionCode) {
+      return socket.emit('session-invalid', { error: 'Code de session invalide' });
+    }
+    
+    // Vérifier si un jeu est déjà en cours
+    if (gameState.isActive && gameState.currentQuestionIndex >= 0) {
+      return socket.emit('session-invalid', { error: 'Un quiz est déjà en cours, veuillez attendre le prochain' });
+    }
+    
+    // Le code est valide
+    socket.emit('session-verified', { success: true });
+  });
+
   // Quand un joueur tente de rejoindre
   socket.on('player-join', (data) => {
     const { playerName, sessionCode } = data;
