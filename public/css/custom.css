@@ -256,15 +256,6 @@ body {
     gap: 10px;
 }
 
-/* Écrans d'attente, question, résultats */
-.connection-info {
-    background-color: #e9ecef;
-    padding: 15px;
-    border-radius: 8px;
-    margin: 15px 0;
-    text-align: center;
-}
-
 .player-list-container {
     margin: 20px 0;
 }
