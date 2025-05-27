@@ -412,3 +412,7 @@ body {
  .rounded {
     border-radius:2rem !important;
  }
+
+ .border-extra-light {
+    border:1px solid rgba(255, 255, 255, .06) !important;
+ }
