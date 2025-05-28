@@ -427,6 +427,11 @@ body {
     color:white;
     backdrop-filter:blur(10px);
     background:rgba(0, 0, 0, .08) !important;
+    transition:0.2s ease all 0s;
+ }
+
+ .nav-tabs:hover .nav-link {
+    background:rgba(0, 0, 0, .15) !important;
  }
 
  .nav-tabs .nav-link.active {
