@@ -431,7 +431,7 @@ body {
  }
 
  .nav-tabs .nav-item:hover .nav-link {
-    background:rgba(0, 0, 0, .15) !important;
+    background:rgba(0, 0, 0, .2) !important;
  }
 
  .nav-tabs .nav-item .nav-link.active {
