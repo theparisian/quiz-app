@@ -428,3 +428,8 @@ body {
     backdrop-filter:blur(10px);
     background:rgba(0, 0, 0, .08) !important;
  }
+
+ .nav-tabs .nav-link.active {
+    backdrop-filter:blur(0px);
+    background:white !important;
+ }
