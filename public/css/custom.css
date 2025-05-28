@@ -439,3 +439,9 @@ body {
     backdrop-filter:blur(0px);
     background:white !important;
 }
+
+:root {
+    --color-primary: #5478D9;
+    --color-secondary: #667eea;
+    --danger: #DF5A6B;
+}
