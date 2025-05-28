@@ -434,7 +434,8 @@ body {
     background:rgba(0, 0, 0, .2) !important;
  }
 
- .nav-tabs .nav-item .nav-link.active {
+.nav-tabs .nav-item .nav-link.active,
+.nav-tabs .nav-item:hover .nav-link.active {
     backdrop-filter:blur(0px);
     background:white !important;
- }
+}
