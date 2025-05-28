@@ -375,7 +375,7 @@ body {
 }
 
 .bg-custom {
-    background:#5478D9;
+    background:url('https://theparisian.fr/FTP/QUIZZ/src/bg-repeat.jpg') repeat center center #5478D9;
 }
 
 .bg-client {
