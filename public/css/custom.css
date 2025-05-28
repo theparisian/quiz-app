@@ -416,3 +416,15 @@ body {
  .border-extra-light {
     border:1px solid rgba(255, 255, 255, .06) !important;
  }
+
+
+ /* MENU CUSTOM */
+
+ .nav-tabs .nav-link {
+    border:0 !important;
+    margin:0 5px !important;
+    padding:10px 20px !important;
+    color:white;
+    backdrop-filter:blur(10px);
+    background:rgba(0, 0, 0, .08) !important;
+ }
