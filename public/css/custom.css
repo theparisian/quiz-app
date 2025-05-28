@@ -420,7 +420,7 @@ body {
 
  /* MENU CUSTOM */
 
- .nav-tabs .nav-link {
+ .nav-tabs .nav-item .nav-link {
     border:0 !important;
     margin:0 5px !important;
     padding:10px 20px !important;
@@ -430,11 +430,11 @@ body {
     transition:0.2s ease all 0s;
  }
 
- .nav-tabs:hover .nav-link {
+ .nav-tabs .nav-item:hover .nav-link {
     background:rgba(0, 0, 0, .15) !important;
  }
 
- .nav-tabs .nav-link.active {
+ .nav-tabs .nav-item .nav-link.active {
     backdrop-filter:blur(0px);
     background:white !important;
  }
