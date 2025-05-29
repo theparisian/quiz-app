@@ -8,7 +8,7 @@
  @font-face {
     font-family: "Brandon-Black";
     src: url("font/BrandonText-Black.ttf") format("truetype");
-    font-weight: 700;
+    font-weight:bold;
 }
 
 @font-face {
@@ -18,7 +18,8 @@
 
 @font-face {
     font-family: "Brandon-Light";
-    src: url("font/BrandonText-Light.ttf") format("truetype")
+    src: url("font/BrandonText-Light.ttf") format("truetype");
+    font-weight:light;
 }
 
 
