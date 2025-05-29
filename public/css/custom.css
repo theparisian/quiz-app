@@ -447,3 +447,7 @@ body {
     --color-secondary: #667eea;
     --danger: #DF5A6B;
 }
+
+.fw-bold {
+    font-family: "Brandon-Black";
+}
