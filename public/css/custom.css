@@ -427,7 +427,7 @@ body {
     margin:0 5px !important;
     padding:10px 20px !important;
     color:white;
-    backdrop-filter:blur(10px);
+    backdrop-filter:blur(5px);
     background:rgba(0, 0, 0, .08) !important;
     transition:0.2s ease all 0s;
  }
