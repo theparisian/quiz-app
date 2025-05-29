@@ -445,6 +445,76 @@ io.on('connection', (socket) => {
     socket.emit('quizzes-list', { quizzes });
   });
   
+  // Gestionnaire pour admin-init (utilisé par le client)
+  socket.on('admin-init', async () => {
+    try {
+      const quizzes = await getAllQuizzes();
+      socket.emit('admin-init-response', { 
+        success: true,
+        quizzes: quizzes,
+        appVersion: appVersion
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'initialisation admin:', error);
+      socket.emit('admin-init-response', { 
+        success: false,
+        error: error.message 
+      });
+    }
+  });
+  
+  // Gestionnaire pour get-quiz-list (utilisé par le client)
+  socket.on('get-quiz-list', async () => {
+    try {
+      const quizzes = await getAllQuizzes();
+      socket.emit('quiz-list-updated', { quizzes });
+    } catch (error) {
+      console.error('Erreur lors de la récupération de la liste des quiz:', error);
+      socket.emit('quiz-list-updated', { quizzes: [] });
+    }
+  });
+  
+  // Gestionnaire pour save-quiz (utilisé par le client lors de la création/modification)
+  socket.on('save-quiz', async (data) => {
+    try {
+      console.log('💾 [DEBUG] Sauvegarde du quiz:', data.name);
+      
+      if (data.id) {
+        // Mode édition - mettre à jour un quiz existant
+        const success = await updateQuiz(data.id, {
+          name: data.name,
+          description: data.description,
+          questions: data.questions
+        });
+        
+        if (success) {
+          socket.emit('quiz-saved', { success: true, message: 'Quiz mis à jour avec succès' });
+        } else {
+          socket.emit('quiz-saved', { success: false, message: 'Erreur lors de la mise à jour du quiz' });
+        }
+      } else {
+        // Mode création - créer un nouveau quiz
+        const quizId = require('uuid').v4();
+        const success = await createQuiz({
+          id: quizId,
+          name: data.name,
+          description: data.description,
+          questions: data.questions,
+          active: false
+        });
+        
+        if (success) {
+          socket.emit('quiz-saved', { success: true, message: 'Quiz créé avec succès', quizId });
+        } else {
+          socket.emit('quiz-saved', { success: false, message: 'Erreur lors de la création du quiz' });
+        }
+      }
+    } catch (error) {
+      console.error('❌ [ERROR] Erreur lors de la sauvegarde du quiz:', error);
+      socket.emit('quiz-saved', { success: false, message: 'Erreur serveur: ' + error.message });
+    }
+  });
+  
   socket.on('create-quiz', async (data) => {
     try {
       const result = await createQuiz(data.quiz);
@@ -465,7 +535,7 @@ io.on('connection', (socket) => {
   
   socket.on('activate-quiz', async (data) => {
     try {
-      await activateQuiz(data.quizId);
+      await activateQuiz(data.id);
       
       // Recharger le quiz actif
         gameState.activeQuiz = await getActiveQuiz();
@@ -478,7 +548,7 @@ io.on('connection', (socket) => {
   
   socket.on('delete-quiz', async (data) => {
     try {
-      await deleteQuiz(data.quizId);
+      await deleteQuiz(data.id);
       socket.emit('quiz-deleted', { success: true });
     } catch (error) {
       socket.emit('quiz-deleted', { success: false, error: error.message });
