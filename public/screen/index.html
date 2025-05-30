@@ -59,6 +59,13 @@
             100% { transform: scale(1); }
         }
         
+        /* Style pour que le QR code prenne toute la taille du conteneur */
+        #qrcode img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain;
+        }
+        
         /* Styles pour la vidéo de fond */
         .bg-client-video {
             position: fixed;
@@ -78,7 +85,7 @@
     <!--<video class="bg-client-video" autoplay loop muted poster="https://theparisian.fr/FTP/QUIZZ/src/138553-769988105.mp4">
         <source src="https://theparisian.fr/FTP/QUIZZ/src/138553-769988105.mp4" type="video/mp4">
       </video>-->
-    <div class="container-fluid full-screen bg-client-lighter">
+    <div class="container-fluid full-screen">
         <header class="mb-4 text-white d-none">
             <div class="row align-items-center">
                 <div class="col-md-6 text-end">
@@ -94,14 +101,14 @@
             <div id="waiting-screen" class="screen text-white active">
                 <div class="text-center mb-5">
                     <div class="mx-5 row d-flex flex-row flex-nowrap align-items-center">
-                        <div class="col p-5 d-flex flex-column align-items-center justify-content-center bg-blur rounded border-extra-light">
+                        <div class="col p-5 d-flex flex-column align-items-center justify-content-center bg-blur rounded border-extra-light shadow">
                      <p class="lead">Pour rejoindre le quiz, visitez :</p>
                     <div class="connection-info my-4">
                         <p class="url-display fs-3">http://<span id="server-address"></span>/play</p>
                         <p class="code-display fs-1">Code: <span id="join-code" class="fw-bold"></span></p>
                     </div>
                 </div>
-                <div class="p-3 fs-2" style="width:100px;">OU</div>
+                <div class="p-3 fs-2 fw-bold" style="width:100px;">OU</div>
                 <div class="col p-5 d-flex flex-column align-items-center justify-content-center bg-white rounded">
                     <div class="qrcode-container mb-4">
                         <h3 class="mb-3">Ou scannez ce QR code :</h3>
