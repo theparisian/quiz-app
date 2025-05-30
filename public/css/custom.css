@@ -456,3 +456,11 @@ body {
 .fw-bold {
     font-family: "Brandon-Black";
 }
+
+.fs-125 {
+    font-size:1.25rem !important;
+}
+
+.fs-150 {
+    font-size:1.5rem !important;
+}
