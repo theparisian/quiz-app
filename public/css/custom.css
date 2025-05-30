@@ -457,6 +457,10 @@ body {
     font-family: "Brandon-Black";
 }
 
+.fs-100 {
+    font-size:1rem !important;
+}
+
 .fs-125 {
     font-size:1.25rem !important;
 }
