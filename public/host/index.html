@@ -104,11 +104,7 @@
                 <!-- Host Tab Content -->
                 <div id="host-content" class="tab-pane fade show active" role="tabpanel">
                     <div class="d-flex flex-row flex-nowrap">
-                    <div id="session-info-group" class="d-flex justify-content-end mb-3">
-                        <div id="session-code-display" class="me-3">Session: <span id="session-code" class="badge bg-secondary"></span></div>
-                        <div id="player-count">Joueurs: <span id="player-count-value" class="badge bg-primary">0</span></div>
-                    </div>
-                    <div style="border:1px red solid;">
+                    <div style="border:1px red solid;" class="w-100">
                     <div id="waiting-screen" class="screen active">
                         <h2>En attente de joueurs</h2>
                         <p>Demandez aux joueurs de se connecter à ce quiz en visitant cette URL:</p>
@@ -175,8 +171,12 @@
                                 <tbody id="final-leaderboard-body"></tbody>
                             </table>
                         </div>
-                        <button id="new-game-btn" class="btn primary-btn">Nouveau quiz</button>
+                        <button id="new-game-btn" class="bg-success rounded-circle-relative border-0 px-4 py-2 text-white">Nouveau quiz</button>
                     </div>
+                </div>
+                <div id="session-info-group" class="d-flex justify-content-end mb-3 bg-darker-light rounded">
+                    <div id="session-code-display" class="me-3">Session: <span id="session-code" class="badge bg-secondary"></span></div>
+                    <div id="player-count">Joueurs: <span id="player-count-value" class="badge bg-primary">0</span></div>
                 </div>
                 </div>
                 </div>

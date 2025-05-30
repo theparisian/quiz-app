@@ -449,7 +449,9 @@ body {
     background-color: var(--success) !important;
 }
 
-
+.bg-darker-light {
+    background-color: rgba(0, 0, 0, .08) !important;
+}
 
 .fw-bold {
     font-family: "Brandon-Black";
