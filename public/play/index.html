@@ -10,10 +10,10 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/css/custom.css">
 </head>
-<body class="bg-client">
-    <video class="bg-client-video" autoplay loop muted poster="../css/img/2646392-sd_640_360_30fps.mp4">
+<body class="bg-custom">
+    <!-- <video class="bg-client-video" autoplay loop muted poster="../css/img/2646392-sd_640_360_30fps.mp4">
         <source src="../css/img/2646392-sd_640_360_30fps.mp4" type="video/mp4">
-      </video>
+      </video> -->
     <div class="container py-4">
         <header class="text-center mb-4">
             <h1 class="mb-3 text-white">Quiz Master</h1>
@@ -27,16 +27,15 @@
             <div class="p-4">
                 <!-- Écran de saisie du code de session -->
                 <div id="session-code-screen" class="screen active">
-                    <div class="bg-white rounded-4 shadow p-4 mb-5">
-                        <h2 class="text-center mb-4">Rejoindre un quiz</h2>
+                    <div class="bg-white rounded shadow p-4 mb-5">
                         <div class="join-form">
-                            <div class="mb-4">
+                            <div class="p-0 m-0">
                                 <input type="text" class="form-control form-control-input border-0" id="session-code" placeholder="Code session (Ex: 123456)" required>
                             </div>
                         </div>
                         <div id="session-error" class="alert alert-danger mt-3 hidden"></div>
                     </div>
-                    <button id="verify-code-btn" class="btn btn-primary w-100 py-2 fs-2">Suivant</button>
+                    <button id="verify-code-btn" class="bg-blur border-extra-light w-100 py-3 fw-bold text-white fs-2">Jouer</button>
                 </div>
 
                 <!-- Écran de saisie du pseudonyme -->
