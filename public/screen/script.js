@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
             optionCol.className = 'col-md-6 mb-3';
             
             const optionDiv = document.createElement('div');
-            optionDiv.className = 'option';
+            optionDiv.className = 'option text-black fw-bold fs-125';
             optionDiv.textContent = option;
             optionDiv.dataset.index = index;
             
