@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Ajouter le joueur à la liste avec un style attrayant
         const playerItem = document.createElement('div');
-        playerItem.className = 'player-item p-2 bg-primary bg-opacity-25 rounded text-center';
+        playerItem.className = 'player-item p-2 bg-white text-black fw-bold rounded text-center';
         playerItem.textContent = data.playerName;
         playerItem.dataset.playerId = data.playerId;
         playerList.appendChild(playerItem);
