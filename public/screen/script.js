@@ -82,8 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Calculer la matrice QR code
                     qr.make();
                     
-                    // Ajouter le QR code au conteneur
-                    qrcodeContainer.innerHTML = qr.createImgTag(4);
+                    // Ajouter le QR code au conteneur avec une taille de module plus grande pour une meilleure qualité
+                    qrcodeContainer.innerHTML = qr.createImgTag(20);
                     
                     console.log('QR Code généré avec succès pour URL:', directUrl);
                 } else {
