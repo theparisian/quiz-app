@@ -183,13 +183,6 @@ body {
 
 /* ===== INTERFACE HÔTE ===== */
 /* Gestion des quiz */
-.quiz-management-section {
-    background-color: white;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
-}
 
 .quiz-list-container {
     margin-top: 20px;
