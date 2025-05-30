@@ -3,6 +3,11 @@
  * Fichier CSS centralisé pour toutes les interfaces
  */
 
+ :root {
+    --primary: #5478D9;
+    --success: #e3ff52;
+    --danger: #DF5A6B;
+}
 
 
  @font-face {
@@ -440,13 +445,18 @@ body {
 .nav-tabs .nav-item:hover .nav-link.active {
     backdrop-filter:blur(0px);
     background:white !important;
+    color:black !important;
 }
 
-:root {
-    --color-primary: #5478D9;
-    --color-secondary: #667eea;
-    --danger: #DF5A6B;
+.bg-primary {
+    background-color: var(--primary) !important;
 }
+
+.bg-success {
+    background-color: var(--success) !important;
+}
+
+
 
 .fw-bold {
     font-family: "Brandon-Black";
