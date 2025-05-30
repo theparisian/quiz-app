@@ -21,7 +21,7 @@
                 </div>
                 <div class="col-md-6">
                     <div id="session-info" class="d-flex flex-column flex-md-row justify-content-md-end align-items-md-center">
-                        <div id="user-info" class="user-info me-md-4 mb-2 mb-md-0">
+                        <div id="user-info" class="user-info mb-2 mb-md-0">
                             <span id="username-label" class="text-white">Connecté en tant que :</span> 
                             <span id="username" class="fw-bold text-white"></span>
                             <a href="/login" id="login-btn" class="rounded-circle-relative text-decoration-none px-4 py-1 bg-white text-black ms-2">Connexion</a>
@@ -44,8 +44,8 @@
             </ul>
             <!-- Bouton pour ouvrir l'interface screen -->
             <div class="float-end">
-                <a href="/screen" target="_blank" class="bg-blur rounded-circle-relative border-0 px-4 py-2 text-white" style="margin-top:-40px;">
-                    <i class="bi bi-display"></i> Ouvrir l'écran de présentation
+                <a href="/screen" target="_blank" class="bg-black text-nowrap text-decoration-none fs-125 rounded-circle-relative border-0 px-4 py-2 text-white" style="margin-top:-66px;">
+                    <i class="bi bi-display me-2"></i> Ouvrir l'écran de présentation
                 </a>
             </div>
         </div>
@@ -57,16 +57,17 @@
                 <div id="admin-content" class="tab-pane fade" role="tabpanel">
                     <div class="admin-panel">
                         <div class="quiz-management-section">
-                            <h2 class="fw-bold">Gestion des Quiz</h2>
-                            <div class="quiz-actions">
-                                <button id="create-quiz-btn" class="bg-success rounded-circle-relative border-0 px-4 py-2 text-white">Créer un nouveau Quiz</button>
+                            <div class="d-flex flex-row flex-nowrap">
+                                <h2 class="fw-bold">Gestion des Quiz</h2>
+                                <div class="quiz-actions ms-5">
+                                    <button id="create-quiz-btn" class="bg-success rounded-circle-relative border-0 px-4 py-2 text-white">Créer un nouveau Quiz</button>
+                                </div>
                             </div>
                             
                             <div class="quiz-list-container">
-                                <h3 class="fw-bold">Quiz disponibles</h3>
                                 <table id="quiz-table" class="w-100">
                                     <thead>
-                                        <tr>
+                                        <tr class="fw-bold border-bottom-2">
                                             <th>Nom</th>
                                             <th>Questions</th>
                                             <th>Statut</th>
