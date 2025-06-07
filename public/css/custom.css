@@ -477,8 +477,12 @@ body {
     overflow: hidden;
 }
 
+#question-screen .options-container .option-btn {
+    margin-left:-100%;
+}
+
 #question-screen.active .options-container .option-0 {
-    animation-duration: 1s;
+    animation-duration: .5s;
     animation-delay: 0s;
   animation-name: animate-option-0;
 }
@@ -493,8 +497,8 @@ body {
 }
 
 #question-screen.active .options-container .option-1 {
-    animation-duration: 1s;
-    animation-delay: 2s;
+    animation-duration: .5s;
+    animation-delay: .5s;
   animation-name: animate-option-1;
 }
 
@@ -508,12 +512,27 @@ body {
 }
 
 #question-screen.active .options-container .option-2 {
-    animation-duration: 1s;
-    animation-delay: 3s;
+    animation-duration: .5s;
+    animation-delay: 1.5s;
   animation-name: animate-option-2;
 }
 
 @keyframes animate-option-2 {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+#question-screen.active .options-container .option-3 {
+    animation-duration: .5s;
+    animation-delay: 2s;
+  animation-name: animate-option-3;
+}
+
+@keyframes animate-option-3 {
     0% {
         transform: translateX(-100%);
     }
