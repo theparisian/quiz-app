@@ -359,7 +359,7 @@ io.on('connection', (socket) => {
     if (isCorrect) {
       // Si le timer est toujours en cours, les points dépendent du temps restant
       if (gameState.timer) {
-        const timeRatio = Math.max(0, gameState.timeLeft / currentQuestion.timeLimit);
+        const timeRatio = Math.max(0, gameState.timeLeft / (currentQuestion.timer || gameState.timePerQuestion));
         pointsEarned = Math.round(1000 * timeRatio);
       }
       // Points minimum si la réponse est correcte
@@ -610,7 +610,7 @@ io.on('connection', (socket) => {
     totalQuestions: gameState.activeQuiz.questions.length,
       question: currentQuestion.question,
       options: currentQuestion.options,
-    timeLimit: currentQuestion.timeLimit || gameState.timePerQuestion
+    timeLimit: currentQuestion.timer || gameState.timePerQuestion
   };
   
   // Envoyer la question à tous les joueurs
@@ -626,7 +626,7 @@ io.on('connection', (socket) => {
   io.to('screen-room').emit('new-question', questionData);
   
   // Démarrer le timer
-  startTimer(currentQuestion.timeLimit || gameState.timePerQuestion);
+  startTimer(currentQuestion.timer || gameState.timePerQuestion);
 }
 
 function startTimer(seconds) {
