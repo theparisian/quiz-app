@@ -56,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let hasAnswered = false;
     let answerResultData = null; // Stocker les données de résultat pour les afficher plus tard
     let isWinner = false; // Indique si le joueur est le gagnant
+    let totalTime = 0; // Durée totale du timer
+    let timerCircle = null; // Élément SVG du timer circulaire
     
     // Vérifier si un code de session est présent dans l'URL
     function checkSessionCodeInUrl() {
@@ -217,6 +219,10 @@ document.addEventListener('DOMContentLoaded', () => {
         totalQuestionsSpan.textContent = data.totalQuestions;
         timeLeftSpan.textContent = data.timeLimit;
         
+        // Initialiser le timer circulaire
+        totalTime = data.timeLimit;
+        updateCircularTimer(data.timeLimit);
+        
         // Réinitialiser l'état
         selectedAnswerIndex = null;
         hasAnswered = false;
@@ -266,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     socket.on('timer-update', (data) => {
         timeLeftSpan.textContent = data.timeLeft;
+        updateCircularTimer(data.timeLeft);
     });
     
     socket.on('time-up', () => {
@@ -477,6 +484,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return emailPattern.test(email);
     }
     
+    function updateCircularTimer(timeLeft) {
+        if (!timerCircle || totalTime === 0) return;
+        
+        // Calculer le pourcentage de temps écoulé
+        const timeElapsed = totalTime - timeLeft;
+        const percentage = timeElapsed / totalTime;
+        
+        // Calculer l'offset pour le stroke-dashoffset
+        // La circonférence est 2 * π * r = 2 * π * 45 ≈ 283
+        const circumference = 283;
+        const offset = circumference - (percentage * circumference);
+        
+        // Appliquer l'animation
+        timerCircle.style.strokeDashoffset = offset;
+    }
+    
     // Initialiser l'application
     init();
+    
+    // Initialiser le timer circulaire
+    timerCircle = document.getElementById('timer-circle');
 });

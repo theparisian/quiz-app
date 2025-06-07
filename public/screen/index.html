@@ -79,6 +79,43 @@
             object-fit: cover;
         }
         
+        /* Timer circulaire pour screen */
+        .circular-timer {
+            position: relative;
+        }
+
+        .timer-svg {
+            transform: rotate(-90deg);
+        }
+
+        .timer-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 8;
+        }
+
+        .timer-progress {
+            fill: none;
+            stroke: white;
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 283;
+            stroke-dashoffset: 283;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+
+        .timer-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            line-height: 1;
+        }
+        
     </style>
 </head>
 <body class="bg-custom">
@@ -130,7 +167,13 @@
             <div id="question-screen" class="screen">
                 <div class="question-header d-flex justify-content-between align-items-center mb-4 text-white">
                     <div class="question-counter fs-3 text-center">Question <span id="question-number"></span>/<span id="total-questions"></span></div>
-                    <div class="timer fs-4">Temps: <span id="time-left"></span>s</div>
+                    <div class="circular-timer">
+                        <svg class="timer-svg" viewBox="0 0 100 100" style="width: 80px; height: 80px;">
+                            <circle class="timer-bg" cx="50" cy="50" r="45" />
+                            <circle class="timer-progress" cx="50" cy="50" r="45" id="screen-timer-circle" />
+                        </svg>
+                        <div class="timer-text" id="time-left">0</div>
+                    </div>
                 </div>
                 
                 

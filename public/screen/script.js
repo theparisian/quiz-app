@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentQuestionData = null;
     let playerAnswersData = {};
     let timerInterval = null;
+    let screenTimerCircle = null; // Élément SVG du timer circulaire
+    let totalTimerTime = 0; // Durée totale du timer
 
     // Initialiser Socket.IO
     const socket = io({
@@ -39,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Déterminer l'adresse IP du serveur pour l'affichage
     serverAddress.textContent = window.location.host;
+    
+    // Initialiser le timer circulaire
+    screenTimerCircle = document.getElementById('screen-timer-circle');
     
     // Rejoindre en tant qu'écran de présentation
     socket.emit('screen-join');
@@ -300,12 +305,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Définir la durée totale
-        const totalTime = seconds;
-        let timeRemaining = totalTime;
+        totalTimerTime = seconds;
+        let timeRemaining = totalTimerTime;
         
         // Mettre à jour l'affichage initial
         timeLeft.textContent = timeRemaining;
         timerBar.style.width = '100%';
+        updateScreenCircularTimer(timeRemaining);
         
         // Configurer l'intervalle pour mettre à jour le compteur
         timerInterval = setInterval(() => {
@@ -313,9 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Mettre à jour l'affichage
             timeLeft.textContent = timeRemaining;
+            updateScreenCircularTimer(timeRemaining);
             
             // Mettre à jour la barre de progression
-            const percentage = (timeRemaining / totalTime) * 100;
+            const percentage = (timeRemaining / totalTimerTime) * 100;
             timerBar.style.width = `${percentage}%`;
             
             // Changer la couleur en fonction du temps restant
@@ -330,6 +337,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(timerInterval);
             }
         }, 1000);
+    }
+    
+    function updateScreenCircularTimer(timeLeft) {
+        if (!screenTimerCircle || totalTimerTime === 0) return;
+        
+        // Calculer le pourcentage de temps écoulé
+        const timeElapsed = totalTimerTime - timeLeft;
+        const percentage = timeElapsed / totalTimerTime;
+        
+        // Calculer l'offset pour le stroke-dashoffset
+        // La circonférence est 2 * π * r = 2 * π * 45 ≈ 283
+        const circumference = 283;
+        const offset = circumference - (percentage * circumference);
+        
+        // Appliquer l'animation
+        screenTimerCircle.style.strokeDashoffset = offset;
     }
     
     function showScreen(screenToShow) {
