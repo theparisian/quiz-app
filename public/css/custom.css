@@ -478,7 +478,9 @@ body {
 }
 
 #question-screen.active .options-container .option-0 {
-    animation:animate-option-0 0.6s ease all 2s;
+    animation-duration: 3s;
+    animation-delay: 2s;
+  animation-name: animate-option-0;
 }
 
 @keyframes animate-option-0 {
@@ -491,7 +493,9 @@ body {
 }
 
 #question-screen.active .options-container .option-1 {
-    animation:animate-option-1 0.6s ease all 3s;
+    animation-duration: 3s;
+    animation-delay: 3s;
+  animation-name: animate-option-1;
 }
 
 @keyframes animate-option-1 {
@@ -504,7 +508,9 @@ body {
 }
 
 #question-screen.active .options-container .option-2 {
-    animation:animate-option-2 0.6s ease all 4s ;
+    animation-duration: 3s;
+    animation-delay: 4s;
+  animation-name: animate-option-2;
 }
 
 @keyframes animate-option-2 {
