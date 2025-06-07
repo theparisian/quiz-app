@@ -221,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Initialiser le timer circulaire
         totalTime = data.timeLimit;
+        console.log('Initialisation timer avec totalTime:', totalTime);
         updateCircularTimer(data.timeLimit);
         
         // Réinitialiser l'état
@@ -271,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     socket.on('timer-update', (data) => {
+        console.log('Timer update reçu:', data.timeLeft);
         timeLeftSpan.textContent = data.timeLeft;
         updateCircularTimer(data.timeLeft);
     });
@@ -485,7 +487,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateCircularTimer(timeLeft) {
-        if (!timerCircle || totalTime === 0) return;
+        console.log('updateCircularTimer appelé avec timeLeft:', timeLeft, 'totalTime:', totalTime, 'timerCircle:', !!timerCircle);
+        
+        if (!timerCircle) {
+            console.error('timerCircle non trouvé !');
+            return;
+        }
+        
+        if (totalTime === 0) {
+            console.error('totalTime est 0 !');
+            return;
+        }
         
         // Calculer le pourcentage de temps écoulé
         const timeElapsed = totalTime - timeLeft;
@@ -496,13 +508,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const circumference = 283;
         const offset = circumference - (percentage * circumference);
         
+        console.log('Mise à jour timer: percentage:', percentage, 'offset:', offset);
+        
         // Appliquer l'animation
         timerCircle.style.strokeDashoffset = offset;
     }
     
+    // Initialiser le timer circulaire AVANT l'init
+    timerCircle = document.getElementById('timer-circle');
+    console.log('Timer circle element:', timerCircle);
+    
     // Initialiser l'application
     init();
-    
-    // Initialiser le timer circulaire
-    timerCircle = document.getElementById('timer-circle');
 });

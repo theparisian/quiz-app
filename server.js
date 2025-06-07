@@ -638,15 +638,30 @@ function startTimer(seconds) {
     clearInterval(gameState.timer);
   }
   
+  // Envoyer le temps initial à tous les clients
+  io.to('game-room').emit('timer-update', { timeLeft: gameState.timeLeft });
+  io.to('host-room').emit('timer-update', { timeLeft: gameState.timeLeft });
+  io.to('screen-room').emit('timer-update', { timeLeft: gameState.timeLeft });
+  
   // Créer un nouveau timer
     gameState.timer = setInterval(() => {
     // Décrémenter le temps
       gameState.timeLeft--;
       
+      // Envoyer la mise à jour du timer à tous les clients
+      io.to('game-room').emit('timer-update', { timeLeft: gameState.timeLeft });
+      io.to('host-room').emit('timer-update', { timeLeft: gameState.timeLeft });
+      io.to('screen-room').emit('timer-update', { timeLeft: gameState.timeLeft });
+      
     // Vérifier si le temps est écoulé
       if (gameState.timeLeft <= 0) {
         clearInterval(gameState.timer);
       gameState.timer = null;
+      
+      // Envoyer l'événement time-up aux clients
+      io.to('game-room').emit('time-up');
+      io.to('host-room').emit('time-up');
+      io.to('screen-room').emit('time-up');
       
       // Envoyer les résultats de la question après un court délai
       setTimeout(() => {
