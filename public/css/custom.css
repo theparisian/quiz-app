@@ -468,3 +468,19 @@ body {
 .fs-150 {
     font-size:1.5rem !important;
 }
+
+
+/* Animations screens */
+
+#question-screen .options-container {
+    position: relative;
+}
+
+#question-screen.screen .options-container .option-btn {
+    transition:0.2s ease all 0s;
+    margin-left:0;
+}
+
+#question-screen.screen.active .options-container .option-btn {
+    margin-left:-200px;
+}
