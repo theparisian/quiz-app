@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const questionNumber = document.getElementById('question-number');
     const totalQuestions = document.getElementById('total-questions');
     const timeLeft = document.getElementById('time-left');
-    const timerBar = document.getElementById('timer-bar');
     const questionText = document.getElementById('question-text');
     const optionsContainer = document.getElementById('options-container');
     const playerAnswers = document.getElementById('player-answers');
@@ -139,9 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
         totalQuestions.textContent = data.totalQuestions;
         timeLeft.textContent = data.timeLimit;
         questionText.textContent = data.question;
-        
-        // Réinitialiser la barre de progression du timer
-        timerBar.style.width = '100%';
         
         // Générer les options
         optionsContainer.innerHTML = '';
@@ -310,7 +306,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Mettre à jour l'affichage initial
         timeLeft.textContent = timeRemaining;
-        timerBar.style.width = '100%';
         updateScreenCircularTimer(timeRemaining);
         
         // Configurer l'intervalle pour mettre à jour le compteur
@@ -320,17 +315,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Mettre à jour l'affichage
             timeLeft.textContent = timeRemaining;
             updateScreenCircularTimer(timeRemaining);
-            
-            // Mettre à jour la barre de progression
-            const percentage = (timeRemaining / totalTimerTime) * 100;
-            timerBar.style.width = `${percentage}%`;
-            
-            // Changer la couleur en fonction du temps restant
-            if (percentage < 25) {
-                timerBar.style.backgroundColor = '#dc3545'; // Rouge
-            } else if (percentage < 50) {
-                timerBar.style.backgroundColor = '#ffc107'; // Jaune
-            }
             
             // Arrêter le timer quand il atteint zéro
             if (timeRemaining <= 0) {
