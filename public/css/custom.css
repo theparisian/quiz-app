@@ -484,6 +484,7 @@ body {
 #question-screen.active .options-container .option-0 {
     animation-duration: .5s;
     animation-delay: 0s;
+    animation-fill-mode: forwards;
   animation-name: animate-option-0;
 }
 
@@ -499,6 +500,7 @@ body {
 #question-screen.active .options-container .option-1 {
     animation-duration: .5s;
     animation-delay: .5s;
+    animation-fill-mode: forwards;
   animation-name: animate-option-1;
 }
 
@@ -514,6 +516,7 @@ body {
 #question-screen.active .options-container .option-2 {
     animation-duration: .5s;
     animation-delay: 1.5s;
+    animation-fill-mode: forwards;
   animation-name: animate-option-2;
 }
 
@@ -529,6 +532,7 @@ body {
 #question-screen.active .options-container .option-3 {
     animation-duration: .5s;
     animation-delay: 2s;
+    animation-fill-mode: forwards;
   animation-name: animate-option-3;
 }
 
