@@ -489,10 +489,10 @@ body {
 
 @keyframes animate-option-0 {
     0% {
-        transform: translateX(-100%);
+        margin-left:-100%;
     }
     100% {
-        transform: translateX(0);
+        margin-left:0;
     }
 }
 
@@ -504,10 +504,10 @@ body {
 
 @keyframes animate-option-1 {
     0% {
-        transform: translateX(-100%);
+        margin-left:-100%;
     }
     100% {
-        transform: translateX(0);
+        margin-left:0;
     }
 }
 
@@ -519,10 +519,10 @@ body {
 
 @keyframes animate-option-2 {
     0% {
-        transform: translateX(-100%);
+        margin-left:-100%;
     }
     100% {
-        transform: translateX(0);
+        margin-left:0;
     }
 }
 
@@ -534,9 +534,9 @@ body {
 
 @keyframes animate-option-3 {
     0% {
-        transform: translateX(-100%);
+        margin-left:-100%;
     }
     100% {
-        transform: translateX(0);
+        margin-left:0;
     }
 }
