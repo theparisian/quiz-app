@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         data.options.forEach((option, index) => {
             const optionElement = document.createElement('button');
-            optionElement.className = `option-btn btn w-100 text-start option-${index}`;
+            optionElement.className = `option-btn btn w-100 text-center option-${index}`;
             optionElement.textContent = option;
             optionElement.dataset.index = index;
             

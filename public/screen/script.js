@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const winnerName = document.getElementById('winner-name');
     const finalLeaderboardBody = document.getElementById('final-leaderboard-body');
     
+    // Élément audio pour nouvelle question
+    const newQuestionSound = document.getElementById('new-question-sound');
+    
     // Variables d'état
     let currentQuestionData = null;
     let playerAnswersData = {};
@@ -43,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialiser le timer circulaire
     screenTimerCircle = document.getElementById('screen-timer-circle');
+    
+    // Initialiser l'audio
+    initializeAudio();
     
     // Rejoindre en tant qu'écran de présentation
     socket.emit('screen-join');
@@ -132,6 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('New question:', data);
         currentQuestionData = data;
         playerAnswersData = {}; // Réinitialiser les réponses des joueurs
+        
+        // Jouer le son de nouvelle question
+        playNewQuestionSound();
         
         // Mettre à jour l'affichage
         questionNumber.textContent = data.questionNumber;
@@ -337,6 +346,65 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Appliquer l'animation
         screenTimerCircle.style.strokeDashoffset = offset;
+    }
+    
+    function initializeAudio() {
+        if (newQuestionSound) {
+            // Définir le volume (optionnel, entre 0.0 et 1.0)
+            newQuestionSound.volume = 0.7;
+            
+            // Précharger l'audio
+            newQuestionSound.load();
+            
+            // Ajouter un gestionnaire d'événement pour activer l'audio sur la première interaction
+            const enableAudio = () => {
+                if (newQuestionSound) {
+                    // Jouer et mettre immédiatement en pause pour "débloquer" l'audio
+                    newQuestionSound.play().then(() => {
+                        newQuestionSound.pause();
+                        newQuestionSound.currentTime = 0;
+                        console.log('Audio initialisé et prêt');
+                    }).catch(() => {
+                        // Ignorer les erreurs d'initialisation
+                    });
+                }
+                
+                // Supprimer les gestionnaires d'événements après la première interaction
+                document.removeEventListener('click', enableAudio);
+                document.removeEventListener('keydown', enableAudio);
+                document.removeEventListener('touchstart', enableAudio);
+            };
+            
+            // Écouter les interactions utilisateur pour activer l'audio
+            document.addEventListener('click', enableAudio, { once: true });
+            document.addEventListener('keydown', enableAudio, { once: true });
+            document.addEventListener('touchstart', enableAudio, { once: true });
+        }
+    }
+    
+    function playNewQuestionSound() {
+        if (newQuestionSound) {
+            try {
+                // Réinitialiser le son au début
+                newQuestionSound.currentTime = 0;
+                
+                // Jouer le son
+                const playPromise = newQuestionSound.play();
+                
+                // Gérer les navigateurs modernes qui requièrent une interaction utilisateur
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log('Son de nouvelle question joué');
+                    }).catch(error => {
+                        console.log('Impossible de jouer le son automatiquement:', error);
+                        // Le navigateur bloque la lecture automatique
+                        // On pourrait afficher un message à l'utilisateur ou ignorer silencieusement
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors de la lecture du son:', error);
+            }
+        }
     }
     
     function showScreen(screenToShow) {

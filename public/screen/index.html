@@ -240,6 +240,13 @@
         </main>
     </div>
 
+    <!-- Audio pour nouvelle question -->
+    <audio id="new-question-sound" preload="auto">
+        <source src="/sounds/new-question.mp3" type="audio/mpeg">
+        <!-- Fallback si MP3 non supporté -->
+        <source src="/sounds/new-question.ogg" type="audio/ogg">
+    </audio>
+
     <!-- Bootstrap 5 JS Bundle with Popper -->
     <script src="/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
