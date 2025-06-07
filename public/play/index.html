@@ -27,7 +27,7 @@
                 <!-- Écran de saisie du code de session -->
                 <div id="session-code-screen" class="screen active">
                     <h1 class="mb-4 text-white fw-bold fs-2 text-center">Rejoindre un quiz</h1>
-                    <div class="bg-white rounded shadow p-4 mb-5">
+                    <div class="bg-white rounded-circle-relative shadow p-4 mb-5">
                         <div class="join-form">
                             <div class="p-0 m-0">
                                 <input type="text" class="form-control form-control-input border-0 fw-bold text-black" id="session-code" placeholder="Code session (Ex: 123456)" required>
@@ -40,14 +40,12 @@
 
                 <!-- Écran de saisie du pseudonyme -->
                 <div id="player-name-screen" class="screen">
-                    <div class="bg-white rounded-4 shadow p-4 mb-5">
+                    <div class="bg-white rounded-circle-relative shadow p-4 mb-5">
                         <div class="mb-1 text-center hidden">
                             <span class="badge bg-secondary fs-6 mb-3">Code session: <span id="code-display"></span></span>
                         </div>
                         <div class="join-form">
-                            <div class="mb-4">
                                 <input type="text" class="form-control form-control-input border-0 fw-bold text-black" id="player-name" placeholder="Pseudonyme" required>
-                            </div>
                         </div>
                         <div id="name-error" class="alert alert-danger mt-3 hidden"></div>
                     </div>
@@ -70,7 +68,7 @@
                         <div class="question-counter badge bg-secondary">Question <span id="question-number"></span>/<span id="total-questions"></span></div>
                         <div class="timer badge bg-danger">Temps: <span id="time-left"></span>s</div>
                     </div>
-                    <div id="options-container" class="options-container d-grid gap-2"></div>
+                    <div id="options-container" class="options-container d-grid gap-2 fw-bold text-center"></div>
                 </div>
 
                 <div id="answer-result-screen" class="screen text-center">
