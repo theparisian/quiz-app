@@ -97,13 +97,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Gestionnaires d'événements pour la vérification du code de session
     verifyCodeBtn.addEventListener('click', () => {
+        console.log('Bouton verify-code-btn cliqué !');
         const code = sessionCodeInput.value.trim();
+        console.log('Code saisi:', code);
         
         if (!code) {
+            console.log('Code vide, affichage de l\'erreur');
             showSessionError('Veuillez entrer le code de session.');
             return;
         }
         
+        console.log('Envoi de la demande de vérification au serveur...');
         // Envoyer la demande de vérification du code
         socket.emit('verify-session', {
             sessionCode: code
@@ -165,11 +169,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Événements Socket.IO
     socket.on('connect', () => {
-        console.log('Connecté au serveur');
+        console.log('Connecté au serveur avec l\'ID :', socket.id);
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Déconnecté du serveur');
+    });
+    
+    socket.on('connect_error', (error) => {
+        console.error('Erreur de connexion Socket.IO :', error);
     });
     
     // Réponse à la vérification du code session
     socket.on('session-verified', (data) => {
+        console.log('Session vérifiée avec succès !', data);
         isSessionValid = true;
         
         // Afficher le code dans l'écran de pseudonyme
@@ -183,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     socket.on('session-invalid', (data) => {
+        console.log('Session invalide :', data);
         showSessionError(data.error || 'Code de session invalide.');
     });
     
