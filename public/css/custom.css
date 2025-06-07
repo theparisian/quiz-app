@@ -478,14 +478,14 @@ body {
 }
 
 #question-screen.active .options-container .option-0 {
-    animation-duration: 3s;
-    animation-delay: 2s;
+    animation-duration: 1s;
+    animation-delay: 0s;
   animation-name: animate-option-0;
 }
 
 @keyframes animate-option-0 {
     0% {
-        transform: translateX(-200px);
+        transform: translateX(-100%);
     }
     100% {
         transform: translateX(0);
@@ -493,14 +493,14 @@ body {
 }
 
 #question-screen.active .options-container .option-1 {
-    animation-duration: 3s;
-    animation-delay: 3s;
+    animation-duration: 1s;
+    animation-delay: 2s;
   animation-name: animate-option-1;
 }
 
 @keyframes animate-option-1 {
     0% {
-        transform: translateX(-200px);
+        transform: translateX(-100%);
     }
     100% {
         transform: translateX(0);
@@ -508,14 +508,14 @@ body {
 }
 
 #question-screen.active .options-container .option-2 {
-    animation-duration: 3s;
-    animation-delay: 4s;
+    animation-duration: 1s;
+    animation-delay: 3s;
   animation-name: animate-option-2;
 }
 
 @keyframes animate-option-2 {
     0% {
-        transform: translateX(-200px);
+        transform: translateX(-100%);
     }
     100% {
         transform: translateX(0);
