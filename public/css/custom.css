@@ -477,12 +477,25 @@ body {
     overflow: hidden;
 }
 
-#question-screen.screen .options-container .option-btn {
+#question-screen  .options-container .option-btn {
     transition:0.6s ease all 0s;
     margin-left:-200px;
 
 }
 
-#question-screen.screen.active .options-container .option-btn {
+#question-screen .active .options-container .option-btn {
     margin-left:0;
+}
+
+.option-0 {
+    animation:animate-option-0 0.6s ease-in-out 0s 2;
+}
+
+@keyframes animate-option-0 {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-200px);
+    }
 }
