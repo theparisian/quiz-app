@@ -477,7 +477,7 @@ body {
     overflow: hidden;
 }
 
-#question-screen .active .options-container .option-0 {
+#question-screen.active .options-container .option-0 {
     animation:animate-option-0 0.6s ease-all 0s 2;
 }
 
@@ -490,7 +490,7 @@ body {
     }
 }
 
-#question-screen .active .options-container .option-1 {
+#question-screen.active .options-container .option-1 {
     animation:animate-option-1 0.6s ease-all 0s 3;
 }
 
@@ -503,7 +503,7 @@ body {
     }
 }
 
-#question-screen .active .options-container .option-2 {
+#question-screen.active .options-container .option-2 {
     animation:animate-option-2 0.6s ease-all 0s 3;
 }
 
