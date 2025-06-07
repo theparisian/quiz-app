@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionCodeInput = document.getElementById('session-code');
     const verifyCodeBtn = document.getElementById('verify-code-btn');
     const joinBtn = document.getElementById('join-btn');
-    const backBtn = document.getElementById('back-btn');
     const sessionError = document.getElementById('session-error');
     const nameError = document.getElementById('name-error');
     const codeDisplay = document.getElementById('code-display');
@@ -117,10 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionCode = code;
     });
     
-    // Événement pour revenir à l'écran de code session
-    backBtn.addEventListener('click', () => {
-        showScreen(sessionCodeScreen);
-    });
+
     
     // Gestionnaire d'événement pour la connexion finale
     joinBtn.addEventListener('click', () => {
