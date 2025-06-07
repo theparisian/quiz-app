@@ -477,25 +477,41 @@ body {
     overflow: hidden;
 }
 
-#question-screen  .options-container .option-btn {
-    transition:0.6s ease all 0s;
-    margin-left:-200px;
-
-}
-
-#question-screen .active .options-container .option-btn {
-    margin-left:0;
-}
-
 #question-screen .active .options-container .option-0 {
-    animation:animate-option-0 0.6s ease-in-out 0s 2;
+    animation:animate-option-0 0.6s ease-all 0s 2;
 }
 
 @keyframes animate-option-0 {
     0% {
-        transform: translateX(0);
+        transform: translateX(-200px);
     }
     100% {
+        transform: translateX(0);
+    }
+}
+
+#question-screen .active .options-container .option-1 {
+    animation:animate-option-1 0.6s ease-all 0s 3;
+}
+
+@keyframes animate-option-1 {
+    0% {
         transform: translateX(-200px);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+#question-screen .active .options-container .option-2 {
+    animation:animate-option-2 0.6s ease-all 0s 3;
+}
+
+@keyframes animate-option-2 {
+    0% {
+        transform: translateX(-200px);
+    }
+    100% {
+        transform: translateX(0);
     }
 }
