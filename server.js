@@ -407,6 +407,11 @@ io.on('connection', (socket) => {
     nextQuestion();
   });
 
+  // Quand l'hôte force la fin du timer
+  socket.on('question-timer-ended', () => {
+    forceEndTimer();
+  });
+
   // Quand un hôte veut démarrer un nouveau jeu
   socket.on('new-game', () => {
     resetGame();
@@ -670,6 +675,32 @@ function startTimer(seconds) {
       }
     }, 1000);
   }
+
+  function forceEndTimer() {
+  // Arrêter le timer s'il est actif
+  if (gameState.timer) {
+    clearInterval(gameState.timer);
+    gameState.timer = null;
+  }
+  
+  // Mettre le temps restant à 0
+  gameState.timeLeft = 0;
+  
+  // Envoyer la mise à jour du timer à tous les clients
+  io.to('game-room').emit('timer-update', { timeLeft: 0 });
+  io.to('host-room').emit('timer-update', { timeLeft: 0 });
+  io.to('screen-room').emit('timer-update', { timeLeft: 0 });
+  
+  // Envoyer l'événement time-up aux clients
+  io.to('game-room').emit('time-up');
+  io.to('host-room').emit('time-up');
+  io.to('screen-room').emit('time-up');
+  
+  // Envoyer les résultats de la question après un court délai
+  setTimeout(() => {
+    sendQuestionResults();
+  }, 1000);
+}
   
   function sendQuestionResults() {
   // Récupérer la question courante

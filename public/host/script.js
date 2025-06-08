@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const scoreTableBody = document.getElementById('score-table-body');
     
     const nextQuestionBtn = document.getElementById('next-question-btn');
+    const forceNextQuestionBtn = document.getElementById('force-next-question-btn');
     const newGameBtn = document.getElementById('new-game-btn');
 
     // Éléments DOM de la partie admin
@@ -202,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = document.createElement('tr');
             
             const nameCell = document.createElement('td');
-            nameCell.textContent = player.name;
+            nameCell.textContent = player.playerName || player.name;
             
             const scoreCell = document.createElement('td');
             scoreCell.textContent = player.score;
@@ -214,6 +215,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Afficher l'écran des résultats
         showScreen(resultsScreen);
+    });
+    
+    socket.on('timer-update', (data) => {
+        // Synchroniser l'affichage du timer avec le serveur
+        timeLeft.textContent = data.timeLeft;
+    });
+    
+    socket.on('time-up', () => {
+        // Le temps est écoulé - arrêter le timer local
+        clearInterval(timerInterval);
+        timeLeft.textContent = '0';
     });
     
     socket.on('game-end', (data) => {
@@ -286,6 +298,11 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('next-question');
     });
     
+    forceNextQuestionBtn.addEventListener('click', () => {
+        // Forcer la fin du timer et passer à la question suivante
+        forceEndTimer();
+    });
+    
     newGameBtn.addEventListener('click', () => {
         socket.emit('new-game');
     });
@@ -294,19 +311,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let timerInterval = null;
     
     function startTimer(seconds) {
+        // Le timer est maintenant géré principalement par le serveur
+        // Cette fonction sert juste à initialiser l'affichage local
         clearInterval(timerInterval);
+        timeLeft.textContent = seconds;
+    }
+    
+    function forceEndTimer() {
+        // Arrêter le timer immédiatement
+        clearInterval(timerInterval);
+        timeLeft.textContent = '0';
         
-        let remainingTime = seconds;
-        timeLeft.textContent = remainingTime;
-        
-        timerInterval = setInterval(() => {
-            remainingTime--;
-            timeLeft.textContent = remainingTime;
-            
-            if (remainingTime <= 0) {
-                clearInterval(timerInterval);
-            }
-        }, 1000);
+        // Informer le serveur que le timer a été forcé à s'arrêter
+        socket.emit('question-timer-ended');
     }
     
     function showScreen(screenToShow) {
