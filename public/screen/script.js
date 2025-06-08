@@ -145,13 +145,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     socket.on('new-question', (data) => {
-        console.log('New question:', data);
+        console.log('🔥 EVENT new-question reçu côté screen:', data);
         
         // Vérification de sécurité
         if (!data || !data.options || !Array.isArray(data.options)) {
-            console.error('Données de question invalides:', data);
+            console.error('❌ Données de question invalides:', data);
             return;
         }
+        
+        console.log('✅ Données de question valides, traitement en cours...');
         
         currentQuestionData = data;
         playerAnswersData = {}; // Réinitialiser les réponses des joueurs
@@ -196,9 +198,12 @@ document.addEventListener('DOMContentLoaded', () => {
         playerAnswers.innerHTML = '';
         
         // Afficher l'écran de question
+        console.log('🖥️ Tentative d\'affichage de l\'écran de question...');
         showScreen(questionScreen);
+        console.log('✅ Écran de question affiché');
         
         // Démarrer le compteur
+        console.log('⏰ Démarrage du timer:', data.timeLimit);
         startTimer(data.timeLimit);
     });
     
@@ -496,6 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function showScreen(screenToShow) {
+        console.log('📺 showScreen appelé pour:', screenToShow.id);
+        
         // Masquer tous les écrans
         waitingScreen.classList.remove('active');
         questionScreen.classList.remove('active');
@@ -504,5 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Afficher l'écran demandé
         screenToShow.classList.add('active');
+        
+        console.log('📺 Écran actuel:', screenToShow.id);
     }
 }); 
