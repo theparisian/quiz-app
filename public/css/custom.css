@@ -513,16 +513,16 @@ body {
 
 /* Animations screens */
 
-#question-screen .options-container {
+.body-screen #question-screen .options-container {
     position: relative;
     overflow: hidden;
 }
 
-#question-screen .options-container .option-btn {
+.body-screen #question-screen .options-container .option-btn {
     margin-left:-100%;
 }
 
-#question-screen.active .options-container .option-0 {
+.body-screen #question-screen.active .options-container .option-0 {
     animation-duration: .5s;
     animation-delay: 0s;
     animation-fill-mode: forwards;
@@ -538,7 +538,7 @@ body {
     }
 }
 
-#question-screen.active .options-container .option-1 {
+.body-screen #question-screen.active .options-container .option-1 {
     animation-duration: .5s;
     animation-delay: .5s;
     animation-fill-mode: forwards;
@@ -554,7 +554,7 @@ body {
     }
 }
 
-#question-screen.active .options-container .option-2 {
+.body-screen #question-screen.active .options-container .option-2 {
     animation-duration: .5s;
     animation-delay: 1.5s;
     animation-fill-mode: forwards;
@@ -570,7 +570,7 @@ body {
     }
 }
 
-#question-screen.active .options-container .option-3 {
+.body-screen #question-screen.active .options-container .option-3 {
     animation-duration: .5s;
     animation-delay: 2s;
     animation-fill-mode: forwards;
@@ -584,4 +584,34 @@ body {
     100% {
         margin-left:0;
     }
+}
+
+/* SCREEN */
+
+.body-screen .option,
+.body-screen .option-0,
+.body-screen .option-1,
+.body-screen .option-2,
+.body-screen .option-3 {
+    transition:0.2s ease all 0s;
+}
+
+.body-screen .option-0,
+.body-screen .option-2 {
+    margin-left:-100%;
+}
+
+.body-screen .option-0.show,
+.body-screen .option-2.show {
+    margin-left:0;
+}
+
+.body-screen .option-1,
+.body-screen .option-3 {
+    margin-right:-100%;
+}
+
+.body-screen .option-1.show,
+.body-screen .option-3.show {
+    margin-right:0;
 }
