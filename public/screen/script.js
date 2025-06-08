@@ -146,6 +146,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     socket.on('new-question', (data) => {
         console.log('New question:', data);
+        
+        // Vérification de sécurité
+        if (!data || !data.options || !Array.isArray(data.options)) {
+            console.error('Données de question invalides:', data);
+            return;
+        }
+        
         currentQuestionData = data;
         playerAnswersData = {}; // Réinitialiser les réponses des joueurs
         
@@ -153,10 +160,10 @@ document.addEventListener('DOMContentLoaded', () => {
         playNewQuestionSound();
         
         // Mettre à jour l'affichage
-        questionNumber.textContent = data.questionNumber;
-        totalQuestions.textContent = data.totalQuestions;
-        timeLeft.textContent = data.timeLimit;
-        questionText.textContent = data.question;
+        questionNumber.textContent = data.questionNumber || '';
+        totalQuestions.textContent = data.totalQuestions || '';
+        timeLeft.textContent = data.timeLimit || '';
+        questionText.textContent = data.question || '';
         
         // Générer les options
         optionsContainer.innerHTML = '';
