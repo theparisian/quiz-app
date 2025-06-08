@@ -35,6 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('option-3-sound')
     ];
     
+    // Debug: vérifier que les éléments audio sont trouvés
+    console.log('New question sound:', newQuestionSound);
+    console.log('Option sounds:', optionSounds);
+    
     // Variables d'état
     let currentQuestionData = null;
     let playerAnswersData = {};
@@ -372,12 +376,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Initialiser les sons d'options
-        optionSounds.forEach((sound, index) => {
-            if (sound) {
-                sound.volume = 0.5; // Volume un peu plus bas pour les options
-                sound.load();
-            }
-        });
+        if (optionSounds) {
+            optionSounds.forEach((sound, index) => {
+                if (sound) {
+                    sound.volume = 0.5; // Volume un peu plus bas pour les options
+                    sound.load();
+                } else {
+                    console.log(`Element audio option-${index} non trouvé`);
+                }
+            });
+        }
         
         // Ajouter un gestionnaire d'événement pour activer l'audio sur la première interaction
         const enableAudio = () => {
@@ -393,17 +401,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // Initialiser tous les sons d'options
-            optionSounds.forEach((sound, index) => {
-                if (sound) {
-                    sound.play().then(() => {
-                        sound.pause();
-                        sound.currentTime = 0;
-                        console.log(`Audio option ${index} initialisé`);
-                    }).catch(() => {
-                        // Ignorer les erreurs d'initialisation
-                    });
-                }
-            });
+            if (optionSounds) {
+                optionSounds.forEach((sound, index) => {
+                    if (sound) {
+                        sound.play().then(() => {
+                            sound.pause();
+                            sound.currentTime = 0;
+                            console.log(`Audio option ${index} initialisé`);
+                        }).catch(() => {
+                            // Ignorer les erreurs d'initialisation
+                        });
+                    }
+                });
+            }
             
             // Supprimer les gestionnaires d'événements après la première interaction
             document.removeEventListener('click', enableAudio);
@@ -443,6 +453,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function playOptionSound(optionIndex) {
+        // Vérification de sécurité
+        if (!optionSounds || optionIndex < 0 || optionIndex >= optionSounds.length) {
+            console.log(`Index d'option invalide: ${optionIndex}`);
+            return;
+        }
+        
         const sound = optionSounds[optionIndex];
         if (sound) {
             try {
@@ -463,6 +479,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error(`Erreur lors de la lecture du son de l'option ${optionIndex}:`, error);
             }
+        } else {
+            console.log(`Element audio pour l'option ${optionIndex} non trouvé`);
         }
     }
     
