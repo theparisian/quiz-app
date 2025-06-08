@@ -593,7 +593,7 @@ body {
 .body-screen .option-1,
 .body-screen .option-2,
 .body-screen .option-3 {
-    transition:0.2s ease all 0s;
+    transition:0.2s ease-out all 0s;
 }
 
 .body-screen .option-0,
