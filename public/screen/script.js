@@ -152,10 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
         optionsContainer.innerHTML = '';
         data.options.forEach((option, index) => {
             const optionCol = document.createElement('div');
-            optionCol.className = 'col-md-6 mb-3';
+            optionCol.className = 'col-md-6 mb-3 position-relative';
             
             const optionDiv = document.createElement('div');
-            optionDiv.className = `option text-black fw-bold shadow fs-125 option-${index}`;
+            optionDiv.className = `option text-black fw-bold w-100 shadow fs-125 option-${index}`;
             optionDiv.textContent = option;
             optionDiv.dataset.index = index;
             
