@@ -511,7 +511,7 @@ body {
 }
 
 
-/* Animations screens */
+/* Animations PLAY */
 
 .body-play #question-screen .options-container {
     position: relative;
@@ -586,7 +586,8 @@ body {
     }
 }
 
-/* SCREEN */
+
+/* Animations SCREEN */
 
 .body-screen .option,
 .body-screen .option-0,
@@ -616,4 +617,11 @@ body {
 .body-screen .option-1.show,
 .body-screen .option-3.show {
     margin-right:0;
+}
+
+.body-screen .option {
+    color:white;
+    background:rgba(255, 255, 255, .03) !important;
+    backdrop-filter:blur(5px);
+    border:1px solid rgba(255, 255, 255, .15);
 }
