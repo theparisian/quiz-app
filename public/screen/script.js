@@ -161,6 +161,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             optionCol.appendChild(optionDiv);
             optionsContainer.appendChild(optionCol);
+            
+            // Ajouter la classe "show" avec un délai progressif
+            // 1ère option: 1 seconde, 2ème option: 2 secondes, etc.
+            setTimeout(() => {
+                optionDiv.classList.add('show');
+            }, (index + 1) * 1000);
         });
         
         // Vider le conteneur des réponses des joueurs
