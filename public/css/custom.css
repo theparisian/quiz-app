@@ -599,6 +599,7 @@ body {
 .body-screen .option-0,
 .body-screen .option-2 {
     margin-left:-100%;
+    margin-right:auto;
 }
 
 .body-screen .option-0.show,
@@ -609,6 +610,7 @@ body {
 .body-screen .option-1,
 .body-screen .option-3 {
     margin-right:-100%;
+    margin-left:auto;
 }
 
 .body-screen .option-1.show,
