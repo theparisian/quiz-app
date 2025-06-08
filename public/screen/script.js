@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Debug: vérifier que les éléments audio sont trouvés
     console.log('New question sound:', newQuestionSound);
-    console.log('Option sounds:', optionSounds);
+    console.log('Option sounds:', optionSounds.filter(s => s !== null));
     
     // Variables d'état
     let currentQuestionData = null;
@@ -175,9 +175,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ajouter la classe "show" avec un délai progressif
             // 1ère option: 1 seconde, 2ème option: 2 secondes, etc.
             setTimeout(() => {
-                optionDiv.classList.add('show');
-                // Jouer le son correspondant à cette option
-                // playOptionSound(index); // Temporairement commenté pour debug
+                try {
+                    optionDiv.classList.add('show');
+                    // Jouer le son correspondant à cette option
+                    playOptionSound(index);
+                } catch (error) {
+                    console.error('Erreur lors de l\'ajout de la classe show ou du son:', error);
+                }
             }, (index + 1) * 1000);
         });
         
