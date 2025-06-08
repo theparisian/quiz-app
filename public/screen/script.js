@@ -60,6 +60,62 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialiser l'audio
     initializeAudio();
     
+    // Test automatique de l'autoplay
+    function testAutoplay() {
+        if (newQuestionSound) {
+            newQuestionSound.play().then(() => {
+                // L'autoplay fonctionne !
+                newQuestionSound.pause();
+                newQuestionSound.currentTime = 0;
+                console.log('✅ Autoplay déjà autorisé, masquage du bouton');
+                
+                // Masquer le bouton car l'autoplay fonctionne
+                const btn = document.getElementById('audio-enable-btn');
+                if (btn) {
+                    btn.style.display = 'none';
+                }
+            }).catch(() => {
+                // L'autoplay est bloqué, garder le bouton visible
+                console.log('⚠️ Autoplay bloqué, bouton d\'activation visible');
+            });
+        }
+    }
+    
+    // Tester l'autoplay au chargement de la page
+    setTimeout(testAutoplay, 1000);
+    
+    // Fonction globale pour activer l'audio manuellement
+    window.enableAudioManually = function() {
+        console.log('🔊 Activation manuelle de l\'audio...');
+        
+        // Essayer de débloquer tous les sons
+        if (newQuestionSound) {
+            newQuestionSound.play().then(() => {
+                newQuestionSound.pause();
+                newQuestionSound.currentTime = 0;
+                console.log('✅ Son de nouvelle question débloqué');
+            }).catch(() => {});
+        }
+        
+        optionSounds.forEach((sound, index) => {
+            if (sound) {
+                sound.play().then(() => {
+                    sound.pause();
+                    sound.currentTime = 0;
+                    console.log(`✅ Son option ${index} débloqué`);
+                }).catch(() => {});
+            }
+        });
+        
+        // Masquer le bouton après activation
+        const btn = document.getElementById('audio-enable-btn');
+        if (btn) {
+            btn.style.display = 'none';
+        }
+        
+        console.log('🎵 Audio activé ! Les sons devraient maintenant fonctionner.');
+    };
+    
     // Rejoindre en tant qu'écran de présentation
     socket.emit('screen-join');
     
