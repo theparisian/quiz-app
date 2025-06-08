@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Variables d'état
     let currentQuestionData = null;
     let playerAnswersData = {};
+    let connectedPlayers = {}; // Liste des joueurs connectés
     let timerInterval = null;
     let screenTimerCircle = null; // Élément SVG du timer circulaire
     let totalTimerTime = 0; // Durée totale du timer
@@ -178,6 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Player joined:', data);
         playerCountValue.textContent = data.playerCount;
         
+        // Ajouter le joueur à la liste locale
+        connectedPlayers[data.playerId] = {
+            name: data.playerName,
+            id: data.playerId
+        };
+        
         // Ajouter le joueur à la liste avec un style attrayant
         const playerItem = document.createElement('div');
         playerItem.className = 'player-item p-2 bg-white text-black fw-bold rounded text-center';
@@ -189,6 +196,9 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('player-left', (data) => {
         console.log('Player left:', data);
         playerCountValue.textContent = data.playerCount;
+        
+        // Supprimer le joueur de la liste locale
+        delete connectedPlayers[data.playerId];
         
         // Supprimer le joueur de la liste
         const playerElement = document.querySelector(`.player-item[data-player-id="${data.playerId}"]`);
@@ -256,6 +266,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Vider le conteneur des réponses des joueurs
         playerAnswers.innerHTML = '';
         
+        // Créer tous les éléments player-answer pour les joueurs connectés
+        Object.values(connectedPlayers).forEach(player => {
+            const playerAnswerElement = document.createElement('div');
+            playerAnswerElement.className = 'player-answer';
+            playerAnswerElement.textContent = player.name;
+            playerAnswerElement.dataset.playerId = player.id;
+            playerAnswers.appendChild(playerAnswerElement);
+        });
+        
         // Afficher l'écran de question
         console.log('🖥️ Tentative d\'affichage de l\'écran de question...');
         showScreen(questionScreen);
@@ -275,12 +294,11 @@ document.addEventListener('DOMContentLoaded', () => {
             answerIndex: data.answerIndex
         };
         
-        // Afficher que le joueur a répondu (sans montrer sa réponse)
-        const playerAnswerElement = document.createElement('div');
-        playerAnswerElement.className = 'player-answer';
-        playerAnswerElement.textContent = data.playerName;
-        playerAnswerElement.dataset.playerId = data.playerId;
-        playerAnswers.appendChild(playerAnswerElement);
+        // Ajouter la classe "active" à l'élément player-answer existant
+        const playerAnswerElement = document.querySelector(`.player-answer[data-player-id="${data.playerId}"]`);
+        if (playerAnswerElement) {
+            playerAnswerElement.classList.add('active');
+        }
     });
     
     socket.on('question-results', (data) => {
@@ -390,6 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Réinitialiser les variables d'état
         currentQuestionData = null;
         playerAnswersData = {};
+        connectedPlayers = {};
         
         // Vider les listes
         playerList.innerHTML = '';

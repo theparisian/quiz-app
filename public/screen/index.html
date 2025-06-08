@@ -26,8 +26,14 @@
             margin: 5px;
             padding: 5px 10px;
             border-radius: 20px;
-            background-color: #e9ecef;
+            background-color: rgba(233, 236, 239, 0.3);
             display: inline-block;
+            opacity: 0.4;
+            transition: opacity 0.3s ease, background-color 0.3s ease;
+        }
+        .player-answer.active {
+            background-color: #e9ecef;
+            opacity: 1;
         }
         .correct-answer {
             background-color: #d4edda;
@@ -185,7 +191,6 @@
                 </div>
                 
                 <div class="answers-container">
-                    <h3 class="mb-3">Réponses des joueurs:</h3>
                     <div id="player-answers" class="mb-4"></div>
                 </div>
             </div>
@@ -249,9 +254,9 @@
 
     <!-- Audio pour nouvelle question -->
     <audio id="new-question-sound" preload="auto">
-        <source src="/sounds/new-question.mp3" type="audio/mpeg">
+        <source src="/sounds/mysterious-B.mp3" type="audio/mpeg">
         <!-- Fallback si MP3 non supporté -->
-        <source src="/sounds/new-question.ogg" type="audio/ogg">
+        <!--<source src="/sounds/new-question.ogg" type="audio/ogg">-->
     </audio>
     
     <!-- Musique de fond pendant le quiz -->
