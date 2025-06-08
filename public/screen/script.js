@@ -162,10 +162,10 @@ document.addEventListener('DOMContentLoaded', () => {
         playNewQuestionSound();
         
         // Mettre à jour l'affichage
-        questionNumber.textContent = data.questionNumber || '';
-        totalQuestions.textContent = data.totalQuestions || '';
-        timeLeft.textContent = data.timeLimit || '';
-        questionText.textContent = data.question || '';
+        if (questionNumber) questionNumber.textContent = data.questionNumber || '';
+        if (totalQuestions) totalQuestions.textContent = data.totalQuestions || '';
+        if (timeLeft) timeLeft.textContent = data.timeLimit || '';
+        if (questionText) questionText.textContent = data.question || '';
         
         // Générer les options
         optionsContainer.innerHTML = '';
