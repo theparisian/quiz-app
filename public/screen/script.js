@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 optionDiv.classList.add('show');
                 // Jouer le son correspondant à cette option
-                playOptionSound(index);
+                // playOptionSound(index); // Temporairement commenté pour debug
             }, (index + 1) * 1000);
         });
         
