@@ -513,16 +513,16 @@ body {
 
 /* Animations screens */
 
-.body-screen #question-screen .options-container {
+.body-play #question-screen .options-container {
     position: relative;
     overflow: hidden;
 }
 
-.body-screen #question-screen .options-container .option-btn {
+.body-play #question-screen .options-container .option-btn {
     margin-left:-100%;
 }
 
-.body-screen #question-screen.active .options-container .option-0 {
+.body-play #question-screen.active .options-container .option-0 {
     animation-duration: .5s;
     animation-delay: 0s;
     animation-fill-mode: forwards;
@@ -538,7 +538,7 @@ body {
     }
 }
 
-.body-screen #question-screen.active .options-container .option-1 {
+.body-play #question-screen.active .options-container .option-1 {
     animation-duration: .5s;
     animation-delay: .5s;
     animation-fill-mode: forwards;
@@ -554,7 +554,7 @@ body {
     }
 }
 
-.body-screen #question-screen.active .options-container .option-2 {
+.body-play #question-screen.active .options-container .option-2 {
     animation-duration: .5s;
     animation-delay: 1.5s;
     animation-fill-mode: forwards;
@@ -570,7 +570,7 @@ body {
     }
 }
 
-.body-screen #question-screen.active .options-container .option-3 {
+.body-play #question-screen.active .options-container .option-3 {
     animation-duration: .5s;
     animation-delay: 2s;
     animation-fill-mode: forwards;
