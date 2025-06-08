@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Éléments audio pour nouvelle question et options
     const newQuestionSound = document.getElementById('new-question-sound');
+    const backgroundMusic = document.getElementById('background-music');
     const optionSounds = [
         document.getElementById('option-0-sound'),
         document.getElementById('option-1-sound'),
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Debug: vérifier que les éléments audio sont trouvés
     console.log('New question sound:', newQuestionSound);
+    console.log('Background music:', backgroundMusic);
     console.log('Option sounds:', optionSounds.filter(s => s !== null));
     
     // Variables d'état
@@ -197,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     socket.on('game-started', () => {
         console.log('Game started');
+        startBackgroundMusic();
         // Rien à faire spécifiquement, le serveur enverra la première question
     });
     
@@ -381,6 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('game-reset', () => {
         console.log('Game reset');
         
+        // Arrêter la musique de fond
+        stopBackgroundMusic();
+        
         // Réinitialiser les variables d'état
         currentQuestionData = null;
         playerAnswersData = {};
@@ -447,6 +453,12 @@ document.addEventListener('DOMContentLoaded', () => {
             newQuestionSound.load();
         }
         
+        // Initialiser la musique de fond
+        if (backgroundMusic) {
+            backgroundMusic.volume = 0.3; // Volume plus bas pour ne pas gêner
+            backgroundMusic.load();
+        }
+        
         // Initialiser les sons d'options
         if (optionSounds) {
             optionSounds.forEach((sound, index) => {
@@ -467,6 +479,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     newQuestionSound.pause();
                     newQuestionSound.currentTime = 0;
                     console.log('Audio de nouvelle question initialisé');
+                }).catch(() => {
+                    // Ignorer les erreurs d'initialisation
+                });
+            }
+            
+            // Initialiser la musique de fond
+            if (backgroundMusic) {
+                backgroundMusic.play().then(() => {
+                    backgroundMusic.pause();
+                    backgroundMusic.currentTime = 0;
+                    console.log('Musique de fond initialisée');
                 }).catch(() => {
                     // Ignorer les erreurs d'initialisation
                 });
@@ -553,6 +576,37 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             console.log(`Element audio pour l'option ${optionIndex} non trouvé`);
+        }
+    }
+    
+    function startBackgroundMusic() {
+        if (backgroundMusic) {
+            try {
+                backgroundMusic.currentTime = 0;
+                const playPromise = backgroundMusic.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log('🎵 Musique de fond démarrée');
+                    }).catch(error => {
+                        console.log('Impossible de jouer la musique de fond:', error);
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors du démarrage de la musique de fond:', error);
+            }
+        }
+    }
+    
+    function stopBackgroundMusic() {
+        if (backgroundMusic) {
+            try {
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+                console.log('🎵 Musique de fond arrêtée');
+            } catch (error) {
+                console.error('Erreur lors de l\'arrêt de la musique de fond:', error);
+            }
         }
     }
     
