@@ -160,7 +160,7 @@
 
             <div id="question-screen" class="screen">
                 <div class="question-header d-flex justify-content-between align-items-center mb-4 text-white">
-                    <div class="question-counter fs-3 text-center">Question <span id="question-number"></span>/<span id="total-questions"></span></div>
+                    <!-- <div class="question-counter fs-3 text-center">Question <span id="question-number"></span>/<span id="total-questions"></span></div> -->
                     <div class="circular-timer">
                         <svg class="timer-svg" viewBox="0 0 100 100" style="width: 80px; height: 80px;">
                             <circle class="timer-bg" cx="50" cy="50" r="45" />
@@ -174,7 +174,7 @@
                 
                 <div class="question-content mb-5">
                     <h2 id="question-text" class="fs-2 text-white fw-bold p-5 text-center"></h2>
-                    <div class="options-container row" id="options-container"></div>
+                    <div class="options-container overflow-hidden row" id="options-container"></div>
                 </div>
                 
                 <div class="answers-container">
@@ -245,6 +245,27 @@
         <source src="/sounds/new-question.mp3" type="audio/mpeg">
         <!-- Fallback si MP3 non supporté -->
         <source src="/sounds/new-question.ogg" type="audio/ogg">
+    </audio>
+    
+    <!-- Audio pour les options -->
+    <audio id="option-0-sound" preload="auto">
+        <source src="/sounds/option-0.mp3" type="audio/mpeg">
+        <source src="/sounds/option-0.ogg" type="audio/ogg">
+    </audio>
+    
+    <audio id="option-1-sound" preload="auto">
+        <source src="/sounds/option-1.mp3" type="audio/mpeg">
+        <source src="/sounds/option-1.ogg" type="audio/ogg">
+    </audio>
+    
+    <audio id="option-2-sound" preload="auto">
+        <source src="/sounds/option-2.mp3" type="audio/mpeg">
+        <source src="/sounds/option-2.ogg" type="audio/ogg">
+    </audio>
+    
+    <audio id="option-3-sound" preload="auto">
+        <source src="/sounds/option-3.mp3" type="audio/mpeg">
+        <source src="/sounds/option-3.ogg" type="audio/ogg">
     </audio>
 
     <!-- Bootstrap 5 JS Bundle with Popper -->

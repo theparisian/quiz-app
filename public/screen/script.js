@@ -26,8 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const winnerName = document.getElementById('winner-name');
     const finalLeaderboardBody = document.getElementById('final-leaderboard-body');
     
-    // Élément audio pour nouvelle question
+    // Éléments audio pour nouvelle question et options
     const newQuestionSound = document.getElementById('new-question-sound');
+    const optionSounds = [
+        document.getElementById('option-0-sound'),
+        document.getElementById('option-1-sound'),
+        document.getElementById('option-2-sound'),
+        document.getElementById('option-3-sound')
+    ];
     
     // Variables d'état
     let currentQuestionData = null;
@@ -166,6 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1ère option: 1 seconde, 2ème option: 2 secondes, etc.
             setTimeout(() => {
                 optionDiv.classList.add('show');
+                // Jouer le son correspondant à cette option
+                playOptionSound(index);
             }, (index + 1) * 1000);
         });
         
@@ -355,37 +363,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function initializeAudio() {
+        // Initialiser l'audio de nouvelle question
         if (newQuestionSound) {
             // Définir le volume (optionnel, entre 0.0 et 1.0)
             newQuestionSound.volume = 0.7;
-            
             // Précharger l'audio
             newQuestionSound.load();
+        }
+        
+        // Initialiser les sons d'options
+        optionSounds.forEach((sound, index) => {
+            if (sound) {
+                sound.volume = 0.5; // Volume un peu plus bas pour les options
+                sound.load();
+            }
+        });
+        
+        // Ajouter un gestionnaire d'événement pour activer l'audio sur la première interaction
+        const enableAudio = () => {
+            if (newQuestionSound) {
+                // Jouer et mettre immédiatement en pause pour "débloquer" l'audio
+                newQuestionSound.play().then(() => {
+                    newQuestionSound.pause();
+                    newQuestionSound.currentTime = 0;
+                    console.log('Audio de nouvelle question initialisé');
+                }).catch(() => {
+                    // Ignorer les erreurs d'initialisation
+                });
+            }
             
-            // Ajouter un gestionnaire d'événement pour activer l'audio sur la première interaction
-            const enableAudio = () => {
-                if (newQuestionSound) {
-                    // Jouer et mettre immédiatement en pause pour "débloquer" l'audio
-                    newQuestionSound.play().then(() => {
-                        newQuestionSound.pause();
-                        newQuestionSound.currentTime = 0;
-                        console.log('Audio initialisé et prêt');
+            // Initialiser tous les sons d'options
+            optionSounds.forEach((sound, index) => {
+                if (sound) {
+                    sound.play().then(() => {
+                        sound.pause();
+                        sound.currentTime = 0;
+                        console.log(`Audio option ${index} initialisé`);
                     }).catch(() => {
                         // Ignorer les erreurs d'initialisation
                     });
                 }
-                
-                // Supprimer les gestionnaires d'événements après la première interaction
-                document.removeEventListener('click', enableAudio);
-                document.removeEventListener('keydown', enableAudio);
-                document.removeEventListener('touchstart', enableAudio);
-            };
+            });
             
-            // Écouter les interactions utilisateur pour activer l'audio
-            document.addEventListener('click', enableAudio, { once: true });
-            document.addEventListener('keydown', enableAudio, { once: true });
-            document.addEventListener('touchstart', enableAudio, { once: true });
-        }
+            // Supprimer les gestionnaires d'événements après la première interaction
+            document.removeEventListener('click', enableAudio);
+            document.removeEventListener('keydown', enableAudio);
+            document.removeEventListener('touchstart', enableAudio);
+        };
+        
+        // Écouter les interactions utilisateur pour activer l'audio
+        document.addEventListener('click', enableAudio, { once: true });
+        document.addEventListener('keydown', enableAudio, { once: true });
+        document.addEventListener('touchstart', enableAudio, { once: true });
     }
     
     function playNewQuestionSound() {
@@ -409,6 +438,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error('Erreur lors de la lecture du son:', error);
+            }
+        }
+    }
+    
+    function playOptionSound(optionIndex) {
+        const sound = optionSounds[optionIndex];
+        if (sound) {
+            try {
+                // Réinitialiser le son au début
+                sound.currentTime = 0;
+                
+                // Jouer le son
+                const playPromise = sound.play();
+                
+                // Gérer les navigateurs modernes qui requièrent une interaction utilisateur
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log(`Son de l'option ${optionIndex} joué`);
+                    }).catch(error => {
+                        console.log(`Impossible de jouer le son de l'option ${optionIndex}:`, error);
+                    });
+                }
+            } catch (error) {
+                console.error(`Erreur lors de la lecture du son de l'option ${optionIndex}:`, error);
             }
         }
     }
