@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerAnswers = document.getElementById('player-answers');
     const detailedPlayerAnswers = document.getElementById('detailed-player-answers');
     
-    const correctAnswerText = document.getElementById('correct-answer-text');
+
     const explanationText = document.getElementById('explanation-text');
     const scoreTableBody = document.getElementById('score-table-body');
     const winnerName = document.getElementById('winner-name');
@@ -304,9 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('question-results', (data) => {
         console.log('Question results:', data);
         
-        // Afficher la réponse correcte
-        const correctOption = currentQuestionData.options[data.correctIndex];
-        correctAnswerText.textContent = correctOption;
+
         
         // Afficher l'explication
         explanationText.textContent = data.explanation || 'Aucune explication disponible.';
