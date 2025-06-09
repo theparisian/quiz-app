@@ -134,6 +134,8 @@ body {
     padding-bottom: 19px;
     background:linear-gradient(90deg,rgb(185, 235, 2) 0%, rgba(128, 194, 3, 1) 100%) !important;
     color:white !important;
+    overflow:hidden;
+    border:0 !important;
 }
 
 .options-container.active .option-btn.active::before,
