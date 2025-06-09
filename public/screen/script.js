@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Éléments audio pour nouvelle question et options
     const newQuestionSound = document.getElementById('new-question-sound');
     const backgroundMusic = document.getElementById('background-music');
+    const correctAnswerSound = document.getElementById('correct-answer-sound');
     const optionSounds = [
         document.getElementById('option-0-sound'),
         document.getElementById('option-1-sound'),
@@ -39,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Debug: vérifier que les éléments audio sont trouvés
     console.log('New question sound:', newQuestionSound);
     console.log('Background music:', backgroundMusic);
+    console.log('Correct answer sound:', correctAnswerSound);
     console.log('Option sounds:', optionSounds.filter(s => s !== null));
     
     // Variables d'état
@@ -100,6 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }).catch(() => {});
         }
         
+        // Débloquer le son de bonne réponse
+        if (correctAnswerSound) {
+            correctAnswerSound.play().then(() => {
+                correctAnswerSound.pause();
+                correctAnswerSound.currentTime = 0;
+                console.log('✅ Son de bonne réponse débloqué');
+            }).catch(() => {});
+        }
+
         optionSounds.forEach((sound, index) => {
             if (sound) {
                 sound.play().then(() => {
@@ -362,6 +373,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (correctOptionElement) {
             correctOptionElement.classList.add('correct');
             console.log('Classe "correct" ajoutée à l\'option', data.correctIndex);
+            
+            // Jouer le son de bonne réponse
+            playCorrectAnswerSound();
         }
         
         // Attendre 10 secondes puis afficher l'écran de résultats
@@ -484,6 +498,12 @@ document.addEventListener('DOMContentLoaded', () => {
             backgroundMusic.volume = 0.3; // Volume plus bas pour ne pas gêner
             backgroundMusic.load();
         }
+
+        // Initialiser le son de bonne réponse
+        if (correctAnswerSound) {
+            correctAnswerSound.volume = 0.8; // Volume un peu plus fort pour l'effet
+            correctAnswerSound.load();
+        }
         
         // Initialiser les sons d'options
         if (optionSounds) {
@@ -516,6 +536,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     backgroundMusic.pause();
                     backgroundMusic.currentTime = 0;
                     console.log('Musique de fond initialisée');
+                }).catch(() => {
+                    // Ignorer les erreurs d'initialisation
+                });
+            }
+
+            // Initialiser le son de bonne réponse
+            if (correctAnswerSound) {
+                correctAnswerSound.play().then(() => {
+                    correctAnswerSound.pause();
+                    correctAnswerSound.currentTime = 0;
+                    console.log('Audio de bonne réponse initialisé');
                 }).catch(() => {
                     // Ignorer les erreurs d'initialisation
                 });
@@ -573,6 +604,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    function playCorrectAnswerSound() {
+        if (correctAnswerSound) {
+            try {
+                // Réinitialiser le son au début
+                correctAnswerSound.currentTime = 0;
+                
+                // Jouer le son
+                const playPromise = correctAnswerSound.play();
+                
+                // Gérer les navigateurs modernes qui requièrent une interaction utilisateur
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log('🎉 Son de bonne réponse joué');
+                    }).catch(error => {
+                        console.log('Impossible de jouer le son de bonne réponse:', error);
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors de la lecture du son de bonne réponse:', error);
+            }
+        }
+    }
+
     function playOptionSound(optionIndex) {
         // Vérification de sécurité
         if (!optionSounds || optionIndex < 0 || optionIndex >= optionSounds.length) {

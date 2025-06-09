@@ -654,17 +654,20 @@ body {
 
 /* TABLEAUX DES SCORES */
 
-#score-table {
+#score-table,
+#final-leaderboard {
     width:100%;
     border-collapse:collapse;
 }
 
-#score-table th {
+#score-table th,
+#final-leaderboard th {
     font-weight:bold;
     color:white;
 }
 
-#score-table tr td {
+#score-table tr td,
+#final-leaderboard tr td {
     border-top:1px solid rgba(255, 255, 255, .15);
 }
 
