@@ -359,8 +359,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Arrêter le timer
         clearInterval(timerInterval);
         
-        // Afficher l'écran de résultats
-        showScreen(resultsScreen);
+        // Ajouter la classe "correct" à la bonne option pour l'animation
+        const correctOptionElement = document.querySelector(`.option[data-index="${data.correctIndex}"]`);
+        if (correctOptionElement) {
+            correctOptionElement.classList.add('correct');
+            console.log('Classe "correct" ajoutée à l\'option', data.correctIndex);
+        }
+        
+        // Attendre 10 secondes puis afficher l'écran de résultats
+        setTimeout(() => {
+            showScreen(resultsScreen);
+        }, 10000); // 10 secondes = 10000 millisecondes
     });
     
     socket.on('game-end', (data) => {

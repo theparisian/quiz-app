@@ -635,4 +635,21 @@ body {
     border:1px solid rgba(255, 255, 255, .15);
 }
 
+.body-screen .option.correct {
+    background: rgba(40, 167, 69, 0.8) !important;
+    border: 2px solid rgba(40, 167, 69, 1) !important;
+    animation: correctAnswer 2s ease-in-out infinite;
+}
+
+@keyframes correctAnswer {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
+}
+
 
