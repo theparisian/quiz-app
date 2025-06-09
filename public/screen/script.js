@@ -381,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Attendre 10 secondes puis afficher l'écran de résultats
         setTimeout(() => {
             showScreen(resultsScreen);
-        }, 10000); // 10 secondes = 10000 millisecondes
+        }, 100000); // 10 secondes = 10000 millisecondes
     });
     
     socket.on('game-end', (data) => {
