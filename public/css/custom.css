@@ -33,9 +33,9 @@
 
 :root {
     --primary-color: #667eea;
-    --secondary-color: #764ba2;
-    --correct-color: #28a745;
-    --incorrect-color: #dc3545;
+    --secondary-color: #F2AE5A;
+    --correct-color: #169F93;
+    --incorrect-color: #DF5A6B;
     --light-bg: #f8f9fa;
 }
 
