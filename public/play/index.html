@@ -15,7 +15,8 @@
         <source src="../css/img/2646392-sd_640_360_30fps.mp4" type="video/mp4">
       </video> -->
     <div class="container py-4">
-        <header class="text-center mb-4">
+        <!-- Informations du joueur - masquées avec CSS pour simplification -->
+        <header class="text-center mb-4" style="display: none;">
             <div id="player-info" class="hidden">
                 <span id="player-name-display" class="badge bg-secondary me-2"></span>
                 <span id="player-score" class="badge bg-primary">Score: <span id="score-value">0</span></span>
@@ -57,10 +58,9 @@
                 <div id="waiting-screen" class="screen text-center">
                     <h2 class="fs-2 text-white fw-bold p-5 text-center">En attente du début du quiz</h2>
                     <div class="mb-3">
-                        <img src="/css/img/loader.svg" alt="Chargement..." class="loader-svg" style="width: 3rem; height: 3rem;">
+                        <img src="/css/img/loader.svg" alt="Chargement..." class="loader-svg" style="width: 20rem; height: auto;">
                     </div>
-                    <p class="mb-1">Le quiz commencera dès que l'hôte le lancera.</p>
-                    <p class="text-secondary small">Gardez votre téléphone à portée de main!</p>
+                    <p class="mb-1 text-white">Le quiz commencera dès que l'hôte le lancera.</p>
                 </div>
 
                 <div id="question-screen" class="screen">
