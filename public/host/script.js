@@ -163,8 +163,8 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('game-started', () => {
         console.log('Game started');
         // Cacher le bouton de démarrage et afficher le bouton de contrôle du timer
-        startGameBtn.style.display = 'none';
-        forceNextQuestionBtn.style.display = 'block';
+        startGameBtn.classList.add('d-none');
+        forceNextQuestionBtn.classList.remove('d-none');
         
         // S'assurer que l'écran de question est affiché
         showScreen(questionScreen);
@@ -288,8 +288,8 @@ document.addEventListener('DOMContentLoaded', () => {
         playerList.innerHTML = '';
         
         // Réinitialiser les boutons de contrôle
-        startGameBtn.style.display = 'block';
-        forceNextQuestionBtn.style.display = 'none';
+        startGameBtn.classList.remove('d-none');
+        forceNextQuestionBtn.classList.add('d-none');
         
         // Afficher l'écran d'attente
         showScreen(waitingScreen);
