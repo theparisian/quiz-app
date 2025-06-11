@@ -165,6 +165,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Cacher le bouton de démarrage et afficher le bouton de contrôle du timer
         startGameBtn.style.display = 'none';
         forceNextQuestionBtn.style.display = 'block';
+        
+        // S'assurer que l'écran de question est affiché
+        showScreen(questionScreen);
     });
     
     socket.on('new-question', (data) => {
