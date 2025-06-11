@@ -625,17 +625,20 @@ body {
 #final-leaderboard {
     width:100%;
     border-collapse:collapse;
+    color:white;
 }
 
 #score-table th,
 #final-leaderboard th {
     font-weight:bold;
     color:white;
+    padding:.5rem .2rem;
 }
 
 #score-table tr td,
 #final-leaderboard tr td {
-    border-top:1px solid rgba(255, 255, 255, .15);
+    border-top:2px solid rgba(255, 255, 255, 2);
+    padding:.5rem .2rem;
 }
 
 /* Animations SCREEN */
