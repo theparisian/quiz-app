@@ -141,7 +141,8 @@ document.addEventListener('DOMContentLoaded', () => {
         playerCountValue.textContent = data.playerCount;
         
         // Ajouter le joueur à la liste
-        const playerItem = document.createElement('li class="rounded-circle-relative px-2 py-0 bg-dark text-white"');
+        const playerItem = document.createElement('li');
+        playerItem.className = 'rounded-circle-relative px-2 py-0 bg-dark text-white';
         playerItem.textContent = data.playerName;
         playerList.appendChild(playerItem);
         
