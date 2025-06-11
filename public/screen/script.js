@@ -18,9 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const questionText = document.getElementById('question-text');
     const optionsContainer = document.getElementById('options-container');
     const playerAnswers = document.getElementById('player-answers');
-    const detailedPlayerAnswers = document.getElementById('detailed-player-answers');
     
-
     const explanationText = document.getElementById('explanation-text');
     const scoreTableBody = document.getElementById('score-table-body');
     const winnerName = document.getElementById('winner-name');
@@ -315,37 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('question-results', (data) => {
         console.log('Question results:', data);
         
-
-        
         // Afficher l'explication
         explanationText.textContent = data.explanation || 'Aucune explication disponible.';
-        
-        // Afficher les réponses détaillées des joueurs
-        detailedPlayerAnswers.innerHTML = '';
-        
-        // Trier les joueurs par ceux qui ont bien répondu d'abord
-        const sortedPlayers = Object.entries(playerAnswersData).sort((a, b) => {
-            const aCorrect = a[1].answerIndex === data.correctIndex;
-            const bCorrect = b[1].answerIndex === data.correctIndex;
-            return bCorrect - aCorrect; // Les corrects d'abord
-        });
-        
-        for (const [playerId, playerData] of sortedPlayers) {
-            const isCorrect = playerData.answerIndex === data.correctIndex;
-            const playerAnswer = document.createElement('div');
-            playerAnswer.className = `player-answer ${isCorrect ? 'correct-answer' : 'incorrect-answer'} mb-2`;
-            
-            const answerText = playerData.answerIndex !== undefined && playerData.answerIndex !== null
-                ? currentQuestionData.options[playerData.answerIndex]
-                : 'Pas de réponse';
-            
-            playerAnswer.innerHTML = `
-                <strong>${playerData.playerName}:</strong> ${answerText}
-                ${isCorrect ? ' ✓' : ' ✗'}
-            `;
-            
-            detailedPlayerAnswers.appendChild(playerAnswer);
-        }
         
         // Mettre à jour le tableau des scores
         scoreTableBody.innerHTML = '';
