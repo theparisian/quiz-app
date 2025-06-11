@@ -21,9 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pointsEarned = document.getElementById('points-earned');
     const currentScoreValue = document.getElementById('current-score-value');
     
-    const correctAnswerText = document.getElementById('correct-answer-text');
-    const explanationText = document.getElementById('explanation-text');
-    
     const finalResult = document.getElementById('final-result');
     const winnerForm = document.getElementById('winner-form');
     const winnerEmailInput = document.getElementById('winner-email');
@@ -37,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const waitingScreen = document.getElementById('waiting-screen');
     const questionScreen = document.getElementById('question-screen');
     const answerResultScreen = document.getElementById('answer-result-screen');
-    const questionResultsScreen = document.getElementById('question-results-screen');
     const finalScreen = document.getElementById('final-screen');
     
     // Connexion Socket.IO
@@ -330,11 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     socket.on('question-results', (data) => {
-        // Afficher la réponse correcte
-        correctAnswerText.textContent = currentOptions[data.correctIndex];
-        explanationText.textContent = data.explanation || 'Pas d\'explication disponible.';
-        
-        showScreen(questionResultsScreen);
+        // Ne rien faire ici, car les résultats sont affichés sur l'écran principal
+        // Nous restons sur l'écran answer-result-screen jusqu'à la prochaine question
     });
     
     socket.on('game-end', (data) => {
@@ -409,7 +402,6 @@ document.addEventListener('DOMContentLoaded', () => {
         waitingScreen.classList.remove('active');
         questionScreen.classList.remove('active');
         answerResultScreen.classList.remove('active');
-        questionResultsScreen.classList.remove('active');
         finalScreen.classList.remove('active');
         
         // Afficher l'écran demandé
