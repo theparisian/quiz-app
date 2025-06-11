@@ -653,6 +653,11 @@ body {
     max-width: 600px;
 }
 
+.explanation-fixed {
+    top: 50%;
+}
+
+
 
 
 

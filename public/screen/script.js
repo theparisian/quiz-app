@@ -380,11 +380,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Afficher l'explication après 2 secondes
             setTimeout(() => {
                 const explanationContainer = document.getElementById('explanation-container');
-                explanationContainer.classList.remove('d-none');
+                explanationContainer.classList.add('active');
                 
                 // Cacher l'explication et passer à l'écran des résultats après 10 secondes
                 setTimeout(() => {
-                    explanationContainer.classList.add('d-none');
+                    explanationContainer.classList.remove('active');
                     showScreen(resultsScreen);
                 }, 10000);
             }, 2000);
