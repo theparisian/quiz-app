@@ -642,7 +642,7 @@ body {
 
 .explanation-fixed {
     position: fixed;
-    top: 50%;
+    top: 150%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 1000;
@@ -651,9 +651,10 @@ body {
     border-radius: 1rem;
     width: 80%;
     max-width: 600px;
+    transition:0.2s ease all 0s;
 }
 
-.explanation-fixed {
+.explanation-fixed.active {
     top: 50%;
 }
 
