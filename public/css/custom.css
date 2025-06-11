@@ -617,6 +617,7 @@ body {
     box-shadow:0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     padding:1rem;
     border-radius: 100rem;
+    transition:0.2s ease all 0s;
 }
 
 /* TABLEAUX DES SCORES */
