@@ -330,6 +330,7 @@ io.on('connection', (socket) => {
     // Informer tous les joueurs que le jeu a commencé
     io.to('game-room').emit('game-started');
     io.to('screen-room').emit('game-started');
+    io.to('host-room').emit('game-started');
     
     // Passer à la première question
     nextQuestion();
