@@ -377,6 +377,27 @@ document.addEventListener('DOMContentLoaded', () => {
             // Jouer le son de bonne réponse
             playCorrectAnswerSound();
 
+            // Ajouter les classes aux player-answer selon leur réponse
+            const playerAnswerElements = document.querySelectorAll('.player-answer');
+            playerAnswerElements.forEach(playerElement => {
+                const playerId = playerElement.dataset.playerId;
+                const playerAnswerData = playerAnswersData[playerId];
+                
+                if (playerAnswerData) {
+                    // Le joueur a répondu
+                    if (playerAnswerData.answerIndex === data.correctIndex) {
+                        // Réponse correcte
+                        playerElement.classList.add('correct');
+                    } else {
+                        // Réponse incorrecte
+                        playerElement.classList.add('incorrect');
+                    }
+                } else {
+                    // Le joueur n'a pas répondu
+                    playerElement.classList.add('inactive');
+                }
+            });
+
             // Afficher l'explication après 2 secondes
             setTimeout(() => {
                 const explanationContainer = document.getElementById('explanation-container');
