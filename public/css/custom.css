@@ -84,27 +84,18 @@ body {
 }
 
 /* Boutons de réponse */
-.option-btn {
-    background-color: #fff;
-    border: 2px solid #ddd;
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: left;
-    font-size: 1rem;
-}
+/*    .option-btn {
+        background-color: #fff;
+        border: 2px solid #ddd;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: left;
+        font-size: 1rem;
+    }*/
 
-.option-btn:hover {
-    border-color: var(--primary-color);
-    background-color: rgba(102, 126, 234, 0.05);
-}
-
-.option-btn.selected {
-    border-color: var(--primary-color);
-    background-color: rgba(102, 126, 234, 0.1);
-}
 
 .option-btn.correct {
     border-color: var(--correct-color);
@@ -616,7 +607,8 @@ body {
     margin-right:0;
 }
 
-.body-screen .option {
+.body-screen .option,
+.options-container .option-btn {
     color:white;
     text-align:center;
     background:rgba(255, 255, 255, .03) !important;
