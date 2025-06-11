@@ -160,6 +160,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStartButton(data.playerCount);
     });
     
+    socket.on('game-started', () => {
+        console.log('Game started');
+        // Cacher le bouton de démarrage et afficher le bouton de contrôle du timer
+        startGameBtn.style.display = 'none';
+        forceNextQuestionBtn.style.display = 'block';
+    });
+    
     socket.on('new-question', (data) => {
         console.log('New question:', data);
         currentQuestionData = data;
@@ -276,6 +283,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Vider la liste des joueurs
         playerList.innerHTML = '';
+        
+        // Réinitialiser les boutons de contrôle
+        startGameBtn.style.display = 'block';
+        forceNextQuestionBtn.style.display = 'none';
         
         // Afficher l'écran d'attente
         showScreen(waitingScreen);

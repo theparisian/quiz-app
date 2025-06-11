@@ -608,6 +608,7 @@ body {
     border:1px solid rgba(255, 255, 255, .15);
     box-shadow:0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     padding:1rem;
+    border-radius: 100rem;
 }
 
 /* TABLEAUX DES SCORES */
