@@ -629,6 +629,21 @@ body {
     border-top:1px solid rgba(255, 255, 255, .15);
 }
 
+/* Animations SCREEN */
+
+.explanation-fixed {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 2rem;
+    border-radius: 1rem;
+    width: 80%;
+    max-width: 600px;
+}
+
 
 
 

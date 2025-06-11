@@ -376,12 +376,19 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Jouer le son de bonne réponse
             playCorrectAnswerSound();
+
+            // Afficher l'explication après 2 secondes
+            setTimeout(() => {
+                const explanationContainer = document.getElementById('explanation-container');
+                explanationContainer.classList.remove('d-none');
+                
+                // Cacher l'explication et passer à l'écran des résultats après 10 secondes
+                setTimeout(() => {
+                    explanationContainer.classList.add('d-none');
+                    showScreen(resultsScreen);
+                }, 10000);
+            }, 2000);
         }
-        
-        // Attendre 10 secondes puis afficher l'écran de résultats
-        setTimeout(() => {
-            showScreen(resultsScreen);
-        }, 100000); // 10 secondes = 10000 millisecondes
     });
     
     socket.on('game-end', (data) => {
