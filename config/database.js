@@ -4,6 +4,8 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 
+const logDbConfig = process.env.LOG_DB_CONFIG === '1';
+
 // Configuration de la base de données
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
@@ -15,30 +17,36 @@ const dbConfig = {
   queueLimit: 0
 };
 
-console.log('🔧 [CONFIG] Configuration de la base de données:', {
-  host: dbConfig.host,
-  user: dbConfig.user,
-  database: dbConfig.database,
-  hasPassword: !!dbConfig.password
-});
+if (logDbConfig) {
+  console.log('Configuration DB:', {
+    host: dbConfig.host,
+    user: dbConfig.user,
+    database: dbConfig.database,
+    hasPassword: !!dbConfig.password
+  });
+}
 
 // Création du pool de connexions
 let pool = null;
 try {
   pool = mysql.createPool(dbConfig);
-  console.log(`✅ [SUCCESS] Pool de connexion à la base de données créé avec succès (${process.env.NODE_ENV || 'development'})`);
+  if (logDbConfig) {
+    console.log('Pool MySQL créé');
+  }
   
   // Test de connexion
   pool.execute('SELECT 1 as test')
     .then(() => {
-      console.log('✅ [SUCCESS] Test de connexion MySQL réussi');
+      if (logDbConfig) {
+        console.log('Test de connexion MySQL réussi');
+      }
     })
     .catch(err => {
-      console.error('❌ [ERROR] Échec du test de connexion MySQL:', err.message);
+      console.error('Échec du test de connexion MySQL:', err.message);
     });
     
 } catch (error) {
-  console.error('❌ [ERROR] Erreur lors de la création du pool de connexion:', error.message);
+  console.error('Erreur lors de la création du pool de connexion:', error.message);
 }
 
 // Fonction pour initialiser la base de données
@@ -347,26 +355,12 @@ const database = {
   // Méthode pour récupérer tous les quiz
   async getAllQuizzes() {
     try {
-      console.log('🔍 [DEBUG] Tentative de récupération des quiz...');
-      
       if (!pool) {
-        console.error('❌ [ERROR] Aucune connexion à la base de données disponible');
+        console.error('Aucune connexion à la base de données disponible');
         return [];
       }
 
-      console.log('🔗 [DEBUG] Pool de connexion disponible, exécution de la requête...');
       const [rows] = await pool.query('SELECT * FROM quizzes ORDER BY created_at DESC');
-      
-      console.log(`📊 [DEBUG] Nombre de quiz trouvés: ${rows.length}`);
-      
-      if (rows.length > 0) {
-        console.log('📋 [DEBUG] Premier quiz:', {
-          id: rows[0].id,
-          name: rows[0].name,
-          questionsLength: typeof rows[0].questions === 'string' ? 'string' : 'object',
-          active: rows[0].active
-        });
-      }
 
       return rows.map(row => {
         let questions;
@@ -398,13 +392,7 @@ const database = {
         };
       });
     } catch (error) {
-      console.error('❌ [ERROR] Erreur lors de la récupération des quiz:', error);
-      console.error('📝 [ERROR] Détails:', {
-        message: error.message,
-        code: error.code,
-        errno: error.errno,
-        sqlState: error.sqlState
-      });
+      console.error('Erreur lors de la récupération des quiz:', error.message);
       return [];
     }
   },

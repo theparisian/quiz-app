@@ -143,22 +143,29 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        if (!isValidEmail(email)) {
-            showEmailError('Veuillez entrer un email valide.');
+        if (!playerData || !playerData.playerId) {
+            showEmailError('Session joueur invalide.');
             return;
         }
-        
+
         // Envoyer l'email au serveur
         socket.emit('submit-winner-email', {
             playerId: playerData.playerId,
             email: email
         });
-        
-        // Afficher le message de succès
+    });
+
+    socket.on('email-success', (data) => {
+        emailError.classList.add('hidden');
+        emailSuccess.textContent = data.message || 'Email envoyé avec succès.';
         emailSuccess.classList.remove('hidden');
         setTimeout(() => {
             emailSuccess.classList.add('hidden');
         }, 5000);
+    });
+
+    socket.on('email-error', (data) => {
+        showEmailError(data.error || 'Erreur lors de l\'envoi de l\'email.');
     });
     
     // Événements Socket.IO
@@ -275,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     socket.on('time-up', () => {
         // Si le joueur n'a pas répondu, envoyer une réponse vide
-        if (!hasAnswered && selectedAnswerIndex === null) {
+        if (!hasAnswered && selectedAnswerIndex === null && playerData && playerData.playerId) {
             socket.emit('player-answer', {
                 playerId: playerData.playerId,
                 answerIndex: null // Indique qu'aucune réponse n'a été donnée
@@ -346,12 +353,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             for (let i = 0; i < data.leaderboard.length; i++) {
                 const player = data.leaderboard[i];
-                if (player.playerName === playerName) {
+                const samePlayer =
+                    playerData &&
+                    player.playerId &&
+                    player.playerId === playerData.playerId;
+                if (samePlayer || (!playerData && player.playerName === playerName)) {
                     playerPosition = i + 1;
                     playerScore = player.score;
-                    
+
                     // Vérifier si le joueur est le gagnant
-                    isWinner = (playerPosition === 1);
+                    isWinner = playerPosition === 1;
                     break;
                 }
             }

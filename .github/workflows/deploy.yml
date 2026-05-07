@@ -1,19 +1,40 @@
 name: Deploy to VPS
 on:
   push:
-    branches: [ master ]  # Branche principale configurée sur master
+    branches: [master] # Branche principale configurée sur master
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        
+
       - name: Deploy to VPS
+        env:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd ${{ secrets.PROJECT_PATH }} && git stash && git pull --no-rebase origin master && npm install && (pm2 restart quiz-app || pm2 start npm --name 'quiz-app' -- start) && echo 'Déploiement et redémarrage terminés avec succès!'"
+          set -euo pipefail
+          if [ -z "${SESSION_SECRET:-}" ]; then
+            echo "::error::Secret GitHub SESSION_SECRET manquant."
+            exit 1
+          fi
+          B64="$(printf '%s' "$SESSION_SECRET" | base64 -w0)"
+          {
+            echo 'set -euo pipefail'
+            echo "cd \"${{ secrets.PROJECT_PATH }}\""
+            echo "B64=${B64}"
+            echo 'SECRET=$(printf "%s" "$B64" | base64 -d)'
+            echo 'touch .env'
+            echo 'if grep -q "^SESSION_SECRET=" .env 2>/dev/null; then grep -v "^SESSION_SECRET=" .env > .env.tmp && mv .env.tmp .env; fi'
+            echo 'printf "SESSION_SECRET=%s\n" "$SECRET" >> .env'
+            echo 'git stash'
+            echo 'git pull --no-rebase origin master'
+            echo 'npm install'
+            echo "(pm2 restart quiz-app || pm2 start npm --name 'quiz-app' -- start)"
+            echo "echo 'Déploiement et redémarrage terminés avec succès!'"
+          } | ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s

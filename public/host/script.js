@@ -75,23 +75,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Variables d'état de la partie host
     let currentQuestionData = null;
 
-    // Fonctions d'initialisation
-    function initTabs() {
-        // Les onglets sont maintenant gérés par Bootstrap, donc nous n'avons pas besoin
-        // d'ajouter des gestionnaires d'événements personnalisés pour les changements d'onglets
-        
-        // Par défaut, nous voulons vérifier si l'utilisateur est admin et afficher/masquer l'onglet admin en conséquence
-        if (!isAdmin) {
-            document.getElementById('admin-tab').parentElement.classList.add('d-none');
-        }
-    }
-    
     // Rejoindre en tant qu'hôte
     socket.emit('host-join');
     
     // Événements Socket.IO communs
     socket.on('connect', () => {
         console.log('Connecté au serveur');
+    });
+
+    socket.on('host-error', (data) => {
+        showNotification(data.error || 'Erreur hôte', 'error');
+    });
+
+    socket.on('admin-error', (data) => {
+        showNotification(data.error || 'Erreur administration', 'error');
     });
     
     // Événements Socket.IO partie host
@@ -127,9 +124,14 @@ document.addEventListener('DOMContentLoaded', () => {
             appVersion.textContent = data.appVersion;
         }
         
-        // Afficher l'onglet admin si l'utilisateur est administrateur
-        if (data.isAdmin) {
-            adminTab.style.display = 'block';
+        if (data.isAdmin !== undefined) {
+            if (data.isAdmin) {
+                adminTab.style.display = 'block';
+                adminTab.parentElement.classList.remove('d-none');
+            } else {
+                adminTab.style.display = 'none';
+                adminTab.parentElement.classList.add('d-none');
+            }
         }
         
         // Mettre à jour le bouton de démarrage
@@ -144,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerItem = document.createElement('li');
         playerItem.className = 'rounded-circle-relative px-2 py-0 bg-dark text-white';
         playerItem.textContent = data.playerName;
+        playerItem.dataset.playerId = data.playerId;
         playerList.appendChild(playerItem);
         
         // Mettre à jour le bouton de démarrage
@@ -153,10 +156,12 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('player-left', (data) => {
         console.log('Player left:', data);
         playerCountValue.textContent = data.playerCount;
-        
-        // Note: Dans une application réelle, nous voudrions aussi supprimer le joueur de la liste
-        // Mais comme on n'a pas l'ID du joueur qui part, on devrait faire un appel au serveur
-        
+
+        const row = playerList.querySelector(`[data-player-id="${data.playerId}"]`);
+        if (row) {
+            row.remove();
+        }
+
         // Mettre à jour le bouton de démarrage
         updateStartButton(data.playerCount);
     });
@@ -399,7 +404,8 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.emit('get-quiz-list');
             showNotification('Quiz supprimé avec succès!', 'success');
         } else {
-            showNotification('Erreur lors de la suppression du quiz: ' + data.message, 'error');
+            const err = data.message || data.error || 'Erreur inconnue';
+            showNotification('Erreur lors de la suppression du quiz: ' + err, 'error');
         }
     });
     
@@ -408,7 +414,8 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.emit('get-quiz-list');
             showNotification('Le quiz a été activé avec succès!', 'success');
         } else {
-            showNotification('Erreur lors de l\'activation du quiz: ' + data.message, 'error');
+            const err = data.message || data.error || 'Erreur inconnue';
+            showNotification('Erreur lors de l\'activation du quiz: ' + err, 'error');
         }
     });
 

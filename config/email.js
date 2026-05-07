@@ -19,8 +19,7 @@ const configureBrevoClient = () => {
  */
 const sendWinnerEmail = async (winner, quizName) => {
   if (!process.env.BREVO_API_KEY) {
-    console.error('Clé API Brevo non configurée. Email non envoyé.');
-    return;
+    throw new Error('Clé API Brevo non configurée (BREVO_API_KEY)');
   }
 
   try {

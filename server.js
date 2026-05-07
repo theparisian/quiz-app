@@ -3,9 +3,24 @@ const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const session = require('express-session');
 const QRCode = require('qrcode');
 require('dotenv').config();
+
+let sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('SESSION_SECRET est obligatoire en production');
+    process.exit(1);
+  }
+  sessionSecret = crypto.randomBytes(32).toString('hex');
+  console.warn('SESSION_SECRET généré pour ce démarrage (développement uniquement)');
+}
+
+const socketCorsOrigin = process.env.SOCKET_CORS_ORIGIN
+  ? process.env.SOCKET_CORS_ORIGIN.split(',').map((s) => s.trim())
+  : true;
 const { initDatabase } = require('./config/database');
 const { verifyCredentials, requireAuth } = require('./config/auth');
 const { sendWinnerEmail } = require('./config/email');
@@ -29,17 +44,25 @@ const baseUrl = process.env.BASE_URL || 'https://demo.uxii.fr';
 
 // Initialisation de l'application Express
 const app = express();
+if (process.env.TRUST_PROXY === '1') {
+  app.set('trust proxy', 1);
+}
 const server = http.createServer(app);
+
+const sessionCookieSecure =
+  process.env.SESSION_COOKIE_SECURE === 'false'
+    ? false
+    : process.env.NODE_ENV === 'production';
 
 // Configuration des sessions
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || 'quiz-master-secret-key',
-  resave: true, // Forcer la sauvegarde même si la session n'a pas changé
-  saveUninitialized: true, // Sauvegarder les sessions non initialisées
-  cookie: { 
-    maxAge: 3600000, // 1 heure
+  secret: sessionSecret,
+  resave: true,
+  saveUninitialized: true,
+  cookie: {
+    maxAge: 3600000,
     httpOnly: true,
-    secure: false // Mettre à true en production si HTTPS
+    secure: sessionCookieSecure
   }
 });
 
@@ -47,11 +70,11 @@ app.use(sessionMiddleware);
 
 // Initialisation de Socket.IO avec accès aux sessions
 const io = socketIO(server, {
-    cors: {
-        origin: true,
-        methods: ["GET", "POST"],
-        credentials: true
-    }
+  cors: {
+    origin: socketCorsOrigin,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
 });
 
 // Middleware pour permettre à Socket.IO d'accéder à la session Express
@@ -60,11 +83,9 @@ io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, () => {
     // Vérifier que la session est chargée
     if (socket.request.session) {
-      console.log('Session chargée dans Socket.IO:', { 
-        id: socket.request.session.id,
-        hasUser: !!socket.request.session.user,
-        isAdmin: socket.request.session.user ? !!socket.request.session.user.isAdmin : false
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Socket.IO session:', socket.request.session.id, !!socket.request.session.user);
+      }
       next();
     } else {
       console.error('Pas de session disponible dans Socket.IO');
@@ -101,10 +122,7 @@ app.get('/login', (req, res) => {
 app.post('/auth', async (req, res) => {
   const { username, password } = req.body;
   
-  // Vérifier les identifiants
-  console.log('Tentative de connexion:', username);
   const user = await verifyCredentials(username, password);
-  console.log('Utilisateur trouvé:', user);
   
   if (user) {
     // Stocker l'utilisateur dans la session
@@ -187,29 +205,69 @@ function generateSessionCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function getSessionUser(socket) {
+  const sess = socket.request.session;
+  return sess && sess.user ? sess.user : null;
+}
+
+function isHostSocket(socket) {
+  return !!getSessionUser(socket);
+}
+
+function isAdminSocket(socket) {
+  const u = getSessionUser(socket);
+  return !!(u && u.isAdmin);
+}
+
+function pickTopPlayerId(scores) {
+  let top = -1;
+  const tied = [];
+  for (const pid in scores) {
+    const s = scores[pid];
+    if (s > top) {
+      top = s;
+      tied.length = 0;
+      tied.push(pid);
+    } else if (s === top) {
+      tied.push(pid);
+    }
+  }
+  if (tied.length === 0) return null;
+  return tied.sort()[0];
+}
+
+function quizQuestionsPreview(quiz) {
+  if (!quiz || !Array.isArray(quiz.questions)) return [];
+  return quiz.questions.map((q) => ({
+    question: q.question,
+    options: q.options
+  }));
+}
+
 // Gestion des connexions Socket.IO
 io.on('connection', (socket) => {
   console.log('Nouvelle connexion:', socket.id);
 
   // Quand un hôte se connecte
   socket.on('host-join', async () => {
+    if (!isHostSocket(socket)) {
+      return socket.emit('host-error', {
+        error: 'Connexion hôte requise. Rechargez la page après vous être connecté.'
+      });
+    }
+
     socket.join('host-room');
-    
-    // S'assurer que le quiz actif est chargé
+
     gameState.activeQuiz = await getActiveQuiz();
-    
-    // Récupérer la session
+
     const session = socket.request.session;
     const isAdmin = !!(session && session.user && session.user.isAdmin);
     const username = session && session.user ? session.user.username : 'Non connecté';
-    
-    socket.emit('game-setup', { 
+
+    socket.emit('game-setup', {
       sessionCode: gameState.sessionCode,
       playerCount: Object.keys(gameState.players).length,
-      questions: gameState.activeQuiz.questions.map(q => ({
-        question: q.question,
-        options: q.options
-      })),
+      questions: quizQuestionsPreview(gameState.activeQuiz),
       appVersion: appVersion,
       isAdmin: isAdmin,
       username: username
@@ -219,17 +277,13 @@ io.on('connection', (socket) => {
   // Quand un écran de présentation se connecte
   socket.on('screen-join', async () => {
     socket.join('screen-room');
-    
-    // S'assurer que le quiz actif est chargé
+
     gameState.activeQuiz = await getActiveQuiz();
-    
-    socket.emit('game-setup', { 
+
+    socket.emit('game-setup', {
       sessionCode: gameState.sessionCode,
       playerCount: Object.keys(gameState.players).length,
-      questions: gameState.activeQuiz.questions.map(q => ({
-        question: q.question,
-        options: q.options
-      })),
+      questions: quizQuestionsPreview(gameState.activeQuiz),
       appVersion: appVersion,
       baseUrl: baseUrl
     });
@@ -305,6 +359,10 @@ io.on('connection', (socket) => {
 
   // Quand un hôte démarre le jeu
   socket.on('start-game', async () => {
+    if (!isHostSocket(socket)) {
+      return;
+    }
+
     // Vérifier que le quiz actif est chargé
     if (!gameState.activeQuiz) {
       gameState.activeQuiz = await getActiveQuiz();
@@ -338,20 +396,36 @@ io.on('connection', (socket) => {
 
   // Quand un joueur répond à une question
   socket.on('player-answer', (data) => {
-    // Vérifier que le jeu est actif
     if (!gameState.isActive) {
       return;
     }
-    
+
     const { playerId, answerIndex } = data;
-    
-    // Vérifier que le joueur existe
-    if (!gameState.players[playerId]) {
+
+    if (!playerId || !gameState.players[playerId]) {
       return;
     }
-    
+
+    if (
+      answerIndex !== null &&
+      answerIndex !== undefined &&
+      (typeof answerIndex !== 'number' || answerIndex < 0 || !Number.isFinite(answerIndex))
+    ) {
+      return;
+    }
+
     const currentQuestion = gameState.activeQuiz.questions[gameState.currentQuestionIndex];
-    
+    if (!currentQuestion) {
+      return;
+    }
+
+    if (!currentQuestion.playerAnswers) {
+      currentQuestion.playerAnswers = {};
+    }
+    if (currentQuestion.playerAnswers[playerId] !== undefined) {
+      return;
+    }
+
     // Vérifier si la réponse est correcte
     const isCorrect = answerIndex === currentQuestion.correctIndex;
     
@@ -371,10 +445,6 @@ io.on('connection', (socket) => {
     }
     
     // Enregistrer la réponse du joueur pour les statistiques
-    if (!currentQuestion.playerAnswers) {
-      currentQuestion.playerAnswers = {};
-    }
-    
     currentQuestion.playerAnswers[playerId] = {
       answerIndex,
       isCorrect,
@@ -405,16 +475,25 @@ io.on('connection', (socket) => {
   
   // Quand un hôte passe à la question suivante
   socket.on('next-question', () => {
+    if (!isHostSocket(socket)) {
+      return;
+    }
     nextQuestion();
   });
 
   // Quand l'hôte force la fin du timer
   socket.on('question-timer-ended', () => {
+    if (!isHostSocket(socket)) {
+      return;
+    }
     forceEndTimer();
   });
 
   // Quand un hôte veut démarrer un nouveau jeu
   socket.on('new-game', () => {
+    if (!isHostSocket(socket)) {
+      return;
+    }
     resetGame();
   });
   
@@ -447,30 +526,42 @@ io.on('connection', (socket) => {
   
   // Gestion des événements d'administration (CRUD des quiz)
   socket.on('get-quizzes', async () => {
+    if (!isAdminSocket(socket)) {
+      return socket.emit('admin-error', { error: 'Droits administrateur requis' });
+    }
     const quizzes = await getAllQuizzes();
     socket.emit('quizzes-list', { quizzes });
   });
-  
+
   // Gestionnaire pour admin-init (utilisé par le client)
   socket.on('admin-init', async () => {
+    if (!isAdminSocket(socket)) {
+      return socket.emit('admin-init-response', {
+        success: false,
+        error: 'Droits administrateur requis'
+      });
+    }
     try {
       const quizzes = await getAllQuizzes();
-      socket.emit('admin-init-response', { 
+      socket.emit('admin-init-response', {
         success: true,
         quizzes: quizzes,
         appVersion: appVersion
       });
     } catch (error) {
       console.error('Erreur lors de l\'initialisation admin:', error);
-      socket.emit('admin-init-response', { 
+      socket.emit('admin-init-response', {
         success: false,
-        error: error.message 
+        error: error.message
       });
     }
   });
-  
+
   // Gestionnaire pour get-quiz-list (utilisé par le client)
   socket.on('get-quiz-list', async () => {
+    if (!isAdminSocket(socket)) {
+      return socket.emit('admin-error', { error: 'Droits administrateur requis' });
+    }
     try {
       const quizzes = await getAllQuizzes();
       socket.emit('quiz-list-updated', { quizzes });
@@ -479,28 +570,30 @@ io.on('connection', (socket) => {
       socket.emit('quiz-list-updated', { quizzes: [] });
     }
   });
-  
+
   // Gestionnaire pour save-quiz (utilisé par le client lors de la création/modification)
   socket.on('save-quiz', async (data) => {
+    if (!isAdminSocket(socket)) {
+      return socket.emit('quiz-saved', {
+        success: false,
+        message: 'Droits administrateur requis'
+      });
+    }
     try {
-      console.log('💾 [DEBUG] Sauvegarde du quiz:', data.name);
-      
       if (data.id) {
-        // Mode édition - mettre à jour un quiz existant
         const success = await updateQuiz(data.id, {
           name: data.name,
           description: data.description,
           questions: data.questions
         });
-        
+
         if (success) {
           socket.emit('quiz-saved', { success: true, message: 'Quiz mis à jour avec succès' });
         } else {
           socket.emit('quiz-saved', { success: false, message: 'Erreur lors de la mise à jour du quiz' });
         }
       } else {
-        // Mode création - créer un nouveau quiz
-        const quizId = require('uuid').v4();
+        const quizId = uuidv4();
         const success = await createQuiz({
           id: quizId,
           name: data.name,
@@ -508,7 +601,7 @@ io.on('connection', (socket) => {
           questions: data.questions,
           active: false
         });
-        
+
         if (success) {
           socket.emit('quiz-saved', { success: true, message: 'Quiz créé avec succès', quizId });
         } else {
@@ -516,74 +609,125 @@ io.on('connection', (socket) => {
         }
       }
     } catch (error) {
-      console.error('❌ [ERROR] Erreur lors de la sauvegarde du quiz:', error);
+      console.error('Erreur lors de la sauvegarde du quiz:', error);
       socket.emit('quiz-saved', { success: false, message: 'Erreur serveur: ' + error.message });
     }
   });
-  
+
   socket.on('create-quiz', async (data) => {
+    if (!isAdminSocket(socket)) {
+      return socket.emit('quiz-created', { success: false, error: 'Droits administrateur requis' });
+    }
     try {
-      const result = await createQuiz(data.quiz);
-      socket.emit('quiz-created', { success: true, quizId: result.quizId });
+      const quiz = data.quiz;
+      if (!quiz || !quiz.name) {
+        return socket.emit('quiz-created', { success: false, error: 'Données quiz invalides' });
+      }
+      const quizId = quiz.id || uuidv4();
+      const success = await createQuiz({
+        id: quizId,
+        name: quiz.name,
+        description: quiz.description || '',
+        questions: quiz.questions || [],
+        active: !!quiz.active
+      });
+      if (success) {
+        socket.emit('quiz-created', { success: true, quizId });
+      } else {
+        socket.emit('quiz-created', { success: false, error: 'Échec de la création' });
+      }
     } catch (error) {
       socket.emit('quiz-created', { success: false, error: error.message });
     }
   });
-  
+
   socket.on('update-quiz', async (data) => {
+    if (!isAdminSocket(socket)) {
+      return socket.emit('quiz-updated', { success: false, error: 'Droits administrateur requis' });
+    }
     try {
-      await updateQuiz(data.quiz);
-      socket.emit('quiz-updated', { success: true });
+      const quiz = data.quiz;
+      if (!quiz || !quiz.id) {
+        return socket.emit('quiz-updated', { success: false, error: 'Identifiant quiz manquant' });
+      }
+      const success = await updateQuiz(quiz.id, {
+        name: quiz.name,
+        description: quiz.description,
+        questions: quiz.questions
+      });
+      if (success) {
+        socket.emit('quiz-updated', { success: true });
+      } else {
+        socket.emit('quiz-updated', { success: false, error: 'Échec de la mise à jour' });
+      }
     } catch (error) {
       socket.emit('quiz-updated', { success: false, error: error.message });
     }
   });
-  
+
   socket.on('activate-quiz', async (data) => {
+    if (!isAdminSocket(socket)) {
+      return socket.emit('quiz-activated', { success: false, message: 'Droits administrateur requis' });
+    }
     try {
-      await activateQuiz(data.id);
-      
-      // Recharger le quiz actif
-        gameState.activeQuiz = await getActiveQuiz();
-        
-        socket.emit('quiz-activated', { success: true });
+      const ok = await activateQuiz(data.id);
+      if (!ok) {
+        return socket.emit('quiz-activated', {
+          success: false,
+          message: 'Impossible d\'activer le quiz'
+        });
+      }
+
+      gameState.activeQuiz = await getActiveQuiz();
+
+      socket.emit('quiz-activated', { success: true });
     } catch (error) {
-      socket.emit('quiz-activated', { success: false, error: error.message });
+      socket.emit('quiz-activated', { success: false, message: error.message });
     }
   });
-  
+
   socket.on('delete-quiz', async (data) => {
+    if (!isAdminSocket(socket)) {
+      return socket.emit('quiz-deleted', { success: false, message: 'Droits administrateur requis' });
+    }
     try {
-      await deleteQuiz(data.id);
+      const result = await deleteQuiz(data.id);
+      if (result === false || (result && result.success === false)) {
+        const reason = result && result.reason;
+        const msg =
+          reason === 'active'
+            ? 'Impossible de supprimer un quiz actif.'
+            : reason === 'last'
+            ? 'Impossible de supprimer le dernier quiz.'
+            : 'Erreur lors de la suppression du quiz.';
+        return socket.emit('quiz-deleted', { success: false, message: msg });
+      }
       socket.emit('quiz-deleted', { success: true });
     } catch (error) {
-      socket.emit('quiz-deleted', { success: false, error: error.message });
+      socket.emit('quiz-deleted', { success: false, message: error.message });
     }
   });
-  
+
   // Gestion des emails des gagnants
   socket.on('submit-winner-email', async (data) => {
     const { playerId, email } = data;
-    
-    // Vérifier que c'est bien le gagnant
-    let isWinner = false;
-    let topScore = 0;
-    let topPlayerId = null;
-    
-    for (const pid in gameState.scores) {
-      if (gameState.scores[pid] > topScore) {
-        topScore = gameState.scores[pid];
-        topPlayerId = pid;
-      }
+    const trimmedEmail = typeof email === 'string' ? email.trim() : '';
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      return socket.emit('email-error', { error: 'Adresse email invalide' });
     }
-    
-    isWinner = (playerId === topPlayerId);
-    
-    if (isWinner) {
+
+    const topPlayerId = pickTopPlayerId(gameState.scores);
+    const topScore = topPlayerId != null ? gameState.scores[topPlayerId] : 0;
+    const isWinner = playerId === topPlayerId;
+
+    if (isWinner && gameState.players[playerId]) {
       try {
-        // Envoyer l'email au gagnant
         const playerName = gameState.players[playerId].name;
-        await sendWinnerEmail(email, playerName, topScore);
+        const quizName = gameState.activeQuiz ? gameState.activeQuiz.name : 'Quiz';
+        await sendWinnerEmail(
+          { name: playerName, email: trimmedEmail, score: topScore },
+          quizName
+        );
         socket.emit('email-success', { message: 'Email envoyé avec succès' });
       } catch (error) {
         socket.emit('email-error', { error: 'Erreur lors de l\'envoi de l\'email: ' + error.message });
@@ -596,7 +740,11 @@ io.on('connection', (socket) => {
 
 // Fonctions de gestion du jeu
   async function nextQuestion() {
-  // Incrémenter l'index de question
+    if (!gameState.activeQuiz || !Array.isArray(gameState.activeQuiz.questions)) {
+      return;
+    }
+
+    // Incrémenter l'index de question
     gameState.currentQuestionIndex++;
     
   // Vérifier si on a terminé toutes les questions
@@ -745,20 +893,22 @@ function startTimer(seconds) {
       playerName: gameState.players[playerId].name,
       score
     }))
-    .sort((a, b) => b.score - a.score);
-    
-    // Déterminer le gagnant
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.playerId.localeCompare(b.playerId);
+    });
+
+  // Déterminer le gagnant
   const winner = leaderboard.length > 0 ? leaderboard[0] : null;
-  
+
   // Enregistrer le jeu dans l'historique
   try {
     await addGameToHistory({
-      date: new Date(),
-      quizName: gameState.activeQuiz.name,
       quizId: gameState.activeQuiz.id,
+      quizName: gameState.activeQuiz.name,
       players: Object.keys(gameState.players).length,
-      scores: gameState.scores,
-      winner: winner ? winner.playerName : null
+      winner: winner ? { name: winner.playerName, email: null, score: winner.score } : null,
+      leaderboard
     });
   } catch (error) {
     console.error('Erreur lors de l\'enregistrement du jeu dans l\'historique:', error);
