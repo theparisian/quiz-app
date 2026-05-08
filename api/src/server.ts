@@ -1,12 +1,12 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { type Express } from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import { logger } from './shared/logger/index.js';
 import { setupSocketGateway } from './shared/sockets/gateway.js';
 import { healthRouter } from './routes/health.js';
 
-const app = express();
+const app: Express = express();
 const httpServer = createServer(app);
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);

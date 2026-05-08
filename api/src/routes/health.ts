@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, type Router as RouterType } from 'express';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import type { HealthCheckResponse } from '@quiz-app/types';
 
-const router = Router();
+const router: RouterType = Router();
 
 let version = '0.0.0';
 try {
