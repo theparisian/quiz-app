@@ -411,6 +411,9 @@ model AiGeneration {
   userId          BigInt             @map("user_id")
   quizId          BigInt?            @map("quiz_id")
   inputSummary    String?            @map("input_summary") @db.Text
+  inputFull       String?            @map("input_full") @db.Text
+  outputJson      Json?              @map("output_json")
+  errorDetails    Json?              @map("error_details")
   modelUsed       String?            @map("model_used") @db.VarChar(100)
   tokensInput     Int?               @map("tokens_input")
   tokensOutput    Int?               @map("tokens_output")
