@@ -7,8 +7,8 @@ import { pingSchema, pongSchema, type PongPayload } from '@quiz-app/validation';
 type Namespace = '/player' | '/mobile' | '/console' | '/admin';
 
 interface UseSocketOptions {
-  url?: string;
-  autoConnect?: boolean;
+  url?: string | undefined;
+  autoConnect?: boolean | undefined;
 }
 
 interface UseSocketReturn {
@@ -18,12 +18,10 @@ interface UseSocketReturn {
   lastPong: PongPayload | null;
 }
 
-export function useSocket(
-  namespace: Namespace,
-  options: UseSocketOptions = {},
-): UseSocketReturn {
-  const { url = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000', autoConnect = true } =
-    options;
+const DEFAULT_API_URL = 'http://localhost:3000';
+
+export function useSocket(namespace: Namespace, options: UseSocketOptions = {}): UseSocketReturn {
+  const { url = DEFAULT_API_URL, autoConnect = true } = options;
 
   const socketRef = useRef<Socket | null>(null);
   const [connected, setConnected] = useState(false);
