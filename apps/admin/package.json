@@ -10,6 +10,10 @@
     "lint": "eslint app/"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@hookform/resolvers": "^5.2.2",
     "@quiz-app/socket-client": "workspace:*",
     "@quiz-app/types": "workspace:*",
     "@quiz-app/ui": "workspace:*",
@@ -17,7 +21,10 @@
     "@tanstack/react-query": "^5.100.9",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.75.0",
+    "zod": "^3.23.0",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@quiz-app/design-tokens": "workspace:*",
