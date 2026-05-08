@@ -92,6 +92,18 @@ enum AiGenerationStatus {
   partial
 }
 
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+enum InvitationRole {
+  projectionist
+  cinema_admin
+}
+
 // ─── MODELS ─────────────────────────────────────────────────────────────────────
 
 model Cinema {
@@ -111,9 +123,10 @@ model Cinema {
   updatedAt     DateTime     @updatedAt @map("updated_at")
   deletedAt     DateTime?    @map("deleted_at")
 
-  screens  Screen[]
-  users    User[]
-  events   EventLog[]
+  screens     Screen[]
+  users       User[]
+  invitations Invitation[]
+  events      EventLog[]
 
   @@map("cinemas")
 }
@@ -175,9 +188,33 @@ model User {
   quizzes        Quiz[]
   sessions       Session[]       @relation("ProjectionistSessions")
   aiGenerations  AiGeneration[]
+  invitationsSent Invitation[]   @relation("InvitedByUser")
 
   @@index([cinemaId])
+  @@index([magicLinkToken])
   @@map("users")
+}
+
+model Invitation {
+  id              BigInt           @id @default(autoincrement())
+  email           String           @db.VarChar(255)
+  role            InvitationRole
+  cinemaId        BigInt           @map("cinema_id")
+  invitedByUserId BigInt           @map("invited_by_user_id")
+  token           String           @unique @db.VarChar(100)
+  expiresAt       DateTime         @map("expires_at")
+  status          InvitationStatus @default(pending)
+  createdAt       DateTime         @default(now()) @map("created_at")
+  acceptedAt      DateTime?        @map("accepted_at")
+
+  cinema    Cinema @relation(fields: [cinemaId], references: [id])
+  invitedBy User   @relation("InvitedByUser", fields: [invitedByUserId], references: [id])
+
+  @@index([cinemaId])
+  @@index([invitedByUserId])
+  @@index([token])
+  @@index([status])
+  @@map("invitations")
 }
 
 model Quiz {

@@ -11,6 +11,8 @@ export type PlayerStatus = 'active' | 'disconnected' | 'kicked';
 export type PrizeType = 'discount_qr' | 'video' | 'other';
 export type EventLevel = 'info' | 'warn' | 'error' | 'critical';
 export type AiGenerationStatus = 'success' | 'failed' | 'partial';
+export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+export type InvitationRole = 'projectionist' | 'cinema_admin';
 
 export interface HealthCheckResponse {
   status: 'ok';
