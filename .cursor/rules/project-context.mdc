@@ -1,0 +1,27 @@
+---
+description: Contexte global du projet Quiz App Cinéma. À charger dans chaque conversation.
+alwaysApply: true
+---
+
+# Contexte du projet
+
+Ce repo est en cours de réécriture from-scratch. Avant toute action, tu dois lire les fichiers suivants à la racine du projet, qui font autorité :
+
+1. `PROJECT_REFERENCE.md` — architecture cible, conventions, principes non négociables. **Source de vérité**.
+2. `MIGRATION_PLAN.md` — plan d'exécution découpé en PRs.
+3. `CURRENT_STATE.md` — audit du code existant (référence fonctionnelle uniquement, pas du code à conserver).
+
+# Règles strictes
+
+- Tu DOIS respecter les principes non négociables de la section 2 du `PROJECT_REFERENCE.md`.
+- Tu DOIS suivre les conventions de code de la section 6 du `PROJECT_REFERENCE.md`.
+- Tu NE TOUCHES PAS au code de l'ancien projet (fichiers `server.js`, `public/`, `config/`, `data/` à la racine). Le nouveau code va dans des dossiers neufs (`apps/`, `packages/`, `api/`).
+- Tu ne sors pas du périmètre de la PR en cours. Si tu identifies une bonne idée hors périmètre, note-la dans `IDEAS.md` mais n'implémente pas.
+- Tu ne committes jamais de secrets (`.env`, clés API, mots de passe).
+- En cas de doute sur un choix d'archi non couvert par les docs, tu demandes à Anzio avant d'inventer.
+
+# Workflow
+
+- Une PR à la fois. Tu travailles sur la branche correspondante (ex: `rewrite/v2/pr-1-foundations`).
+- Tu commits régulièrement avec des messages clairs (ex: `feat(pr1): add prisma schema`).
+- À la fin d'une PR, tu génères un fichier `PRn_SUMMARY.md` à la racine résumant ce qui a été fait.
