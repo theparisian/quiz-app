@@ -1,8 +1,7 @@
 # Dépendances
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+.pnp
+.pnp.js
 
 # Fichiers d'environnement
 .env
@@ -27,7 +26,30 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # Fichiers de build
 /dist
-/build 
+/build
+dist/
+build/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Turborepo
+.turbo/
+
+# TypeScript
+*.tsbuildinfo
+
+# Prisma (DB locale en dev)
+prisma/migrations/dev.db*
+*.db
+*.db-journal
+
+# Tests
+coverage/
+.nyc_output/
