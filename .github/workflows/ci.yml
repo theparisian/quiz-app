@@ -5,6 +5,26 @@ on: [push, pull_request]
 jobs:
   ci:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: testpassword
+          MYSQL_DATABASE: quiz_app_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: mysql://root:testpassword@localhost:3306/quiz_app_test
+      JWT_SECRET: ci-test-secret-at-least-32-characters-long
+      NODE_ENV: test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -19,6 +39,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm --filter @quiz-app/api db:generate
+
       - run: pnpm typecheck
 
       - run: pnpm lint
+
+      - run: pnpm --filter @quiz-app/api test
