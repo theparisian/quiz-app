@@ -1,7 +1,10 @@
-import { ZodSchema, ZodError } from 'zod';
+import { type ZodType, type ZodTypeDef, ZodError } from 'zod';
 import { AppError } from '../errors/app-error.js';
 
-export function validate<T>(schema: ZodSchema<T>, data: unknown): T {
+export function validate<Output, Def extends ZodTypeDef, Input>(
+  schema: ZodType<Output, Def, Input>,
+  data: unknown,
+): Output {
   try {
     return schema.parse(data);
   } catch (error) {
