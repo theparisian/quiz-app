@@ -21,7 +21,7 @@ Thumbs.db
 *.sublime-workspace
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -29,8 +29,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Fichiers de build
-/dist
-/build
 dist/
 build/
 
@@ -45,11 +43,18 @@ next-env.d.ts
 # TypeScript
 *.tsbuildinfo
 
-# Prisma (DB locale en dev)
-prisma/migrations/dev.db*
+# Prisma
 *.db
 *.db-journal
 
 # Tests
 coverage/
 .nyc_output/
+
+# Husky
+.husky/_/
+
+# Misc
+*.swp
+*.swo
+*~

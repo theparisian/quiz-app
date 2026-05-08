@@ -1,0 +1,389 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ──────────────────────────────────────────────────────────────────────
+
+enum CinemaStatus {
+  active
+  paused
+  trial
+}
+
+enum ScreenStatus {
+  active
+  inactive
+  maintenance
+}
+
+enum NucStatus {
+  online
+  offline
+  error
+  provisioning
+}
+
+enum UserRole {
+  player
+  projectionist
+  cinema_admin
+  super_admin
+}
+
+enum OAuthProvider {
+  google
+  apple
+}
+
+enum QuizType {
+  standard
+  sponsored
+  custom
+}
+
+enum QuizStatus {
+  draft
+  published
+  archived
+}
+
+enum AnswerPosition {
+  A
+  B
+  C
+  D
+}
+
+enum SessionState {
+  lobby
+  running
+  paused
+  ended
+  aborted
+}
+
+enum PlayerStatus {
+  active
+  disconnected
+  kicked
+}
+
+enum PrizeType {
+  discount_qr
+  video
+  other
+}
+
+enum EventLevel {
+  info
+  warn
+  error
+  critical
+}
+
+enum AiGenerationStatus {
+  success
+  failed
+  partial
+}
+
+// ─── MODELS ─────────────────────────────────────────────────────────────────────
+
+model Cinema {
+  id            BigInt       @id @default(autoincrement())
+  slug          String       @unique @db.VarChar(100)
+  name          String       @db.VarChar(255)
+  address       String?      @db.VarChar(500)
+  city          String?      @db.VarChar(100)
+  postalCode    String?      @map("postal_code") @db.VarChar(20)
+  country       String?      @default("FR") @db.VarChar(5)
+  contactName   String?      @map("contact_name") @db.VarChar(255)
+  contactEmail  String?      @map("contact_email") @db.VarChar(255)
+  contactPhone  String?      @map("contact_phone") @db.VarChar(50)
+  status        CinemaStatus @default(trial)
+  notes         String?      @db.Text
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+
+  screens  Screen[]
+  users    User[]
+  events   EventLog[]
+
+  @@map("cinemas")
+}
+
+model Screen {
+  id        BigInt       @id @default(autoincrement())
+  cinemaId  BigInt       @map("cinema_id")
+  name      String       @db.VarChar(100)
+  capacity  Int?
+  status    ScreenStatus @default(active)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  cinema   Cinema    @relation(fields: [cinemaId], references: [id])
+  nucs     Nuc[]
+  sessions Session[]
+
+  @@index([cinemaId])
+  @@map("screens")
+}
+
+model Nuc {
+  id              BigInt    @id @default(autoincrement())
+  screenId        BigInt    @map("screen_id")
+  nucUid          String    @unique @map("nuc_uid") @db.VarChar(100)
+  hardwareInfo    Json?     @map("hardware_info")
+  appVersion      String?   @map("app_version") @db.VarChar(50)
+  lastSeenAt      DateTime? @map("last_seen_at")
+  lastIp          String?   @map("last_ip") @db.VarChar(45)
+  lastHeartbeatAt DateTime? @map("last_heartbeat_at")
+  status          NucStatus @default(provisioning)
+  authKeyHash     String?   @map("auth_key_hash") @db.VarChar(255)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  screen Screen     @relation(fields: [screenId], references: [id])
+  events EventLog[]
+
+  @@index([screenId])
+  @@map("nucs")
+}
+
+model User {
+  id                 BigInt        @id @default(autoincrement())
+  email              String?       @unique @db.VarChar(255)
+  magicLinkToken     String?       @map("magic_link_token") @db.VarChar(255)
+  magicLinkExpiresAt DateTime?     @map("magic_link_expires_at")
+  oauthProvider      OAuthProvider? @map("oauth_provider")
+  oauthId            String?       @map("oauth_id") @db.VarChar(255)
+  displayName        String?       @map("display_name") @db.VarChar(100)
+  passwordHash       String?       @map("password_hash") @db.VarChar(255)
+  role               UserRole      @default(player)
+  cinemaId           BigInt?       @map("cinema_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  lastLoginAt        DateTime?     @map("last_login_at")
+  deletedAt          DateTime?     @map("deleted_at")
+
+  cinema         Cinema?         @relation(fields: [cinemaId], references: [id])
+  quizzes        Quiz[]
+  sessions       Session[]       @relation("ProjectionistSessions")
+  aiGenerations  AiGeneration[]
+
+  @@index([cinemaId])
+  @@map("users")
+}
+
+model Quiz {
+  id                     BigInt     @id @default(autoincrement())
+  slug                   String     @unique @db.VarChar(100)
+  title                  String     @db.VarChar(255)
+  description            String?    @db.Text
+  type                   QuizType   @default(standard)
+  sponsorId              BigInt?    @map("sponsor_id")
+  language               String     @default("fr") @db.VarChar(10)
+  durationEstimateSeconds Int?      @map("duration_estimate_seconds")
+  coverImageUrl          String?    @map("cover_image_url") @db.VarChar(500)
+  brandingJson           Json?      @map("branding_json")
+  status                 QuizStatus @default(draft)
+  createdByUserId        BigInt     @map("created_by_user_id")
+  aiGenerated            Boolean    @default(false) @map("ai_generated")
+  createdAt              DateTime   @default(now()) @map("created_at")
+  updatedAt              DateTime   @updatedAt @map("updated_at")
+
+  sponsor    Sponsor?   @relation(fields: [sponsorId], references: [id])
+  createdBy  User       @relation(fields: [createdByUserId], references: [id])
+  questions  Question[]
+  sessions   Session[]
+
+  @@index([sponsorId])
+  @@index([createdByUserId])
+  @@map("quizzes")
+}
+
+model Question {
+  id               BigInt   @id @default(autoincrement())
+  quizId           BigInt   @map("quiz_id")
+  position         Int
+  text             String   @db.Text
+  imageUrl         String?  @map("image_url") @db.VarChar(500)
+  timeLimitSeconds Int      @default(20) @map("time_limit_seconds")
+  pointsMax        Int      @default(1000) @map("points_max")
+  pointsFloor      Int      @default(500) @map("points_floor")
+  explanation      String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers       Answer[]
+  playerAnswers PlayerAnswer[]
+
+  @@index([quizId])
+  @@map("questions")
+}
+
+model Answer {
+  id         BigInt         @id @default(autoincrement())
+  questionId BigInt         @map("question_id")
+  position   AnswerPosition
+  text       String         @db.VarChar(500)
+  isCorrect  Boolean        @default(false) @map("is_correct")
+
+  question      Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  playerAnswers PlayerAnswer[]
+
+  @@index([questionId])
+  @@map("answers")
+}
+
+model Session {
+  id                      BigInt       @id @default(autoincrement())
+  slugShort               String       @unique @map("slug_short") @db.VarChar(10)
+  quizId                  BigInt       @map("quiz_id")
+  screenId                BigInt       @map("screen_id")
+  projectionistUserId     BigInt?      @map("projectionist_user_id")
+  state                   SessionState @default(lobby)
+  currentQuestionPosition Int?         @map("current_question_position")
+  startedAt               DateTime?    @map("started_at")
+  endedAt                 DateTime?    @map("ended_at")
+  totalPlayers            Int          @default(0) @map("total_players")
+  winnerPlayerId          BigInt?      @map("winner_player_id")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+
+  quiz          Quiz      @relation(fields: [quizId], references: [id])
+  screen        Screen    @relation(fields: [screenId], references: [id])
+  projectionist User?     @relation("ProjectionistSessions", fields: [projectionistUserId], references: [id])
+  players       Player[]
+  prizes        Prize[]
+  events        EventLog[]
+
+  @@index([quizId])
+  @@index([screenId])
+  @@index([projectionistUserId])
+  @@map("sessions")
+}
+
+model Player {
+  id            BigInt       @id @default(autoincrement())
+  sessionId     BigInt       @map("session_id")
+  userId        BigInt?      @map("user_id")
+  pseudo        String       @db.VarChar(50)
+  resumeToken   String       @unique @map("resume_token") @db.VarChar(100)
+  joinedAt      DateTime     @default(now()) @map("joined_at")
+  lastSeenAt    DateTime?    @map("last_seen_at")
+  status        PlayerStatus @default(active)
+  scoreTotal    Int          @default(0) @map("score_total")
+  rankFinal     Int?         @map("rank_final")
+  emailForPrize String?      @map("email_for_prize") @db.VarChar(255)
+
+  session       Session        @relation(fields: [sessionId], references: [id])
+  playerAnswers PlayerAnswer[]
+  prizes        Prize[]
+
+  @@index([sessionId])
+  @@map("players")
+}
+
+model PlayerAnswer {
+  id              BigInt   @id @default(autoincrement())
+  playerId        BigInt   @map("player_id")
+  questionId      BigInt   @map("question_id")
+  chosenAnswerId  BigInt?  @map("chosen_answer_id")
+  answeredAtServer DateTime? @map("answered_at_server")
+  timeToAnswerMs  Int?     @map("time_to_answer_ms")
+  pointsAwarded   Int      @default(0) @map("points_awarded")
+  isCorrect       Boolean  @default(false) @map("is_correct")
+
+  player   Player   @relation(fields: [playerId], references: [id])
+  question Question @relation(fields: [questionId], references: [id])
+  answer   Answer?  @relation(fields: [chosenAnswerId], references: [id])
+
+  @@unique([playerId, questionId])
+  @@index([playerId])
+  @@index([questionId])
+  @@index([chosenAnswerId])
+  @@map("player_answers")
+}
+
+model Sponsor {
+  id                  BigInt   @id @default(autoincrement())
+  name                String   @db.VarChar(255)
+  slug                String   @unique @db.VarChar(100)
+  logoUrl             String?  @map("logo_url") @db.VarChar(500)
+  brandColorPrimary   String?  @map("brand_color_primary") @db.VarChar(7)
+  brandColorSecondary String?  @map("brand_color_secondary") @db.VarChar(7)
+  contactEmail        String?  @map("contact_email") @db.VarChar(255)
+  contractTerms       String?  @map("contract_terms") @db.Text
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  quizzes Quiz[]
+
+  @@map("sponsors")
+}
+
+model Prize {
+  id         BigInt    @id @default(autoincrement())
+  sessionId  BigInt    @map("session_id")
+  playerId   BigInt    @map("player_id")
+  type       PrizeType
+  payloadJson Json?    @map("payload_json")
+  emailSentAt DateTime? @map("email_sent_at")
+  redeemedAt  DateTime? @map("redeemed_at")
+
+  session Session @relation(fields: [sessionId], references: [id])
+  player  Player  @relation(fields: [playerId], references: [id])
+
+  @@index([sessionId])
+  @@index([playerId])
+  @@map("prizes")
+}
+
+model EventLog {
+  id         BigInt     @id @default(autoincrement())
+  sessionId  BigInt?    @map("session_id")
+  nucId      BigInt?    @map("nuc_id")
+  cinemaId   BigInt?    @map("cinema_id")
+  level      EventLevel
+  eventType  String     @map("event_type") @db.VarChar(100)
+  payloadJson Json?     @map("payload_json")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  session Session? @relation(fields: [sessionId], references: [id])
+  nuc     Nuc?     @relation(fields: [nucId], references: [id])
+  cinema  Cinema?  @relation(fields: [cinemaId], references: [id])
+
+  @@index([sessionId])
+  @@index([nucId])
+  @@index([cinemaId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("events_log")
+}
+
+model AiGeneration {
+  id              BigInt             @id @default(autoincrement())
+  userId          BigInt             @map("user_id")
+  quizId          BigInt?            @map("quiz_id")
+  inputSummary    String?            @map("input_summary") @db.Text
+  modelUsed       String?            @map("model_used") @db.VarChar(100)
+  tokensInput     Int?               @map("tokens_input")
+  tokensOutput    Int?               @map("tokens_output")
+  costEstimateEur Decimal?           @map("cost_estimate_eur") @db.Decimal(10, 6)
+  status          AiGenerationStatus
+  errorMessage    String?            @map("error_message") @db.Text
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([quizId])
+  @@map("ai_generations")
+}
