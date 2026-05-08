@@ -16,9 +16,11 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:ai-live": "tsx src/scripts/ai-live-smoke.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "@prisma/client": "^6.2.0",
     "@quiz-app/types": "workspace:*",
     "@quiz-app/validation": "workspace:*",

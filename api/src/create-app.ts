@@ -12,6 +12,7 @@ import { screensRouter } from './modules/screens/screens.routes.js';
 import { nucsRouter } from './modules/nucs/nucs.routes.js';
 import { sponsorsRouter } from './modules/sponsors/sponsors.routes.js';
 import { quizzesRouter } from './modules/quizzes/quizzes.routes.js';
+import { aiRouter } from './modules/ai/ai.routes.js';
 
 export function buildApp(): Express {
   const app = express();
@@ -44,6 +45,7 @@ export function buildApp(): Express {
   app.use('/api', nucsRouter);
   app.use('/api/sponsors', sponsorsRouter);
   app.use('/api/quizzes', quizzesRouter);
+  app.use('/api/ai', aiRouter);
 
   app.use(errorHandler);
   return app;
