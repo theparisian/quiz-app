@@ -20,6 +20,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api, apiUploadFile } from '../../../../../lib/api';
+import { AiGenerateModal } from '../../../../components/ai-generate-modal';
 import type { AnswerPos, QuizApiDetail } from '../../../../../lib/quiz-editor-store';
 import { resolveMediaUrl } from '../../../../../lib/media-url';
 import { buildQuizSavePayload, useQuizEditorStore } from '../../../../../lib/quiz-editor-store';
@@ -75,6 +76,8 @@ function SortableQRow(props: {
 export function QuizEditClient({ slug }: { slug: string }) {
   const qc = useQueryClient();
   const [pubErr, setPubErr] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiOkBanner, setAiOkBanner] = useState<string | null>(null);
 
   const isDirty = useQuizEditorStore((s) => s.isDirty);
   const quizStatus = useQuizEditorStore((s) => s.quizStatus);
@@ -233,6 +236,18 @@ export function QuizEditClient({ slug }: { slug: string }) {
       {pubErr && (
         <div className="whitespace-pre-wrap rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-900">
           {pubErr}
+        </div>
+      )}
+      {aiOkBanner && (
+        <div className="rounded border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-900">
+          {aiOkBanner}
+          <button
+            type="button"
+            className="float-right text-xs text-green-800 underline"
+            onClick={() => setAiOkBanner(null)}
+          >
+            Fermer
+          </button>
         </div>
       )}
       <div className="flex flex-wrap items-center gap-3">
@@ -526,15 +541,32 @@ export function QuizEditClient({ slug }: { slug: string }) {
       <div className="rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-800">Questions ({items.length})</h2>
-          <button
-            type="button"
-            disabled={readOnly || structuredLocked}
-            title={structuredLocked ? 'Repasse en brouillon pour modifier ce champ' : undefined}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
-            onClick={() => addQuestion()}
-          >
-            + Ajouter une question
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={readOnly || structuredLocked}
+              title={
+                structuredLocked || readOnly
+                  ? 'Disponible uniquement en brouillon'
+                  : 'Générer des questions avec l’IA'
+              }
+              className="rounded-md border border-violet-500 px-3 py-1.5 text-xs font-medium text-violet-700 disabled:opacity-50"
+              onClick={() => setAiOpen(true)}
+            >
+              ✨ Générer avec IA
+            </button>
+            <button
+              type="button"
+              disabled={readOnly || structuredLocked}
+              title={
+                structuredLocked ? 'Repasse le quiz en brouillon pour modifier ce champ' : undefined
+              }
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
+              onClick={() => addQuestion()}
+            >
+              + Ajouter une question
+            </button>
+          </div>
         </div>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -744,6 +776,11 @@ export function QuizEditClient({ slug }: { slug: string }) {
           + Ajouter une question
         </button>
       </div>
+      <AiGenerateModal
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        onSuccess={() => setAiOkBanner('Quizz généré ! Vérifie et ajuste avant de publier.')}
+      />
     </div>
   );
 }

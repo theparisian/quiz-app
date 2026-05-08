@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 
@@ -10,10 +11,17 @@ interface DashboardStats {
   invitationsPending: number;
 }
 
-async function fetchStats(): Promise<DashboardStats> {
-  const [cinemas, invitations] = await Promise.all([
+interface AiStats {
+  month: { generations: number; costEur: number };
+}
+
+async function fetchStats(): Promise<DashboardStats & { ai?: AiStats }> {
+  const [cinemas, invitations, aiRes] = await Promise.all([
     api.get<{ total: number }>('/api/cinemas?limit=1'),
     api.get<{ total: number }>('/api/invitations?status=pending&limit=1'),
+    api
+      .get<{ month: { generations: number; costEur: number } }>('/api/ai/usage/stats')
+      .catch(() => null),
   ]);
 
   return {
@@ -21,6 +29,9 @@ async function fetchStats(): Promise<DashboardStats> {
     nucsOnline: 0,
     nucsOffline: 0,
     invitationsPending: invitations.total,
+    ...(aiRes
+      ? { ai: { month: { generations: aiRes.month.generations, costEur: aiRes.month.costEur } } }
+      : {}),
   };
 }
 
@@ -53,6 +64,21 @@ export default function DashboardPage() {
             value={data.invitationsPending}
             color="text-blue-600"
           />
+          <div className="rounded-lg border bg-white p-5 shadow-sm sm:col-span-2 lg:col-span-2">
+            <p className="text-sm font-medium text-gray-500">IA</p>
+            <p className="mt-1 text-3xl font-bold text-violet-700">
+              {data.ai?.month.generations ?? 0} générations ce mois
+            </p>
+            <p className="mt-1 text-lg text-gray-700">
+              ≈ {(data.ai?.month.costEur ?? 0).toFixed(2)} €
+            </p>
+            <Link
+              href="/ai/usage"
+              className="mt-3 inline-block text-sm font-medium text-violet-600 hover:underline"
+            >
+              Voir l&apos;historique →
+            </Link>
+          </div>
         </div>
       ) : null}
     </div>

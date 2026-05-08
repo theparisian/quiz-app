@@ -23,6 +23,22 @@ export interface EditorQuestion {
   answers: EditorAnswer[];
 }
 
+export interface AiGeneratedAnswer {
+  position: AnswerPos;
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface AiGeneratedQuestion {
+  text: string;
+  imageUrl?: string | null;
+  timeLimitSeconds: number;
+  pointsMax: number;
+  pointsFloor: number;
+  explanation?: string | null;
+  answers: AiGeneratedAnswer[];
+}
+
 export interface QuizApiDetail {
   slug: string;
   status: string;
@@ -116,6 +132,8 @@ export interface QuizEditorState {
   updateAnswer: (qTempId: string, pos: AnswerPos, patch: Partial<EditorAnswer>) => void;
   setCorrectAnswer: (qTempId: string, pos: AnswerPos) => void;
   resetFromApi: (api: QuizApiDetail) => void;
+  replaceQuestions: (questions: AiGeneratedQuestion[]) => void;
+  appendQuestions: (questions: AiGeneratedQuestion[]) => void;
   toSavePayload: () => object;
 }
 
@@ -141,6 +159,29 @@ function mergeAnswersFromApi(
       isCorrect: false,
     };
   });
+}
+
+function mapAiQuestionToEditor(q: AiGeneratedQuestion, position: number): EditorQuestion {
+  const byPos = new Map(q.answers.map((a) => [a.position, a]));
+  return {
+    tempId: crypto.randomUUID(),
+    position,
+    text: q.text,
+    imageUrl: q.imageUrl ?? null,
+    timeLimitSeconds: q.timeLimitSeconds,
+    pointsMax: q.pointsMax,
+    pointsFloor: q.pointsFloor,
+    explanation: q.explanation ?? null,
+    answers: (['A', 'B', 'C', 'D'] as const).map((pos) => {
+      const a = byPos.get(pos);
+      return {
+        tempId: crypto.randomUUID(),
+        position: pos,
+        text: a?.text ?? '',
+        isCorrect: a?.isCorrect ?? false,
+      };
+    }),
+  };
 }
 
 function mapQuestionsFromApi(api: QuizApiDetail): EditorQuestion[] {
@@ -305,6 +346,27 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
           })),
         };
       }),
+      isDirty: true,
+    });
+  },
+
+  replaceQuestions(questions) {
+    const mapped = questions.map((q, i) => mapAiQuestionToEditor(q, i));
+    set({
+      questions: mapped,
+      expandedTempId: mapped[0]?.tempId ?? null,
+      isDirty: true,
+    });
+  },
+
+  appendQuestions(questions) {
+    const qs = [...get().questions].sort((a, b) => a.position - b.position);
+    const start = qs.length;
+    const mapped = questions.map((q, i) => mapAiQuestionToEditor(q, start + i));
+    const combined = [...qs, ...mapped].map((q, i) => ({ ...q, position: i }));
+    set({
+      questions: combined,
+      expandedTempId: mapped[0]?.tempId ?? null,
       isDirty: true,
     });
   },

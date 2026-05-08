@@ -15,6 +15,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "test": "turbo test",
+    "test:ai-live": "pnpm --filter @quiz-app/api test:ai-live",
     "db:seed": "pnpm --filter @quiz-app/api db:seed",
     "prepare": "husky"
   },
