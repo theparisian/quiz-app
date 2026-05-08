@@ -30,6 +30,7 @@ export function authed(agent: supertest.Test, token: string) {
 }
 
 export async function truncateQuizRelatedTables() {
+  await prisma.aiGeneration.deleteMany({});
   await prisma.playerAnswer.deleteMany({});
   await prisma.player.deleteMany({});
   await prisma.prize.deleteMany({});

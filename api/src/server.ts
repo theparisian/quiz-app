@@ -2,7 +2,10 @@ import 'dotenv/config';
 import { createServer } from 'http';
 import { logger } from './shared/logger/index.js';
 import { setupSocketGateway } from './shared/sockets/gateway.js';
+import { validateAiEnvironment } from './shared/ai/index.js';
 import { buildApp } from './create-app.js';
+
+validateAiEnvironment();
 
 const app = buildApp();
 const httpServer = createServer(app);

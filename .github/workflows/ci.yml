@@ -24,6 +24,7 @@ jobs:
       DATABASE_URL: mysql://root:testpassword@localhost:3306/quiz_app_test
       JWT_SECRET: ci-test-secret-at-least-32-characters-long
       NODE_ENV: test
+      AI_PROVIDER: mock
 
     steps:
       - uses: actions/checkout@v4
