@@ -6,10 +6,16 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "noEmit": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
       "@/*": ["./app/*"]
-    }
+    },
+    "allowJs": true,
+    "incremental": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
