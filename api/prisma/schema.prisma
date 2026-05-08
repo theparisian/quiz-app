@@ -358,6 +358,7 @@ model Sponsor {
   contactEmail        String?  @map("contact_email") @db.VarChar(255)
   contractTerms       String?  @map("contract_terms") @db.Text
   active              Boolean  @default(true)
+  metadata            Json?    @map("metadata")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 

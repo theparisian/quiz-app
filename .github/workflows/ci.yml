@@ -41,6 +41,8 @@ jobs:
 
       - run: pnpm --filter @quiz-app/api db:generate
 
+      - run: pnpm --filter @quiz-app/api db:migrate:deploy
+
       - run: pnpm typecheck
 
       - run: pnpm lint

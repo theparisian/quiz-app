@@ -6,7 +6,11 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
   if (err instanceof AppError) {
     logger.warn({ code: err.code, statusCode: err.statusCode }, err.message);
     res.status(err.statusCode).json({
-      error: { code: err.code, message: err.message },
+      error: {
+        code: err.code,
+        message: err.message,
+        ...(err.details !== undefined ? { details: err.details } : {}),
+      },
     });
     return;
   }
