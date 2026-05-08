@@ -13,12 +13,6 @@ export interface AuthUser {
   cinemaId: bigint | null;
 }
 
-declare module 'express' {
-  interface Request {
-    user?: AuthUser | undefined;
-  }
-}
-
 export function requireAuth(roles?: UserRole[]) {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
