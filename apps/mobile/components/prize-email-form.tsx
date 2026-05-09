@@ -27,10 +27,19 @@ export default function PrizeEmailForm({ onSuccess }: PrizeEmailFormProps) {
           'X-Player-Token': resumeToken,
         },
       );
+      setLoading(false);
       onSuccess();
     } catch (err: unknown) {
-      const e = err as { code?: string; message?: string };
-      setError(e.message ?? "Erreur lors de l'envoi.");
+      const e = err as { code?: string; message?: string; status?: number };
+      if (e.code === 'PRIZE_NOT_CONFIGURED') {
+        setError("Le cinéma n'a pas encore configuré de lot pour ta position. Contacte l'équipe.");
+      } else if (e.code === 'PRIZE_ALREADY_EXISTS') {
+        setError('Tu as déjà reçu ton lot par email. Vérifie ta boîte (et tes spams).');
+      } else if (e.status === 500 || e.code === 'PRIZE_EMAIL_SEND_FAILED') {
+        setError('Email non envoyé. Le cinéma sera prévenu et te recontactera.');
+      } else {
+        setError(e.message ?? "Erreur lors de l'envoi.");
+      }
       setLoading(false);
     }
   }

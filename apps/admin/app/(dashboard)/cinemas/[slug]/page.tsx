@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -169,6 +170,12 @@ export default function CinemaDetailPage() {
           >
             Archiver
           </button>
+          <Link
+            href={`/cinemas/${slug}/prizes`}
+            className="rounded border border-blue-200 px-3 py-1.5 text-sm text-blue-700 hover:bg-blue-50"
+          >
+            Configurer les lots
+          </Link>
         </div>
       </div>
 

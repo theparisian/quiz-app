@@ -31,7 +31,7 @@ export default function FinalScreen() {
             <PrizeEmailForm onSuccess={() => setEmailSent(true)} />
           ) : (
             <div className="rounded-xl bg-green-600/20 px-6 py-4 text-center text-green-400">
-              Email enregistré ! Tu recevras ton lot bientôt.
+              Email envoyé ! Vérifie ta boîte de réception (et tes spams).
             </div>
           )}
         </>

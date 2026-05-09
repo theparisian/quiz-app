@@ -11,13 +11,19 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const err = new Error(body.message || `Request failed: ${res.status}`) as Error & {
-      code?: string;
-      status?: number;
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: { message?: string; code?: string };
+      message?: string;
     };
-    err.code = body.code;
+    const msg =
+      body?.error?.message ??
+      (typeof body.message === 'string' ? body.message : undefined) ??
+      `Request failed: ${res.status}`;
+    const err = new Error(msg) as Error & { code?: string; status?: number };
     err.status = res.status;
+    if (body?.error?.code !== undefined) {
+      err.code = body.error.code;
+    }
     throw err;
   }
 
