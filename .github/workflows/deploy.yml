@@ -29,24 +29,78 @@ jobs:
       - name: Deploy to VPS
         env:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          SMTP_FROM_NAME: ${{ secrets.SMTP_FROM_NAME }}
+          PRIZE_HMAC_SECRET: ${{ secrets.PRIZE_HMAC_SECRET }}
+          PRIZE_REDEEM_BASE_URL: ${{ secrets.PRIZE_REDEEM_BASE_URL }}
+          PRIZE_UNSUBSCRIBE_BASE_URL: ${{ secrets.PRIZE_UNSUBSCRIBE_BASE_URL }}
           PM2_APP_NAME: ${{ secrets.PM2_APP_NAME }}
         run: |
           set -euo pipefail
-          if [ -z "${SESSION_SECRET:-}" ]; then
-            echo "::error::Secret GitHub SESSION_SECRET manquant."
-            exit 1
-          fi
-          B64="$(printf '%s' "$SESSION_SECRET" | base64 -w0)"
+          for key in SESSION_SECRET SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS SMTP_FROM SMTP_FROM_NAME PRIZE_HMAC_SECRET PRIZE_REDEEM_BASE_URL PRIZE_UNSUBSCRIBE_BASE_URL; do
+            eval "v=\${$key:-}"
+            if [ -z "$v" ]; then
+              echo "::error::Secret GitHub $key manquant ou vide."
+              exit 1
+            fi
+          done
+
+          SESSION_SECRET_B64="$(printf '%s' "$SESSION_SECRET" | base64 -w0)"
+          SMTP_HOST_B64="$(printf '%s' "$SMTP_HOST" | base64 -w0)"
+          SMTP_PORT_B64="$(printf '%s' "$SMTP_PORT" | base64 -w0)"
+          SMTP_USER_B64="$(printf '%s' "$SMTP_USER" | base64 -w0)"
+          SMTP_PASS_B64="$(printf '%s' "$SMTP_PASS" | base64 -w0)"
+          SMTP_FROM_B64="$(printf '%s' "$SMTP_FROM" | base64 -w0)"
+          SMTP_FROM_NAME_B64="$(printf '%s' "$SMTP_FROM_NAME" | base64 -w0)"
+          PRIZE_HMAC_SECRET_B64="$(printf '%s' "$PRIZE_HMAC_SECRET" | base64 -w0)"
+          PRIZE_REDEEM_BASE_URL_B64="$(printf '%s' "$PRIZE_REDEEM_BASE_URL" | base64 -w0)"
+          PRIZE_UNSUBSCRIBE_BASE_URL_B64="$(printf '%s' "$PRIZE_UNSUBSCRIBE_BASE_URL" | base64 -w0)"
+
           BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
           PM2_ESC="${PM2_APP_NAME:-quiz-api}"
           {
             echo 'set -euo pipefail'
             echo "cd \"${{ secrets.PROJECT_PATH }}\""
-            echo "B64=${B64}"
-            echo 'SECRET=$(printf "%s" "$B64" | base64 -d)'
+            echo "SESSION_SECRET_B64=${SESSION_SECRET_B64}"
+            echo "SMTP_HOST_B64=${SMTP_HOST_B64}"
+            echo "SMTP_PORT_B64=${SMTP_PORT_B64}"
+            echo "SMTP_USER_B64=${SMTP_USER_B64}"
+            echo "SMTP_PASS_B64=${SMTP_PASS_B64}"
+            echo "SMTP_FROM_B64=${SMTP_FROM_B64}"
+            echo "SMTP_FROM_NAME_B64=${SMTP_FROM_NAME_B64}"
+            echo "PRIZE_HMAC_SECRET_B64=${PRIZE_HMAC_SECRET_B64}"
+            echo "PRIZE_REDEEM_BASE_URL_B64=${PRIZE_REDEEM_BASE_URL_B64}"
+            echo "PRIZE_UNSUBSCRIBE_BASE_URL_B64=${PRIZE_UNSUBSCRIBE_BASE_URL_B64}"
+            echo 'SESSION_SECRET="$(printf "%s" "$SESSION_SECRET_B64" | base64 -d)"'
+            echo 'SMTP_HOST="$(printf "%s" "$SMTP_HOST_B64" | base64 -d)"'
+            echo 'SMTP_PORT="$(printf "%s" "$SMTP_PORT_B64" | base64 -d)"'
+            echo 'SMTP_USER="$(printf "%s" "$SMTP_USER_B64" | base64 -d)"'
+            echo 'SMTP_PASS="$(printf "%s" "$SMTP_PASS_B64" | base64 -d)"'
+            echo 'SMTP_FROM="$(printf "%s" "$SMTP_FROM_B64" | base64 -d)"'
+            echo 'SMTP_FROM_NAME="$(printf "%s" "$SMTP_FROM_NAME_B64" | base64 -d)"'
+            echo 'PRIZE_HMAC_SECRET="$(printf "%s" "$PRIZE_HMAC_SECRET_B64" | base64 -d)"'
+            echo 'PRIZE_REDEEM_BASE_URL="$(printf "%s" "$PRIZE_REDEEM_BASE_URL_B64" | base64 -d)"'
+            echo 'PRIZE_UNSUBSCRIBE_BASE_URL="$(printf "%s" "$PRIZE_UNSUBSCRIBE_BASE_URL_B64" | base64 -d)"'
             echo 'touch .env'
-            echo 'if grep -q "^SESSION_SECRET=" .env 2>/dev/null; then grep -v "^SESSION_SECRET=" .env > .env.tmp && mv .env.tmp .env; fi'
-            echo 'printf "SESSION_SECRET=%s\n" "$SECRET" >> .env'
+            echo 'upsert_env() {'
+            echo '  key="$1"; val="$2"'
+            echo '  if grep -q "^${key}=" .env 2>/dev/null; then grep -v "^${key}=" .env > .env.tmp && mv .env.tmp .env; fi'
+            echo '  printf "%s=%s\n" "$key" "$val" >> .env'
+            echo '}'
+            echo 'upsert_env SESSION_SECRET "$SESSION_SECRET"'
+            echo 'upsert_env SMTP_HOST "$SMTP_HOST"'
+            echo 'upsert_env SMTP_PORT "$SMTP_PORT"'
+            echo 'upsert_env SMTP_USER "$SMTP_USER"'
+            echo 'upsert_env SMTP_PASS "$SMTP_PASS"'
+            echo 'upsert_env SMTP_FROM "$SMTP_FROM"'
+            echo 'upsert_env SMTP_FROM_NAME "$SMTP_FROM_NAME"'
+            echo 'upsert_env PRIZE_HMAC_SECRET "$PRIZE_HMAC_SECRET"'
+            echo 'upsert_env PRIZE_REDEEM_BASE_URL "$PRIZE_REDEEM_BASE_URL"'
+            echo 'upsert_env PRIZE_UNSUBSCRIBE_BASE_URL "$PRIZE_UNSUBSCRIBE_BASE_URL"'
             echo 'git stash'
             echo "git fetch origin \"${BRANCH}\""
             echo "git checkout \"${BRANCH}\""
