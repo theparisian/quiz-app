@@ -120,6 +120,7 @@ model Cinema {
   status        CinemaStatus @default(trial)
   backgroundMusicUrl String? @map("background_music_url") @db.VarChar(500)
   logoUrl       String?      @map("logo_url") @db.VarChar(500)
+  prizesConfig  Json?        @map("prizes_config")
   notes         String?      @db.Text
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
@@ -364,6 +365,7 @@ model Sponsor {
   contractTerms       String?  @map("contract_terms") @db.Text
   active              Boolean  @default(true)
   metadata            Json?    @map("metadata")
+  prizesConfig        Json?    @map("prizes_config")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
@@ -373,19 +375,25 @@ model Sponsor {
 }
 
 model Prize {
-  id         BigInt    @id @default(autoincrement())
-  sessionId  BigInt    @map("session_id")
-  playerId   BigInt    @map("player_id")
-  type       PrizeType
-  payloadJson Json?    @map("payload_json")
+  id          BigInt    @id @default(autoincrement())
+  sessionId   BigInt    @map("session_id")
+  playerId    BigInt    @map("player_id")
+  redeemCode  String    @unique @map("redeem_code") @db.VarChar(32)
+  signature   String    @map("signature") @db.VarChar(128)
+  rank        Int
+  label       String    @db.VarChar(255)
+  type        PrizeType
+  payloadJson Json?     @map("payload_json")
   emailSentAt DateTime? @map("email_sent_at")
   redeemedAt  DateTime? @map("redeemed_at")
 
   session Session @relation(fields: [sessionId], references: [id])
   player  Player  @relation(fields: [playerId], references: [id])
 
+  @@unique([playerId, sessionId])
   @@index([sessionId])
   @@index([playerId])
+  @@index([redeemCode])
   @@map("prizes")
 }
 
