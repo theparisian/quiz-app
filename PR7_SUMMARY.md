@@ -1,6 +1,29 @@
 # PR7 — Lots par email, QR signé, redemption API
 
-## Résumé
+## CI / déploiement (`deploy.yml`)
+
+Secrets GitHub lus au déploiement SSH et fusionnés dans le `.env` à la racine du projet sur le VPS (`upsert_env`, valeurs passées en base64) :
+
+| Obligatoires                                                                                                                                                                                                                | Optionnel                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET`, `JWT_SECRET`, `DATABASE_URL`, SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_FROM_NAME`), lots (`PRIZE_HMAC_SECRET`, `PRIZE_REDEEM_BASE_URL`, `PRIZE_UNSUBSCRIBE_BASE_URL`) | `CORS_ORIGINS` (liste d’origines séparées par des virgules ; si absent, la clé n’est pas mise à jour par le workflow) |
+
+Secrets déjà utilisés ailleurs : `SSH_PRIVATE_KEY`, `VPS_USER`, `VPS_HOST`, `PROJECT_PATH`, `PM2_APP_NAME` (optionnel).
+
+## Suite — PR8 (Observabilité)
+
+Référence : `MIGRATION_PLAN.md` § PR8. Périmètre cible :
+
+- Logs Pino JSON cohérents sur les modules backend ; **peuplement `events_log`** sur événements critiques (sessions, abort, échec email, NUC offline prolongé, etc.).
+- **Sentry** backend + les **4 apps** Next.js, sourcemaps prod.
+- **Dashboard admin (D)** : santé NUCs, sessions actives, erreurs récentes, stats du jour ; alertes email sur niveau `critical`.
+- **`GET /health/detailed`** : DB, SMTP, disque, mémoire.
+
+Critères de done PR8 : erreurs test backend/front visibles dans Sentry ; NUC offline visible / notifié dans le dashboard ; dashboard jugé exploitable en prod.
+
+---
+
+## Résumé (historique)
 
 PR7 clôt la boucle « podium → email avec QR → redemption » sur la nouvelle stack (`api/`, `apps/admin/`, `apps/mobile/`), sans toucher au legacy.
 
