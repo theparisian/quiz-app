@@ -8,6 +8,7 @@ import {
   rehydrateRunningSessions,
   setIoInstance,
 } from './modules/sessions/session-orchestrator.service.js';
+import { startNucOfflineMonitor } from './shared/nuc-monitor/index.js';
 
 validateAiEnvironment();
 
@@ -20,6 +21,7 @@ const io = setupSocketGateway(httpServer);
 app.set('io', io);
 
 setIoInstance(io);
+startNucOfflineMonitor(io);
 
 void (async () => {
   await rehydrateRunningSessions();

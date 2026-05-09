@@ -1,11 +1,23 @@
 import { Router } from 'express';
-import { requireAuth } from '../../shared/auth/index.js';
+import type { Server as SocketIoServer } from 'socket.io';
+import { requireAuth, requireNucAuth, signNucJwt } from '../../shared/auth/index.js';
 import { validate } from '../../shared/validation/index.js';
 import { param } from '../../shared/utils/index.js';
-import { updateNucSchema, heartbeatSchema } from './nucs.schemas.js';
+import { broadcastNucStatusChanged } from '../../shared/nuc-monitor/index.js';
+import {
+  updateNucSchema,
+  heartbeatSchema,
+  nucAuthSchema,
+  nucHeartbeatCookieSchema,
+} from './nucs.schemas.js';
 import { nucsService } from './nucs.service.js';
+import type { Request } from 'express';
 
 const router = Router();
+
+function getIo(req: Request): SocketIoServer | undefined {
+  return req.app.get('io');
+}
 
 router.get('/screens/:screenId/nucs', requireAuth(['super_admin']), async (req, res, next) => {
   try {
@@ -69,7 +81,73 @@ router.post('/nuc/heartbeat', async (req, res, next) => {
   try {
     const data = validate(heartbeatSchema, req.body);
     const result = await nucsService.heartbeat(data.nucUid, data.authKey, data.appVersion, data.ip);
-    res.json(result);
+    res.json({ status: result.status });
+    const io = getIo(req);
+    if (io && result.cameOnline) {
+      broadcastNucStatusChanged(io, {
+        nucId: result.nucId.toString(),
+        screenId: result.screenId.toString(),
+        status: 'online',
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/nucs/auth', async (req, res, next) => {
+  try {
+    const data = validate(nucAuthSchema, req.body);
+    const result = await nucsService.authenticateNuc(
+      data.nucUid,
+      data.authKey,
+      req.ip ?? undefined,
+    );
+
+    const token = await signNucJwt({
+      nucId: result.nucId.toString(),
+      screenId: result.screenId.toString(),
+    });
+
+    const io = getIo(req);
+    if (io && result.cameOnline) {
+      broadcastNucStatusChanged(io, {
+        nucId: result.nucId.toString(),
+        screenId: result.screenId.toString(),
+        status: 'online',
+      });
+    }
+
+    res.cookie('nuc_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    res.json({
+      nucId: result.nucId.toString(),
+      screenId: result.screenId.toString(),
+      cinemaSlug: result.cinemaSlug,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/nucs/heartbeat', requireNucAuth(), async (req, res, next) => {
+  try {
+    const data = validate(nucHeartbeatCookieSchema, req.body);
+    const hb = await nucsService.heartbeatCookie(req.nuc!.id, data.appVersion, req.ip ?? undefined);
+    res.json({ ok: true });
+    const io = getIo(req);
+    if (io && hb.cameOnline) {
+      broadcastNucStatusChanged(io, {
+        nucId: hb.nucId.toString(),
+        screenId: hb.screenId.toString(),
+        status: 'online',
+      });
+    }
   } catch (error) {
     next(error);
   }

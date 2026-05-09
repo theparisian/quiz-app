@@ -55,6 +55,65 @@ export const nucsService = {
     logger.info({ nucId: id.toString(), nucUid: nuc.nucUid }, 'NUC deleted');
   },
 
+  async authenticateNuc(nucUid: string, authKey: string, ip?: string) {
+    const nuc = await prisma.nuc.findUnique({
+      where: { nucUid },
+      include: { screen: { include: { cinema: true } } },
+    });
+    if (!nuc) throw new AppError('NUC not found', 401, 'NUC_NOT_FOUND');
+    if (!nuc.authKeyHash) throw new AppError('NUC has no auth key', 401, 'NUC_AUTH_FAILED');
+
+    const valid = await bcrypt.compare(authKey, nuc.authKeyHash);
+    if (!valid) throw new AppError('Invalid auth key', 401, 'NUC_AUTH_FAILED');
+
+    const prevStatus = nuc.status;
+    const now = new Date();
+    await prisma.nuc.update({
+      where: { id: nuc.id },
+      data: {
+        status: 'online',
+        lastHeartbeatAt: now,
+        lastSeenAt: now,
+        lastIp: ip ?? null,
+      },
+    });
+
+    logger.info({ nucId: nuc.id.toString(), nucUid }, 'NUC authenticated via cookie flow');
+
+    return {
+      nucId: nuc.id,
+      screenId: nuc.screenId,
+      cinemaSlug: nuc.screen.cinema.slug,
+      cameOnline: prevStatus === 'offline' || prevStatus === 'error',
+    };
+  },
+
+  async heartbeatCookie(nucId: bigint, appVersion?: string, ip?: string) {
+    const before = await prisma.nuc.findUnique({
+      where: { id: nucId },
+      select: { status: true, screenId: true },
+    });
+    if (!before) throw new AppError('NUC not found', 404, 'NUC_NOT_FOUND');
+
+    const now = new Date();
+    await prisma.nuc.update({
+      where: { id: nucId },
+      data: {
+        lastHeartbeatAt: now,
+        lastSeenAt: now,
+        lastIp: ip ?? null,
+        ...(appVersion ? { appVersion } : {}),
+        status: 'online',
+      },
+    });
+
+    return {
+      cameOnline: before.status === 'offline' || before.status === 'error',
+      nucId,
+      screenId: before.screenId,
+    };
+  },
+
   async heartbeat(
     nucUid: string,
     authKey: string,
@@ -70,6 +129,7 @@ export const nucsService = {
     const isValid = await bcrypt.compare(authKey, nuc.authKeyHash);
     if (!isValid) throw new AppError('Invalid auth key', 401, 'NUC_AUTH_INVALID');
 
+    const prevStatus = nuc.status;
     const now = new Date();
     await prisma.nuc.update({
       where: { id: nuc.id },
@@ -82,6 +142,11 @@ export const nucsService = {
       },
     });
 
-    return { status: 'ok' };
+    return {
+      status: 'ok' as const,
+      cameOnline: prevStatus === 'offline' || prevStatus === 'error',
+      nucId: nuc.id,
+      screenId: nuc.screenId,
+    };
   },
 };

@@ -1,16 +1,15 @@
 import type { Server, Socket } from 'socket.io';
-import { z } from 'zod';
+import {
+  consoleAbortPayloadSchema,
+  consoleJoinPayloadSchema,
+  consoleResumePayloadSchema,
+} from '@quiz-app/validation/socket-events';
 import { logger } from '../../logger/index.js';
+import { prisma } from '../../db/index.js';
+import { AppError } from '../../errors/app-error.js';
 import { authenticateJwtFromCookie, type SocketConsoleData } from '../socket-auth.js';
 import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.service.js';
-
-const consoleJoinSchema = z.object({
-  sessionId: z.string().min(1),
-});
-
-const abortSchema = z.object({
-  reason: z.string().max(500).optional(),
-});
+import { buildConsoleStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 
 const CONSOLE_ROLES = new Set(['super_admin', 'cinema_admin', 'projectionist']);
 
@@ -19,7 +18,7 @@ export function setupConsoleHandlers(io: Server): void {
 
   nsp.on('connection', (socket: Socket) => {
     socket.on('console:join', async (data: unknown, callback?: (res: unknown) => void) => {
-      const parsed = consoleJoinSchema.safeParse(data);
+      const parsed = consoleJoinPayloadSchema.safeParse(data);
       if (!parsed.success) {
         socket.emit('error', { code: 'VALIDATION_ERROR', message: 'Invalid console join payload' });
         return;
@@ -34,6 +33,15 @@ export function setupConsoleHandlers(io: Server): void {
 
         const sessionId = BigInt(parsed.data.sessionId);
 
+        const sessionRow = await prisma.session.findUnique({
+          where: { id: sessionId },
+          select: { screenId: true },
+        });
+        if (!sessionRow) {
+          socket.emit('error', { code: 'SESSION_NOT_FOUND', message: 'Session not found' });
+          return;
+        }
+
         const socketData: SocketConsoleData = {
           type: 'console',
           userId: auth.userId,
@@ -43,6 +51,8 @@ export function setupConsoleHandlers(io: Server): void {
         socket.data = socketData;
 
         await socket.join(`session:${sessionId}`);
+        await socket.join(`session:${sessionId}:projectionist`);
+        await socket.join(`screen:${sessionRow.screenId}`);
 
         const response = {
           sessionId: sessionId.toString(),
@@ -99,7 +109,7 @@ export function setupConsoleHandlers(io: Server): void {
       }
     });
 
-    socket.on('console:resume', async () => {
+    socket.on('console:unpause', async () => {
       const cd = socket.data as SocketConsoleData | undefined;
       if (!cd || cd.type !== 'console') return;
       try {
@@ -107,8 +117,74 @@ export function setupConsoleHandlers(io: Server): void {
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string };
         socket.emit('error', {
-          code: error.code ?? 'RESUME_ERROR',
-          message: error.message ?? 'Failed to resume',
+          code: error.code ?? 'UNPAUSE_ERROR',
+          message: error.message ?? 'Failed to unpause',
+        });
+      }
+    });
+
+    socket.on('console:resume', async (data: unknown) => {
+      const parsed = consoleResumePayloadSchema.safeParse(data);
+      if (!parsed.success) {
+        socket.emit('error', {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid console resume payload',
+        });
+        return;
+      }
+
+      try {
+        const auth = await authenticateJwtFromCookie(socket);
+        if (!auth || !CONSOLE_ROLES.has(auth.role)) {
+          socket.emit('error', { code: 'AUTH_FAILED', message: 'Authentication failed' });
+          return;
+        }
+
+        const sessionId = BigInt(parsed.data.sessionId);
+        const session = await prisma.session.findUnique({
+          where: { id: sessionId },
+          include: { screen: true },
+        });
+        if (!session) {
+          socket.emit('error', { code: 'SESSION_NOT_FOUND', message: 'Session not found' });
+          return;
+        }
+
+        if (auth.role !== 'super_admin') {
+          if (!auth.cinemaId || session.screen.cinemaId !== auth.cinemaId) {
+            socket.emit('error', { code: 'FORBIDDEN', message: 'No access to this session' });
+            return;
+          }
+        }
+
+        const socketData: SocketConsoleData = {
+          type: 'console',
+          userId: auth.userId,
+          sessionId,
+          role: auth.role,
+        };
+        socket.data = socketData;
+
+        await socket.join(`session:${sessionId}`);
+        await socket.join(`session:${sessionId}:projectionist`);
+        await socket.join(`screen:${session.screenId}`);
+
+        const snapshot = await buildConsoleStateSnapshot(sessionId);
+        socket.emit('session:state_snapshot', snapshot);
+
+        logger.info(
+          { userId: auth.userId.toString(), sessionId: sessionId.toString(), socketId: socket.id },
+          'Console state resume',
+        );
+      } catch (err: unknown) {
+        if (err instanceof AppError) {
+          socket.emit('error', { code: err.code, message: err.message });
+          return;
+        }
+        const error = err as { code?: string; message?: string };
+        socket.emit('error', {
+          code: error.code ?? 'CONSOLE_RESUME_ERROR',
+          message: error.message ?? 'Failed to resume console state',
         });
       }
     });
@@ -131,7 +207,7 @@ export function setupConsoleHandlers(io: Server): void {
       const cd = socket.data as SocketConsoleData | undefined;
       if (!cd || cd.type !== 'console') return;
 
-      const parsed = abortSchema.safeParse(data ?? {});
+      const parsed = consoleAbortPayloadSchema.safeParse(data ?? {});
       try {
         await getOrchestrator().abortSession(
           cd.sessionId,
@@ -160,19 +236,6 @@ export function setupConsoleHandlers(io: Server): void {
           });
         }
       })();
-    });
-
-    socket.on('console:resume_session', (_data: unknown, callback?: (res: unknown) => void) => {
-      if (typeof callback === 'function') {
-        callback({
-          error: { code: 'NOT_IMPLEMENTED', message: 'Console resume not available yet (PR6)' },
-        });
-      } else {
-        socket.emit('error', {
-          code: 'NOT_IMPLEMENTED',
-          message: 'Console resume not available yet (PR6)',
-        });
-      }
     });
 
     socket.on('disconnect', () => {

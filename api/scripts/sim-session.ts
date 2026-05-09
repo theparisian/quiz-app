@@ -7,6 +7,7 @@ import {
   rehydrateRunningSessions,
   setIoInstance,
 } from '../src/modules/sessions/session-orchestrator.service.js';
+import { startNucOfflineMonitor } from '../src/shared/nuc-monitor/index.js';
 import { prisma } from '../src/shared/db/index.js';
 import { signJwt } from '../src/shared/auth/jwt.js';
 
@@ -42,6 +43,7 @@ async function main() {
   const io = setupSocketGateway(httpServer);
   setIoInstance(io);
   app.set('io', io);
+  startNucOfflineMonitor(io);
 
   await rehydrateRunningSessions();
 
