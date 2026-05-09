@@ -137,6 +137,9 @@ importers:
       prisma:
         specifier: ^6.2.0
         version: 6.19.3(typescript@5.9.3)
+      socket.io-client:
+        specifier: ^4.7.0
+        version: 4.8.3
       supertest:
         specifier: ^7.2.2
         version: 7.2.2
@@ -252,6 +255,9 @@ importers:
       '@quiz-app/validation':
         specifier: workspace:*
         version: link:../../packages/validation
+      '@tanstack/react-query':
+        specifier: ^5.100.9
+        version: 5.100.9(react@19.2.6)
       next:
         specifier: ^15.1.0
         version: 15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -261,6 +267,15 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.6(react@19.2.6)
+      socket.io-client:
+        specifier: ^4.7.0
+        version: 4.8.3
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+      zustand:
+        specifier: ^5.0.13
+        version: 5.0.13(@types/react@19.2.14)(react@19.2.6)
     devDependencies:
       '@quiz-app/design-tokens':
         specifier: workspace:*
@@ -325,6 +340,12 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.6(react@19.2.6)
+      socket.io-client:
+        specifier: ^4.7.0
+        version: 4.8.3
+      zustand:
+        specifier: ^5.0.13
+        version: 5.0.13(@types/react@19.2.14)(react@19.2.6)
     devDependencies:
       '@quiz-app/design-tokens':
         specifier: workspace:*
@@ -383,12 +404,21 @@ importers:
       next:
         specifier: ^15.1.0
         version: 15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      qrcode.react:
+        specifier: ^4.2.0
+        version: 4.2.0(react@19.2.6)
       react:
         specifier: ^19.0.0
         version: 19.2.6
       react-dom:
         specifier: ^19.0.0
         version: 19.2.6(react@19.2.6)
+      socket.io-client:
+        specifier: ^4.7.0
+        version: 4.8.3
+      zustand:
+        specifier: ^5.0.13
+        version: 5.0.13(@types/react@19.2.14)(react@19.2.6)
     devDependencies:
       '@quiz-app/design-tokens':
         specifier: workspace:*
@@ -5199,6 +5229,14 @@ packages:
         integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==,
       }
 
+  qrcode.react@4.2.0:
+    resolution:
+      {
+        integrity: sha512-QpgqWi8rD9DsS9EP3z7BT+5lY5SFhsqGjpgW5DY/i3mK4M9DTBNz3ErMi8BWYEfI3L0d8GIbGmcdFAS1uIRGjA==,
+      }
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   qs@6.14.2:
     resolution:
       {
@@ -9142,6 +9180,10 @@ snapshots:
   punycode@2.3.1: {}
 
   pure-rand@6.1.0: {}
+
+  qrcode.react@4.2.0(react@19.2.6):
+    dependencies:
+      react: 19.2.6
 
   qs@6.14.2:
     dependencies:

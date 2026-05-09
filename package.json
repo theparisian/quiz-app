@@ -16,7 +16,9 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "test": "turbo test",
     "test:ai-live": "pnpm --filter @quiz-app/api test:ai-live",
+    "sim:session": "pnpm --filter @quiz-app/api sim:session",
     "db:seed": "pnpm --filter @quiz-app/api db:seed",
+    "dev:full-stack": "turbo dev --filter=@quiz-app/api --filter=@quiz-app/admin --filter=@quiz-app/console --filter=@quiz-app/player --filter=@quiz-app/mobile",
     "prepare": "husky"
   },
   "devDependencies": {

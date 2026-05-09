@@ -21,44 +21,48 @@ router.get('/', requireAuth(['super_admin']), async (req, res, next) => {
   }
 });
 
-router.get('/:slug', requireAuth(['super_admin']), async (req, res, next) => {
-  try {
-    const cinema = await cinemasService.getBySlug(param(req, 'slug'));
-    res.json({
-      id: cinema.id.toString(),
-      slug: cinema.slug,
-      name: cinema.name,
-      address: cinema.address,
-      city: cinema.city,
-      postalCode: cinema.postalCode,
-      country: cinema.country,
-      contactName: cinema.contactName,
-      contactEmail: cinema.contactEmail,
-      contactPhone: cinema.contactPhone,
-      status: cinema.status,
-      notes: cinema.notes,
-      screens: cinema.screens.map((s) => ({
-        id: s.id.toString(),
-        name: s.name,
-        capacity: s.capacity,
-        status: s.status,
-        nucs: s.nucs.map((n) => ({
-          id: n.id.toString(),
-          nucUid: n.nucUid,
-          status: n.status,
-          lastSeenAt: n.lastSeenAt?.toISOString() ?? null,
-          lastIp: n.lastIp,
-          appVersion: n.appVersion,
+router.get(
+  '/:slug',
+  requireAuth(['super_admin', 'cinema_admin', 'projectionist']),
+  async (req, res, next) => {
+    try {
+      const cinema = await cinemasService.getBySlug(param(req, 'slug'));
+      res.json({
+        id: cinema.id.toString(),
+        slug: cinema.slug,
+        name: cinema.name,
+        address: cinema.address,
+        city: cinema.city,
+        postalCode: cinema.postalCode,
+        country: cinema.country,
+        contactName: cinema.contactName,
+        contactEmail: cinema.contactEmail,
+        contactPhone: cinema.contactPhone,
+        status: cinema.status,
+        notes: cinema.notes,
+        screens: cinema.screens.map((s) => ({
+          id: s.id.toString(),
+          name: s.name,
+          capacity: s.capacity,
+          status: s.status,
+          nucs: s.nucs.map((n) => ({
+            id: n.id.toString(),
+            nucUid: n.nucUid,
+            status: n.status,
+            lastSeenAt: n.lastSeenAt?.toISOString() ?? null,
+            lastIp: n.lastIp,
+            appVersion: n.appVersion,
+          })),
         })),
-      })),
-      usersCount: cinema._count.users,
-      invitationsCount: cinema._count.invitations,
-      createdAt: cinema.createdAt.toISOString(),
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+        usersCount: cinema._count.users,
+        invitationsCount: cinema._count.invitations,
+        createdAt: cinema.createdAt.toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 router.post('/', requireAuth(['super_admin']), async (req, res, next) => {
   try {

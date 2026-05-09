@@ -16,7 +16,10 @@
     "@quiz-app/ui": "workspace:*",
     "@quiz-app/socket-client": "workspace:*",
     "@quiz-app/types": "workspace:*",
-    "@quiz-app/validation": "workspace:*"
+    "@quiz-app/validation": "workspace:*",
+    "zustand": "^5.0.13",
+    "socket.io-client": "^4.7.0",
+    "qrcode.react": "^4.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

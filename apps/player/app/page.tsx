@@ -1,25 +1,47 @@
 'use client';
 
-import { useSocket } from '@quiz-app/socket-client';
-import { ConnectionStatus } from '@quiz-app/ui';
+import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function PlayerPage() {
-  const { connected, sendPing, lastPong } = useSocket('/player', {
-    url: process.env.NEXT_PUBLIC_API_URL,
-  });
+function BootRedirect() {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  useEffect(() => {
+    const nucUid = params.get('nuc_uid');
+    const authKey = params.get('auth_key');
+
+    if (nucUid && authKey) {
+      router.replace(
+        `/provision?nuc_uid=${encodeURIComponent(nucUid)}&auth_key=${encodeURIComponent(authKey)}`,
+      );
+      return;
+    }
+
+    const stored = localStorage.getItem('nuc_uid');
+    if (stored) {
+      router.replace('/screen');
+    } else {
+      router.replace('/error?reason=not_provisioned');
+    }
+  }, [router, params]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6">
-      <h1 className="text-brand-400 text-4xl font-bold">Hello Player</h1>
-      <p className="text-gray-400">Interface écran cinéma (NUC)</p>
-      <ConnectionStatus connected={connected} />
-      <button
-        onClick={sendPing}
-        className="bg-brand-600 hover:bg-brand-700 rounded-lg px-4 py-2 text-white transition"
-      >
-        Envoyer Ping
-      </button>
-      {lastPong && <p className="text-sm text-gray-500">Pong reçu : {lastPong.serverTime}</p>}
-    </main>
+    <div className="flex h-screen items-center justify-center">
+      <div className="text-2xl text-gray-500">Démarrage...</div>
+    </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center text-gray-500">Chargement...</div>
+      }
+    >
+      <BootRedirect />
+    </Suspense>
   );
 }

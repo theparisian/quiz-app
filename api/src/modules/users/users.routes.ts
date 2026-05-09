@@ -19,6 +19,8 @@ router.get('/me', requireAuth(), async (req, res, next) => {
       displayName: user.displayName,
       role: user.role,
       cinemaId: user.cinemaId?.toString() ?? null,
+      cinemaSlug: user.cinema?.slug ?? null,
+      cinemaName: user.cinema?.name ?? null,
       createdAt: user.createdAt.toISOString(),
     });
   } catch (error) {

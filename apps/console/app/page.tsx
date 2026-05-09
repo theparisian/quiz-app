@@ -1,25 +1,25 @@
 'use client';
 
-import { useSocket } from '@quiz-app/socket-client';
-import { ConnectionStatus } from '@quiz-app/ui';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
 
-export default function ConsolePage() {
-  const { connected, sendPing, lastPong } = useSocket('/console', {
-    url: process.env.NEXT_PUBLIC_API_URL,
-  });
+export default function RootPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    if (user) {
+      router.replace('/dashboard');
+    } else {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
-      <h1 className="text-brand-700 text-3xl font-bold">Hello Console</h1>
-      <p className="text-gray-500">Interface projectionniste</p>
-      <ConnectionStatus connected={connected} />
-      <button
-        onClick={sendPing}
-        className="bg-brand-600 hover:bg-brand-700 rounded-lg px-4 py-2 text-white transition"
-      >
-        Envoyer Ping
-      </button>
-      {lastPong && <p className="text-sm text-gray-500">Pong reçu : {lastPong.serverTime}</p>}
-    </main>
+    <div className="flex min-h-screen items-center justify-center">
+      <p className="text-gray-400">Chargement...</p>
+    </div>
   );
 }

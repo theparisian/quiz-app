@@ -15,6 +15,17 @@ export const heartbeatSchema = z.object({
   ip: z.string().optional(),
 });
 
+export const nucAuthSchema = z.object({
+  nucUid: z.string().min(1),
+  authKey: z.string().min(1),
+});
+
+export const nucHeartbeatCookieSchema = z.object({
+  appVersion: z.string().optional(),
+});
+
 export type CreateNucInput = z.infer<typeof createNucSchema>;
 export type UpdateNucInput = z.infer<typeof updateNucSchema>;
 export type HeartbeatInput = z.infer<typeof heartbeatSchema>;
+export type NucAuthInput = z.infer<typeof nucAuthSchema>;
+export type NucHeartbeatCookieInput = z.infer<typeof nucHeartbeatCookieSchema>;

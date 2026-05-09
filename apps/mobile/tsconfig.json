@@ -12,7 +12,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./app/*"]
+      "@/*": ["./*"]
     },
     "allowJs": true,
     "incremental": true

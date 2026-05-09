@@ -1,9 +1,12 @@
 import type { Server, Socket } from 'socket.io';
 import { z } from 'zod';
+import { playerResumePayloadSchema } from '@quiz-app/validation/socket-events';
 import { logger } from '../../logger/index.js';
 import { prisma } from '../../db/index.js';
+import { AppError } from '../../errors/app-error.js';
 import { playersService } from '../../../modules/players/players.service.js';
 import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.service.js';
+import { buildMobilePlayerStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 import { pseudoRegex } from '../../../modules/players/players.schemas.js';
 import type { SocketPlayerData } from '../socket-auth.js';
 
@@ -52,6 +55,7 @@ export function setupMobileHandlers(io: Server): void {
         socket.data = socketData;
 
         await socket.join(`session:${result.sessionId}`);
+        await socket.join(`session:${result.sessionId}:players`);
 
         const response = {
           playerId: result.playerId.toString(),
@@ -127,6 +131,7 @@ export function setupMobileHandlers(io: Server): void {
         socket.data = socketData;
 
         await socket.join(`session:${sessionId}`);
+        await socket.join(`session:${sessionId}:players`);
 
         const response = {
           playerId: player.id.toString(),
@@ -206,13 +211,68 @@ export function setupMobileHandlers(io: Server): void {
       }
     });
 
-    socket.on('player:resume', (_data: unknown, callback?: (res: unknown) => void) => {
-      if (typeof callback === 'function') {
-        callback({ error: { code: 'NOT_IMPLEMENTED', message: 'Resume not available yet (PR6)' } });
-      } else {
+    socket.on('player:resume', async (data: unknown) => {
+      const parsed = playerResumePayloadSchema.safeParse(data);
+      if (!parsed.success) {
         socket.emit('error', {
-          code: 'NOT_IMPLEMENTED',
-          message: 'Resume not available yet (PR6)',
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid player resume payload',
+        });
+        return;
+      }
+
+      try {
+        const sessionId = BigInt(parsed.data.sessionId);
+        const player = await prisma.player.findUnique({
+          where: { resumeToken: parsed.data.resumeToken },
+        });
+        if (!player) {
+          socket.emit('error', {
+            code: 'INVALID_RESUME_TOKEN',
+            message: 'Invalid or unknown resume token',
+          });
+          return;
+        }
+        if (player.sessionId !== sessionId) {
+          socket.emit('error', {
+            code: 'SESSION_MISMATCH',
+            message: 'Player is not in this session',
+          });
+          return;
+        }
+
+        await prisma.player.update({
+          where: { id: player.id },
+          data: { status: 'active' },
+        });
+
+        const socketData: SocketPlayerData = {
+          type: 'player',
+          playerId: player.id,
+          sessionId,
+          pseudo: player.pseudo,
+        };
+        socket.data = socketData;
+
+        await socket.join(`session:${sessionId}`);
+        await socket.join(`session:${sessionId}:players`);
+
+        const snapshot = await buildMobilePlayerStateSnapshot(player.id, sessionId);
+        socket.emit('session:state_snapshot', snapshot);
+
+        logger.info(
+          { playerId: player.id.toString(), sessionId: sessionId.toString() },
+          'Player resumed',
+        );
+      } catch (err: unknown) {
+        if (err instanceof AppError) {
+          socket.emit('error', { code: err.code, message: err.message });
+          return;
+        }
+        const error = err as { code?: string; message?: string };
+        socket.emit('error', {
+          code: error.code ?? 'RESUME_ERROR',
+          message: error.message ?? 'Failed to resume',
         });
       }
     });

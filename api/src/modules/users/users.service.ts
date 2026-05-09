@@ -8,7 +8,10 @@ export const usersService = {
   },
 
   async findById(id: bigint) {
-    return prisma.user.findUnique({ where: { id } });
+    return prisma.user.findUnique({
+      where: { id },
+      include: { cinema: { select: { slug: true, name: true } } },
+    });
   },
 
   async createSuperAdmin(email: string, displayName: string) {

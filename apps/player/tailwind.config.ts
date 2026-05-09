@@ -5,10 +5,43 @@ const config: Config = {
   presets: [tailwindPreset as Config],
   content: [
     './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './lib/**/*.{ts,tsx}',
+    './hooks/**/*.{ts,tsx}',
     '../../packages/ui/src/**/*.{ts,tsx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      keyframes: {
+        'glow-pulse': {
+          '0%, 100%': { boxShadow: '0 0 20px rgba(52, 152, 219, 0.6)' },
+          '50%': { boxShadow: '0 0 40px rgba(52, 152, 219, 0.9)' },
+        },
+        'slide-in-right': {
+          '0%': { opacity: '0', transform: 'translateX(60px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        'slide-in-left': {
+          '0%': { opacity: '0', transform: 'translateX(-60px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        'scale-up': {
+          '0%': { opacity: '0', transform: 'scale(0.5)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'cascade-in': {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'glow-pulse': 'glow-pulse 1.5s ease-in-out infinite',
+        'slide-in-right': 'slide-in-right 0.6s ease-out forwards',
+        'slide-in-left': 'slide-in-left 0.6s ease-out forwards',
+        'scale-up': 'scale-up 0.6s ease-out forwards',
+        'cascade-in': 'cascade-in 0.3s ease-out forwards',
+      },
+    },
   },
   plugins: [],
 };

@@ -146,28 +146,33 @@ function shapeQuizDetail(quiz: Awaited<ReturnType<typeof quizzesService.getBySlu
   };
 }
 
-router.get('/', requireAuth(['super_admin']), async (req, res, next) => {
-  try {
-    const query = validate(listQuizzesQuerySchema, req.query);
-    const sponsorIdParsed = query.sponsorId && query.sponsorId.length ? query.sponsorId : undefined;
-    const result = await quizzesService.list({
-      status: query.status,
-      type: query.type,
-      sponsorId: sponsorIdParsed,
-      search: query.search,
-      page: query.page,
-      limit: query.limit,
-    });
-    res.json({
-      items: result.items.map(shapeQuizSummary),
-      total: result.total,
-      page: result.page,
-      limit: result.limit,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+router.get(
+  '/',
+  requireAuth(['super_admin', 'cinema_admin', 'projectionist']),
+  async (req, res, next) => {
+    try {
+      const query = validate(listQuizzesQuerySchema, req.query);
+      const sponsorIdParsed =
+        query.sponsorId && query.sponsorId.length ? query.sponsorId : undefined;
+      const result = await quizzesService.list({
+        status: query.status,
+        type: query.type,
+        sponsorId: sponsorIdParsed,
+        search: query.search,
+        page: query.page,
+        limit: query.limit,
+      });
+      res.json({
+        items: result.items.map(shapeQuizSummary),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 router.post('/', requireAuth(['super_admin']), async (req, res, next) => {
   try {

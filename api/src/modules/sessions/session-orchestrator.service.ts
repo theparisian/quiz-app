@@ -6,7 +6,7 @@ import { logger } from '../../shared/logger/index.js';
 import { computeScore } from '../../shared/scoring/scoring.service.js';
 import { assertTransition } from './session-state.service.js';
 
-function getResultsDisplayMs(): number {
+export function getResultsDisplayMs(): number {
   return parseInt(process.env.RESULTS_DISPLAY_MS ?? '8000', 10);
 }
 function getCountdownMs(): number {
@@ -22,7 +22,7 @@ interface InMemoryAnswer {
   receivedAt: number;
 }
 
-interface RunningSessionState {
+export interface RunningSessionState {
   sessionId: bigint;
   questions: {
     id: bigint;
@@ -41,6 +41,8 @@ interface RunningSessionState {
   currentQuestionTimeLimitMs: number;
   questionTimerHandle: ReturnType<typeof setTimeout> | null;
   resultsTimerHandle: ReturnType<typeof setTimeout> | null;
+  /** Horodatage début affichage résultats (timer next question), pour nextQuestionInMs au resume. */
+  resultsPhaseStartedAt: number | null;
   broadcastInterval: ReturnType<typeof setInterval> | null;
   audioMuted: boolean;
   inMemoryAnswers: Map<string, InMemoryAnswer>;
@@ -120,6 +122,7 @@ function clearTimers(state: RunningSessionState) {
     clearInterval(state.broadcastInterval);
     state.broadcastInterval = null;
   }
+  state.resultsPhaseStartedAt = null;
 }
 
 function getRunningState(sessionId: bigint): RunningSessionState {
@@ -247,17 +250,20 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
     }
   }
 
+  // `questionId` seul supprimerait les réponses de toutes les sessions partageant ce quiz (même question DB).
   if (allPlayerIds.length > 0) {
-    await prisma.playerAnswer.deleteMany({
-      where: {
-        questionId: question.id,
-        playerId: { in: allPlayerIds.map((id) => BigInt(id)) },
-      },
-    });
-  }
-  if (playerAnswerRows.length > 0) {
-    await prisma.playerAnswer.createMany({
-      data: playerAnswerRows,
+    await prisma.$transaction(async (tx) => {
+      await tx.playerAnswer.deleteMany({
+        where: {
+          questionId: question.id,
+          playerId: { in: allPlayerIds.map((id) => BigInt(id)) },
+        },
+      });
+      if (playerAnswerRows.length > 0) {
+        await tx.playerAnswer.createMany({
+          data: playerAnswerRows,
+        });
+      }
     });
   }
 
@@ -300,6 +306,7 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
   if (hasNext) {
     const displayMs = getResultsDisplayMs();
     broadcastToSession(sessionId, 'session:next_question_in', { ms: displayMs });
+    state.resultsPhaseStartedAt = Date.now();
     state.resultsTimerHandle = setTimeout(() => {
       void nextQuestionInternal(sessionId);
     }, displayMs);
@@ -323,6 +330,7 @@ async function nextQuestionInternal(sessionId: bigint) {
   state.currentQuestionTimeLimitMs = question.timeLimitSeconds * 1000;
   state.inMemoryAnswers = new Map();
   state.questionEnded = false;
+  state.resultsPhaseStartedAt = null;
 
   await prisma.session.update({
     where: { id: sessionId },
@@ -463,6 +471,7 @@ async function rehydrateForceEndActiveQuestion(session: RehydrateSessionRow) {
     currentQuestionTimeLimitMs: questions[idx]!.timeLimitSeconds * 1000,
     questionTimerHandle: null,
     resultsTimerHandle: null,
+    resultsPhaseStartedAt: null,
     broadcastInterval: null,
     audioMuted: session.audioMuted,
     inMemoryAnswers: new Map(),
@@ -512,6 +521,7 @@ async function rehydrateBetweenQuestionsOrBeforeFirst(session: RehydrateSessionR
     currentQuestionTimeLimitMs: 0,
     questionTimerHandle: null,
     resultsTimerHandle: null,
+    resultsPhaseStartedAt: null,
     broadcastInterval: null,
     audioMuted: session.audioMuted,
     inMemoryAnswers: new Map(),
@@ -622,6 +632,7 @@ export function getOrchestrator() {
         currentQuestionTimeLimitMs: 0,
         questionTimerHandle: null,
         resultsTimerHandle: null,
+        resultsPhaseStartedAt: null,
         broadcastInterval: null,
         audioMuted: false,
         inMemoryAnswers: new Map(),
@@ -728,6 +739,7 @@ export function getOrchestrator() {
       ) {
         const displayMs = getResultsDisplayMs();
         broadcastToSession(sessionId, 'session:next_question_in', { ms: displayMs });
+        state.resultsPhaseStartedAt = Date.now();
         state.resultsTimerHandle = setTimeout(() => {
           void nextQuestionInternal(sessionId);
         }, displayMs);

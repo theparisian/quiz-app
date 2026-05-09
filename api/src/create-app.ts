@@ -13,6 +13,8 @@ import { nucsRouter } from './modules/nucs/nucs.routes.js';
 import { sponsorsRouter } from './modules/sponsors/sponsors.routes.js';
 import { quizzesRouter } from './modules/quizzes/quizzes.routes.js';
 import { aiRouter } from './modules/ai/ai.routes.js';
+import { sessionsRouter, sessionsNestedRouter } from './modules/sessions/sessions.routes.js';
+import { playersRouter, playersPublicRouter } from './modules/players/players.routes.js';
 
 export function buildApp(): Express {
   const app = express();
@@ -46,6 +48,10 @@ export function buildApp(): Express {
   app.use('/api/sponsors', sponsorsRouter);
   app.use('/api/quizzes', quizzesRouter);
   app.use('/api/ai', aiRouter);
+  app.use('/api/sessions', sessionsRouter);
+  app.use('/api', sessionsNestedRouter);
+  app.use('/api/players', playersRouter);
+  app.use('/api', playersPublicRouter);
 
   app.use(errorHandler);
   return app;

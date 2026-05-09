@@ -44,6 +44,12 @@ export async function truncateQuizRelatedTables() {
   });
   const ids = tmp.map((c) => c.id);
   if (ids.length) {
+    const screenIds = (
+      await prisma.screen.findMany({ where: { cinemaId: { in: ids } }, select: { id: true } })
+    ).map((s) => s.id);
+    if (screenIds.length) {
+      await prisma.nuc.deleteMany({ where: { screenId: { in: screenIds } } });
+    }
     await prisma.screen.deleteMany({ where: { cinemaId: { in: ids } } });
     await prisma.cinema.deleteMany({ where: { id: { in: ids } } });
   }
