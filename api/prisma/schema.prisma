@@ -118,6 +118,8 @@ model Cinema {
   contactEmail  String?      @map("contact_email") @db.VarChar(255)
   contactPhone  String?      @map("contact_phone") @db.VarChar(50)
   status        CinemaStatus @default(trial)
+  backgroundMusicUrl String? @map("background_music_url") @db.VarChar(500)
+  logoUrl       String?      @map("logo_url") @db.VarChar(500)
   notes         String?      @db.Text
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
@@ -290,6 +292,9 @@ model Session {
   endedAt                 DateTime?    @map("ended_at")
   totalPlayers            Int          @default(0) @map("total_players")
   winnerPlayerId          BigInt?      @map("winner_player_id")
+  currentQuestionStartedAt DateTime?   @map("current_question_started_at")
+  currentQuestionPausedAt  DateTime?   @map("current_question_paused_at")
+  audioMuted               Boolean     @default(false) @map("audio_muted")
   createdAt               DateTime     @default(now()) @map("created_at")
   updatedAt               DateTime     @updatedAt @map("updated_at")
 
