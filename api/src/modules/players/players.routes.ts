@@ -5,7 +5,7 @@ import { param } from '../../shared/utils/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { joinSessionSchema, updateEmailSchema } from './players.schemas.js';
 import { playersService } from './players.service.js';
-import { prisma } from '../../shared/db/index.js';
+import { prizesService } from '../prizes/prizes.service.js';
 
 const router = Router();
 
@@ -78,21 +78,9 @@ router.patch('/:id/email', async (req, res, next) => {
 
     const data = validate(updateEmailSchema, req.body);
 
-    const session = await prisma.session.findUnique({ where: { id: player.sessionId } });
-    if (!session || session.state !== 'ended') {
-      throw new AppError('Session is not ended', 409, 'SESSION_NOT_ENDED');
-    }
+    const result = await prizesService.createForPlayer(playerId, data.email);
 
-    if (!player.rankFinal || player.rankFinal > 3) {
-      throw new AppError('Player not in top 3', 403, 'PLAYER_NOT_ELIGIBLE');
-    }
-
-    await prisma.player.update({
-      where: { id: playerId },
-      data: { emailForPrize: data.email },
-    });
-
-    res.json({ ok: true });
+    res.json({ ok: true, emailSent: result.emailSent, prizeId: result.prizeId });
   } catch (error) {
     next(error);
   }

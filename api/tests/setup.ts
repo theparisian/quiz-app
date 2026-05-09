@@ -21,3 +21,4 @@ const uploadTmp = mkdtempSync(path.join(tmpdir(), 'quiz-api-upload-'));
 process.env.STORAGE_LOCAL_PATH = uploadTmp;
 process.env.STORAGE_PUBLIC_URL = 'http://localhost:3999/uploads';
 process.env.AI_PROVIDER = 'mock';
+process.env.PRIZE_HMAC_SECRET = 'test-prize-hmac-secret-32chars-min!!';

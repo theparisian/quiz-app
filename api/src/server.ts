@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { logger } from './shared/logger/index.js';
 import { setupSocketGateway } from './shared/sockets/gateway.js';
 import { validateAiEnvironment } from './shared/ai/index.js';
+import { validatePrizeEnvironment } from './modules/prizes/prize-env.js';
 import { buildApp } from './create-app.js';
 import {
   rehydrateRunningSessions,
@@ -11,6 +12,7 @@ import {
 import { startNucOfflineMonitor } from './shared/nuc-monitor/index.js';
 
 validateAiEnvironment();
+validatePrizeEnvironment();
 
 const app = buildApp();
 const httpServer = createServer(app);

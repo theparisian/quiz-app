@@ -12,6 +12,8 @@ import {
   listSponsorsQuerySchema,
 } from './sponsors.schemas.js';
 import { sponsorsService } from './sponsors.service.js';
+import { prizesService } from '../prizes/prizes.service.js';
+import { updatePrizesConfigBodySchema } from '../prizes/prizes.schemas.js';
 
 const router = Router();
 
@@ -69,6 +71,25 @@ router.get('/:slug', requireAuth(['super_admin']), async (req, res, next) => {
   try {
     const sponsor = await sponsorsService.getBySlug(param(req, 'slug'));
     res.json(shapeSponsor(sponsor));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:slug/prizes-config', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const result = await prizesService.getSponsorConfig(param(req, 'slug'));
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:slug/prizes-config', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const body = validate(updatePrizesConfigBodySchema, req.body);
+    const result = await prizesService.updateSponsorConfig(param(req, 'slug'), body.config);
+    res.json(result);
   } catch (error) {
     next(error);
   }

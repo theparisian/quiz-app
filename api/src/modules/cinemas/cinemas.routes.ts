@@ -8,6 +8,8 @@ import {
   listCinemasQuerySchema,
 } from './cinemas.schemas.js';
 import { cinemasService } from './cinemas.service.js';
+import { prizesService } from '../prizes/prizes.service.js';
+import { listPrizesQuerySchema, updatePrizesConfigBodySchema } from '../prizes/prizes.schemas.js';
 
 const router = Router();
 
@@ -102,5 +104,49 @@ router.delete('/:slug', requireAuth(['super_admin']), async (req, res, next) => 
     next(error);
   }
 });
+
+router.get(
+  '/:slug/prizes-config',
+  requireAuth(['super_admin', 'cinema_admin']),
+  async (req, res, next) => {
+    try {
+      const slug = param(req, 'slug');
+      const result = await prizesService.getCinemaConfig(slug, req.user!);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.patch(
+  '/:slug/prizes-config',
+  requireAuth(['super_admin', 'cinema_admin']),
+  async (req, res, next) => {
+    try {
+      const slug = param(req, 'slug');
+      const body = validate(updatePrizesConfigBodySchema, req.body);
+      const result = await prizesService.updateCinemaConfig(slug, req.user!, body.config);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/:slug/prizes',
+  requireAuth(['super_admin', 'cinema_admin']),
+  async (req, res, next) => {
+    try {
+      const slug = param(req, 'slug');
+      const query = validate(listPrizesQuerySchema, req.query);
+      const result = await prizesService.listByCinema(slug, req.user!, query);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 export { router as cinemasRouter };

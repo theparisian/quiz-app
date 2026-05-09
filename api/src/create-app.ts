@@ -16,6 +16,9 @@ import { aiRouter } from './modules/ai/ai.routes.js';
 import { sessionsRouter, sessionsNestedRouter } from './modules/sessions/sessions.routes.js';
 import { playersRouter, playersPublicRouter } from './modules/players/players.routes.js';
 
+import { prizesPublicRouter } from './modules/prizes/prizes.routes.js';
+import { unsubscribeRouter } from './routes/unsubscribe.js';
+
 export function buildApp(): Express {
   const app = express();
 
@@ -52,6 +55,8 @@ export function buildApp(): Express {
   app.use('/api', sessionsNestedRouter);
   app.use('/api/players', playersRouter);
   app.use('/api', playersPublicRouter);
+  app.use('/api/prizes', prizesPublicRouter);
+  app.use('/', unsubscribeRouter);
 
   app.use(errorHandler);
   return app;

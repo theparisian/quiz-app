@@ -25,6 +25,22 @@ describe('players email collection (integration)', () => {
 
     const infra = await minimalCinemaAndScreen();
 
+    const screen = await prisma.screen.findUnique({
+      where: { id: infra.screenId },
+      select: { cinemaId: true },
+    });
+    if (!screen) throw new Error('screen missing');
+    await prisma.cinema.update({
+      where: { id: screen.cinemaId },
+      data: {
+        prizesConfig: {
+          rank1: { type: 'discount_qr', label: '20% confiserie', value: 'WIN20' },
+          rank2: { type: 'discount_qr', label: '10% confiserie', value: 'WIN10' },
+          rank3: { type: 'discount_qr', label: '5% confiserie', value: 'WIN5' },
+        },
+      },
+    });
+
     const quiz = await prisma.quiz.create({
       data: {
         slug: `quiz-${Date.now()}`,
@@ -76,14 +92,23 @@ describe('players email collection (integration)', () => {
   });
 
   it('PATCH /api/players/:id/email — top 3 OK', async () => {
-    await request(app)
+    const res = await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
       .send({ email: 'winner@test.com' })
       .expect(200);
 
+    expect(res.body).toMatchObject({ ok: true, emailSent: true });
+    expect(typeof res.body.prizeId).toBe('string');
+
     const player = await prisma.player.findUnique({ where: { id: playerId } });
     expect(player?.emailForPrize).toBe('winner@test.com');
+
+    const prize = await prisma.prize.findUnique({
+      where: { playerId_sessionId: { playerId, sessionId } },
+    });
+    expect(prize?.emailSentAt).not.toBeNull();
+    expect(prize?.rank).toBe(1);
   });
 
   it('PATCH /api/players/:id/email — not top 3 → 403', async () => {
