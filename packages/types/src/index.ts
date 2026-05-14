@@ -16,8 +16,6 @@ export type InvitationRole = 'projectionist' | 'cinema_admin';
 
 export interface HealthCheckResponse {
   status: 'ok';
-  version: string;
-  uptime: number;
 }
 
 export interface PingPayload {

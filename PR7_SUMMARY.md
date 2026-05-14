@@ -17,7 +17,6 @@ Référence : `MIGRATION_PLAN.md` § PR8. Périmètre cible :
 - Logs Pino JSON cohérents sur les modules backend ; **peuplement `events_log`** sur événements critiques (sessions, abort, échec email, NUC offline prolongé, etc.).
 - **Sentry** backend + les **4 apps** Next.js, sourcemaps prod.
 - **Dashboard admin (D)** : santé NUCs, sessions actives, erreurs récentes, stats du jour ; alertes email sur niveau `critical`.
-- **`GET /health/detailed`** : DB, SMTP, disque, mémoire.
 
 Critères de done PR8 : erreurs test backend/front visibles dans Sentry ; NUC offline visible / notifié dans le dashboard ; dashboard jugé exploitable en prod.
 
