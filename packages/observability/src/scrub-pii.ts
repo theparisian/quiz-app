@@ -33,7 +33,7 @@ export function scrubPii<EventType>(event: EventType): EventType | null {
   return event;
 }
 
-function scrubNode(node: unknown, keyHint?: string): void {
+function scrubNode(node: unknown, _keyHint?: string): void {
   if (node === null || node === undefined) return;
 
   if (typeof node === 'string') {
