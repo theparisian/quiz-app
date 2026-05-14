@@ -23,8 +23,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
     "@prisma/client": "^6.2.0",
+    "@quiz-app/observability": "workspace:^",
     "@quiz-app/types": "workspace:*",
     "@quiz-app/validation": "workspace:*",
+    "@sentry/node": "^10.37.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createServer } from 'http';
 import { logger } from './shared/logger/index.js';
+import { initSentry, flushSentry } from './shared/sentry/sentry.js';
 import { setupSocketGateway } from './shared/sockets/gateway.js';
 import { validateAiEnvironment } from './shared/ai/index.js';
 import { validatePrizeEnvironment } from './modules/prizes/prize-env.js';
@@ -10,6 +11,8 @@ import {
   setIoInstance,
 } from './modules/sessions/session-orchestrator.service.js';
 import { startNucOfflineMonitor } from './shared/nuc-monitor/index.js';
+
+initSentry();
 
 validateAiEnvironment();
 validatePrizeEnvironment();
@@ -23,10 +26,31 @@ const io = setupSocketGateway(httpServer);
 app.set('io', io);
 
 setIoInstance(io);
-startNucOfflineMonitor(io);
+
+let nucMonitorStop: (() => void) | undefined;
+
+async function gracefulShutdown(signal: string) {
+  logger.info({ signal }, 'Graceful shutdown');
+  nucMonitorStop?.();
+  nucMonitorStop = undefined;
+  await flushSentry(2000);
+  httpServer.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+}
+
+process.once('SIGTERM', () => {
+  void gracefulShutdown('SIGTERM');
+});
+process.once('SIGINT', () => {
+  void gracefulShutdown('SIGINT');
+});
 
 void (async () => {
   await rehydrateRunningSessions();
+  nucMonitorStop = startNucOfflineMonitor(io);
+
   httpServer.listen(PORT, () => {
     logger.info({ port: PORT }, 'Server started');
   });

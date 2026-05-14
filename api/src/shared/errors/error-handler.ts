@@ -1,8 +1,14 @@
 import type { Request, Response, NextFunction } from 'express';
+import * as Sentry from '@sentry/node';
 import { AppError } from './app-error.js';
 import { logger } from '../logger/index.js';
 
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction) {
+  const skipSentry = err instanceof AppError && err.statusCode < 500;
+  if (!skipSentry) {
+    Sentry.captureException(err);
+  }
+
   if (err instanceof AppError) {
     logger.warn({ code: err.code, statusCode: err.statusCode }, err.message);
     res.status(err.statusCode).json({
