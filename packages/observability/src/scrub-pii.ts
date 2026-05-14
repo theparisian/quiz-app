@@ -1,10 +1,16 @@
 const EMAIL_REGEX = /\S+@\S+/g;
 
+/** Paramètres de requête sensibles dans les chaînes d’URL (breadcrumbs Sentry, etc.). */
+const SENSITIVE_QUERY_PARAM =
+  /([?&])(auth_key|nuc_uid|resume_token|magic_link_token|token)(=)([^&#]*)/gi;
+
 /** Clés présentes dans quelque représentation d’erreur / contexte dont la valeur doit être masquée. */
 const REDACT_KEYS = new Set(
   [
     'resumeToken',
     'resume_token',
+    'nucUid',
+    'nuc_uid',
     'authKey',
     'auth_key',
     'signature',
@@ -21,8 +27,14 @@ const REDACT_KEYS = new Set(
   ].map((k) => k.toLowerCase()),
 );
 
+function scrubSensitiveQueryParamsInUrls(s: string): string {
+  return s.replace(SENSITIVE_QUERY_PARAM, (_m, sep: string, key: string, eq: string) => {
+    return `${sep}${key}${eq}[redacted]`;
+  });
+}
+
 function scrubString(s: string): string {
-  return s.replaceAll(EMAIL_REGEX, '[email]');
+  return scrubSensitiveQueryParamsInUrls(s).replaceAll(EMAIL_REGEX, '[email]');
 }
 
 /** Sanitize un événement Sentry (mutation in-place compatible `beforeSend`). */
