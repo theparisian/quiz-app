@@ -1,4 +1,13 @@
-import 'dotenv/config';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { config as dotenvLoad } from 'dotenv';
+
+dotenvLoad();
+const repoRootDotenv = resolve(process.cwd(), '..', '.env');
+if (existsSync(repoRootDotenv)) {
+  dotenvLoad({ path: repoRootDotenv });
+}
+
 import { createServer } from 'http';
 import { logger } from './shared/logger/index.js';
 import { initSentry, flushSentry } from './shared/sentry/sentry.js';

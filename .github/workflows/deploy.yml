@@ -42,8 +42,35 @@ jobs:
           PRIZE_REDEEM_BASE_URL: ${{ secrets.PRIZE_REDEEM_BASE_URL }}
           PRIZE_UNSUBSCRIBE_BASE_URL: ${{ secrets.PRIZE_UNSUBSCRIBE_BASE_URL }}
           PM2_APP_NAME: ${{ secrets.PM2_APP_NAME }}
+          # Observabilité (PR8) — optionnels : absent = non modifié sur le VPS
+          SENTRY_DSN_API: ${{ secrets.SENTRY_DSN_API }}
+          NEXT_PUBLIC_SENTRY_DSN_ADMIN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN_ADMIN }}
+          NEXT_PUBLIC_SENTRY_DSN_CONSOLE: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN_CONSOLE }}
+          NEXT_PUBLIC_SENTRY_DSN_PLAYER: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN_PLAYER }}
+          NEXT_PUBLIC_SENTRY_DSN_MOBILE: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN_MOBILE }}
+          SENTRY_ENVIRONMENT: ${{ secrets.SENTRY_ENVIRONMENT }}
+          ADMIN_ALERT_EMAILS: ${{ secrets.ADMIN_ALERT_EMAILS }}
+          HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
         run: |
           set -euo pipefail
+
+          workflow_emit_optional_b64() {
+            local n="$1"
+            local v="${2:-}"
+            if [ -z "$v" ]; then return 0; fi
+            printf '%s\n' "${n}_B64=$(printf '%s' "$v" | base64 -w0)"
+          }
+
+          workflow_emit_optional_decode_and_upsert() {
+            local n="$1"
+            local v="${2:-}"
+            if [ -z "$v" ]; then return 0; fi
+            printf '%s\n' \
+              'if [ -n "${'"$n"'_B64:-}" ]; then' \
+              '  '"$n"'="$(printf "%s" "$'"$n"'_B64" | base64 -d)"' \
+              '  upsert_env '"$n"' "$'"$n"'"' \
+              'fi'
+          }
           for key in SESSION_SECRET JWT_SECRET DATABASE_URL SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS SMTP_FROM SMTP_FROM_NAME PRIZE_HMAC_SECRET PRIZE_REDEEM_BASE_URL PRIZE_UNSUBSCRIBE_BASE_URL; do
             eval "v=\${$key:-}"
             if [ -z "$v" ]; then
@@ -92,6 +119,14 @@ jobs:
             if [ "$HAS_CORS" -eq 1 ]; then
               echo "CORS_ORIGINS_B64=${CORS_ORIGINS_B64}"
             fi
+            workflow_emit_optional_b64 SENTRY_DSN_API "${SENTRY_DSN_API:-}"
+            workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_ADMIN "${NEXT_PUBLIC_SENTRY_DSN_ADMIN:-}"
+            workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_CONSOLE "${NEXT_PUBLIC_SENTRY_DSN_CONSOLE:-}"
+            workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_PLAYER "${NEXT_PUBLIC_SENTRY_DSN_PLAYER:-}"
+            workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_MOBILE "${NEXT_PUBLIC_SENTRY_DSN_MOBILE:-}"
+            workflow_emit_optional_b64 SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
+            workflow_emit_optional_b64 ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
+            workflow_emit_optional_b64 HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
             echo 'SESSION_SECRET="$(printf "%s" "$SESSION_SECRET_B64" | base64 -d)"'
             echo 'JWT_SECRET="$(printf "%s" "$JWT_SECRET_B64" | base64 -d)"'
             echo 'DATABASE_URL="$(printf "%s" "$DATABASE_URL_B64" | base64 -d)"'
@@ -128,6 +163,14 @@ jobs:
             if [ "$HAS_CORS" -eq 1 ]; then
               echo 'upsert_env CORS_ORIGINS "$CORS_ORIGINS"'
             fi
+            workflow_emit_optional_decode_and_upsert SENTRY_DSN_API "${SENTRY_DSN_API:-}"
+            workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_ADMIN "${NEXT_PUBLIC_SENTRY_DSN_ADMIN:-}"
+            workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_CONSOLE "${NEXT_PUBLIC_SENTRY_DSN_CONSOLE:-}"
+            workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_PLAYER "${NEXT_PUBLIC_SENTRY_DSN_PLAYER:-}"
+            workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_MOBILE "${NEXT_PUBLIC_SENTRY_DSN_MOBILE:-}"
+            workflow_emit_optional_decode_and_upsert SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
+            workflow_emit_optional_decode_and_upsert ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
+            workflow_emit_optional_decode_and_upsert HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
             echo 'git stash'
             echo "git fetch origin \"${BRANCH}\""
             echo "git checkout \"${BRANCH}\""

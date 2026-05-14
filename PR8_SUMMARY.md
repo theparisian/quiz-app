@@ -42,6 +42,20 @@ Mise en place du journal applicatif (`events_log` + `logEvent`), des alertes ema
 
 Référence : `api/.env.example`, `apps/*/.env.example`.
 
+### Déploiement (`deploy.yml`)
+
+Les clés suivantes peuvent être définies en **secrets GitHub** (même nom que la variable d’environnement) : elles sont fusionnées dans le `.env` à la racine du projet sur le VPS lors du déploiement SSH, comme `CORS_ORIGINS`. Si un secret est **absent ou vide**, le workflow **ne met pas à jour** cette ligne sur le VPS (pour ne pas effacer une config locale).
+
+| Secret GitHub (`Repository secrets`)                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------- |
+| `SENTRY_DSN_API`                                                                                                                   |
+| `NEXT_PUBLIC_SENTRY_DSN_ADMIN`, `NEXT_PUBLIC_SENTRY_DSN_CONSOLE`, `NEXT_PUBLIC_SENTRY_DSN_PLAYER`, `NEXT_PUBLIC_SENTRY_DSN_MOBILE` |
+| `SENTRY_ENVIRONMENT` (ex. `production`)                                                                                            |
+| `ADMIN_ALERT_EMAILS`                                                                                                               |
+| `HEALTH_CHECK_TOKEN`                                                                                                               |
+
+Pour que les fronts Next reçoivent les `NEXT_PUBLIC_*`, prévoir soit un **rebuild des apps sur le VPS** après déploiement quand ces valeurs sont ajoutées ou modifiées (elles sont généralement figées au build), soit un mécanisme d’injection déjà utilisé hors ce workflow.
+
 ---
 
 ## Vérification manuelle — Sentry
