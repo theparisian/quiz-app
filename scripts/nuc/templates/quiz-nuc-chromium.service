@@ -1,0 +1,19 @@
+[Unit]
+Description=Quiz App NUC kiosk (xinit + Chromium)
+After=network-online.target
+Wants=network-online.target
+
+# Environnement X minimal : pas de gnome-shell. Ce service démarre le serveur X sur :0 puis Chromium.
+[Service]
+Type=simple
+User=__QUIZKIOSK_USER__
+Group=video
+WorkingDirectory=/home/__QUIZKIOSK_USER__
+Environment=HOME=/home/__QUIZKIOSK_USER__
+ExecStartPre=+/usr/bin/xhost +SI:localuser:__QUIZKIOSK_USER__
+ExecStart=/usr/bin/xinit /usr/local/bin/quiz-nuc-chromium-kiosk.sh -- /usr/bin/X :0 vt7 -nolisten tcp -noreset -s 0
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

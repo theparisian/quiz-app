@@ -1,0 +1,10 @@
+[Unit]
+Description=Quiz App — redémarrage nocturne Chromium (purge freeze potentiels hors séances)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+Unit=quiz-nuc-restart.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,6 @@
+[Unit]
+Description=Quiz App — redémarrage préventif du kiosque Chromium (oneshot)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart quiz-nuc-chromium.service
