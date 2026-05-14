@@ -29,10 +29,20 @@ function getTransporter(): Transporter {
   return transporter;
 }
 
+function escapeHtmlForEmail(s: string): string {
+  return s
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
 interface SendEmailOptions {
-  to: string;
+  /** Destinataire(s) SMTP (virgules acceptées). */
+  to: string | string[];
   subject: string;
-  html: string;
+  /** Si absent, dérivé d’un gabarit minimal à partir de `text` (pour alertes ops). */
+  html?: string;
   text?: string;
 }
 
@@ -40,19 +50,39 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const from = `"${process.env.SMTP_FROM_NAME ?? 'Quiz App'}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER ?? 'noreply@quiz.app'}>`;
   const t = getTransporter();
 
+  const toField = Array.isArray(options.to) ? options.to.join(',') : options.to;
+  let htmlBody = options.html;
+  let textBody = options.text ?? '';
+  if (htmlBody === undefined) {
+    if (textBody.trim() !== '') {
+      htmlBody = `<pre style="white-space:pre-wrap;font-family:ui-monospace,monospace">${escapeHtmlForEmail(textBody)}</pre>`;
+    } else {
+      htmlBody = '';
+    }
+  }
+  if (textBody.trim() === '' && htmlBody.length > 0) {
+    textBody = '[HTML body]';
+  }
+
   try {
-    const info = await t.sendMail({ from, ...options });
+    const info = await t.sendMail({
+      from,
+      to: toField,
+      subject: options.subject,
+      html: htmlBody || undefined,
+      text: textBody || undefined,
+    });
 
     if (info.envelope) {
-      logger.info({ to: options.to, subject: options.subject }, 'Email sent');
+      logger.info({ to: toField, subject: options.subject }, 'Email sent');
     } else {
       logger.info(
-        { to: options.to, subject: options.subject, message: JSON.parse(info.message as string) },
+        { to: toField, subject: options.subject, message: JSON.parse(info.message as string) },
         'Email logged (SMTP not configured)',
       );
     }
   } catch (error) {
-    logger.error({ err: error, to: options.to, subject: options.subject }, 'Email send failed');
+    logger.error({ err: error, to: toField, subject: options.subject }, 'Email send failed');
     throw error;
   }
 }
