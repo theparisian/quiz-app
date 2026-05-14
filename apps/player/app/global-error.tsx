@@ -40,18 +40,63 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '0.75rem',
+          gap: '1rem',
           padding: '2rem',
         }}
       >
-        <p style={{ fontSize: '1.375rem', fontWeight: 600, margin: 0 }}>
+        <p style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0, letterSpacing: '-0.02em' }}>
           Reprise dans quelques instants
         </p>
-        <p style={{ fontSize: '1rem', opacity: 0.7, margin: 0 }}>
-          Rechargement automatique dans environ {remainingSec} seconde
+        <p style={{ fontSize: '1rem', opacity: 0.68, margin: 0 }}>
+          Actualisation automatique sous environ {remainingSec} seconde
           {remainingSec !== 1 ? 's' : ''}.
         </p>
+        <div
+          style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}
+        >
+          <PulseDot delay="0ms" />
+          <PulseDot delay="210ms" />
+          <PulseDot delay="420ms" />
+        </div>
+
+        <style>{`
+          @keyframes globalPulse {
+            0%,
+            100% {
+              opacity: 0.35;
+              transform: scale(0.9);
+            }
+            52% {
+              opacity: 1;
+              transform: scale(1.05);
+            }
+          }
+          .pulse-dot-global {
+            display: inline-block;
+            width: 0.72rem;
+            height: 0.72rem;
+            border-radius: 999px;
+            background-color: rgb(229 231 235 / 0.55);
+            box-shadow: 0 0 16px rgb(255 255 255 / 0.16);
+            animation-name: globalPulse;
+            animation-duration: 1.3s;
+            animation-timing-function: ease-in-out;
+            animation-iteration-count: infinite;
+          }
+        `}</style>
       </body>
     </html>
+  );
+}
+
+function PulseDot({ delay }: { delay: string }) {
+  return (
+    <span
+      className="pulse-dot-global"
+      style={{
+        animationDelay: delay,
+      }}
+      aria-hidden
+    />
   );
 }
