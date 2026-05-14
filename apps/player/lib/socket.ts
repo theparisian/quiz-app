@@ -10,6 +10,12 @@ export function getPlayerSocket(): Socket {
       withCredentials: true,
       autoConnect: false,
       transports: ['websocket', 'polling'],
+      // PROJECT_REFERENCE §2.2 — backoff exponentiel maîtrisé côté NUC / player
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1200,
+      reconnectionDelayMax: 45000,
+      randomizationFactor: 0.5,
     });
   }
   return socket;
