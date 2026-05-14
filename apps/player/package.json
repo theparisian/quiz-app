@@ -10,18 +10,21 @@
     "lint": "eslint app/"
   },
   "dependencies": {
-    "next": "^15.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@quiz-app/ui": "workspace:*",
+    "@quiz-app/observability": "workspace:^",
     "@quiz-app/socket-client": "workspace:*",
     "@quiz-app/types": "workspace:*",
+    "@quiz-app/ui": "workspace:*",
     "@quiz-app/validation": "workspace:*",
-    "zustand": "^5.0.13",
+    "@sentry/nextjs": "^10.37.0",
+    "next": "^15.1.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "socket.io-client": "^4.7.0",
-    "qrcode.react": "^4.2.0"
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@quiz-app/design-tokens": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -33,7 +36,6 @@
     "eslint-config-prettier": "^9.1.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5.6.0",
-    "@quiz-app/design-tokens": "workspace:*"
+    "typescript": "^5.6.0"
   }
 }

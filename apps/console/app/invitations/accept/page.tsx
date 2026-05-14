@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
@@ -11,7 +11,7 @@ interface InvitationInfo {
   cinemaName: string;
 }
 
-export default function AcceptInvitationPage() {
+function AcceptInvitationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
@@ -165,5 +165,19 @@ export default function AcceptInvitationPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function AcceptInvitationPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center">
+          <p className="text-gray-400">Chargement de l&apos;invitation...</p>
+        </main>
+      }
+    >
+      <AcceptInvitationContent />
+    </Suspense>
   );
 }

@@ -1,1 +1,1 @@
-export { scrubPii } from './scrub-pii.js';
+export { scrubPii } from './scrub-pii';
