@@ -3,6 +3,7 @@ import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { extractKeyFromPublicUrl } from '../../shared/storage/storage-url.js';
 import type { StorageProvider } from '../../shared/storage/storage-provider.js';
+import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import type { CreateQuizInput, SaveFullEditInput, UpdateQuizInput } from './quizzes.schemas.js';
 
@@ -489,6 +490,13 @@ export const quizzesService = {
 
     await prisma.quiz.update({ where: { id: quiz.id }, data: { status: 'published' } });
     logger.info({ quizSlug: slug, quizId: quiz.id.toString() }, 'Quiz published');
+
+    logEvent({
+      level: 'info',
+      eventType: 'quiz.published',
+      payload: { quizSlug: slug },
+    });
+
     return quizzesService.getBySlug(slug);
   },
 
@@ -499,6 +507,13 @@ export const quizzesService = {
       throw new AppError('Quiz is already archived', 403, 'QUIZ_INVALID_TRANSITION');
     await prisma.quiz.update({ where: { id: quiz.id }, data: { status: 'archived' } });
     logger.info({ quizSlug: slug }, 'Quiz archived');
+
+    logEvent({
+      level: 'info',
+      eventType: 'quiz.archived',
+      payload: { quizSlug: slug },
+    });
+
     return quizzesService.getBySlug(slug);
   },
 

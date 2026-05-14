@@ -3,8 +3,9 @@ import QRCode from 'qrcode';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import { logger } from '../../shared/logger/index.js';
 import { sendEmail } from '../../shared/email/index.js';
+import { logEvent } from '../../shared/events/event-log.service.js';
+import { logger } from '../../shared/logger/index.js';
 import type { AuthUser } from '../../shared/auth/middleware.js';
 import { resolvePrizeConfig } from './prize-config.service.js';
 import { signPrize, verifyPrizeSignature } from './prize-signature.service.js';
@@ -20,13 +21,15 @@ async function sendWithRetry(opts: {
   subject: string;
   html: string;
   text: string;
-}): Promise<void> {
+}): Promise<'ok' | 'retry_ok'> {
   try {
     await sendEmail(opts);
-  } catch (err) {
-    logger.warn({ err }, 'Email send failed, retrying once');
+    return 'ok';
+  } catch (firstErr) {
+    logger.warn({ err: firstErr }, 'Email send failed, retrying once');
     await sleep(2000);
     await sendEmail(opts);
+    return 'retry_ok';
   }
 }
 
@@ -158,18 +161,51 @@ export const prizesService = {
     });
 
     try {
-      await sendWithRetry({ to: requestEmail, subject, html, text });
+      const outcome = await sendWithRetry({ to: requestEmail, subject, html, text });
       await prisma.prize.update({
         where: { id: prize.id },
         data: { emailSentAt: new Date() },
       });
+
       logger.info({ redeemCode, prizeId: prize.id.toString() }, 'Prize email sent');
+
+      const cinemaId = player.session.screen.cinema.id;
+      logEvent({
+        level: 'info',
+        eventType: 'prize.email_sent',
+        sessionId: player.sessionId,
+        cinemaId,
+        payload: { prizeId: prize.id.toString(), rank: player.rankFinal ?? 0 },
+      });
+      if (outcome === 'retry_ok') {
+        logEvent({
+          level: 'warn',
+          eventType: 'prize.email_send_retry',
+          sessionId: player.sessionId,
+          cinemaId,
+          payload: { prizeId: prize.id.toString() },
+        });
+      }
+
       return { prizeId: prize.id.toString(), emailSent: true };
     } catch (err) {
       logger.error(
         { err, redeemCode, prizeId: prize.id.toString() },
         'Prize email failed after retry',
       );
+
+      const cinemaId = player.session.screen.cinema.id;
+      logEvent({
+        level: 'error',
+        eventType: 'prize.email_send_failed',
+        sessionId: player.sessionId,
+        cinemaId,
+        payload: {
+          prizeId: prize.id.toString(),
+          errorMessage: err instanceof Error ? err.message : String(err),
+        },
+      });
+
       throw new AppError(
         "L'email n'a pas pu être envoyé. Le cinéma sera prévenu et te recontactera.",
         500,
@@ -178,8 +214,14 @@ export const prizesService = {
     }
   },
 
-  async redeem(redeemCode: string, signature: string) {
+  async redeem(redeemCode: string, signature: string, clientIp?: string | null) {
     if (!verifyPrizeSignature(redeemCode, signature.toLowerCase())) {
+      const truncated = redeemCode.length > 6 ? `${redeemCode.slice(0, 6)}…` : redeemCode;
+      logEvent({
+        level: 'critical',
+        eventType: 'prize.redemption_signature_invalid',
+        payload: { redeemCode: truncated, ip: clientIp ?? null },
+      });
       throw new AppError('Invalid signature', 401, 'INVALID_SIGNATURE');
     }
 
@@ -194,12 +236,27 @@ export const prizesService = {
       });
     }
 
+    const sessionRow = await prisma.session.findUnique({
+      where: { id: prize.sessionId },
+      select: { screen: { select: { cinemaId: true } } },
+    });
+
     const updated = await prisma.prize.update({
       where: { id: prize.id },
       data: { redeemedAt: new Date() },
     });
 
     logger.info({ redeemCode, redeemedAt: updated.redeemedAt?.toISOString() }, 'Prize redeemed');
+
+    logEvent({
+      level: 'info',
+      eventType: 'prize.redeemed',
+      sessionId: prize.sessionId,
+      ...(sessionRow?.screen.cinemaId !== undefined
+        ? { cinemaId: sessionRow.screen.cinemaId }
+        : {}),
+      payload: { prizeId: prize.id.toString() },
+    });
 
     return {
       prizeId: prize.id.toString(),

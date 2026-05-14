@@ -1,5 +1,6 @@
 import type { Server } from 'socket.io';
 import { prisma } from '../db/index.js';
+import { logEvent } from '../events/event-log.service.js';
 import { logger } from '../logger/index.js';
 import { broadcastNucStatusChanged } from './broadcast-nuc-status.js';
 
@@ -14,7 +15,7 @@ export async function scanStaleOnlineNucsAndMarkOffline(io: Server): Promise<num
       status: 'online',
       OR: [{ lastHeartbeatAt: null }, { lastHeartbeatAt: { lt: threshold } }],
     },
-    select: { id: true, screenId: true },
+    select: { id: true, screenId: true, lastHeartbeatAt: true },
   });
 
   for (const n of stale) {
@@ -22,6 +23,23 @@ export async function scanStaleOnlineNucsAndMarkOffline(io: Server): Promise<num
       where: { id: n.id },
       data: { status: 'offline' },
     });
+
+    const screen = await prisma.screen.findUnique({
+      where: { id: n.screenId },
+      select: { cinemaId: true },
+    });
+
+    logEvent({
+      level: 'warn',
+      eventType: 'nuc.offline_detected',
+      nucId: n.id,
+      ...(screen?.cinemaId !== undefined ? { cinemaId: screen.cinemaId } : {}),
+      payload: {
+        screenId: n.screenId.toString(),
+        lastHeartbeatAt: n.lastHeartbeatAt?.toISOString() ?? null,
+      },
+    });
+
     broadcastNucStatusChanged(io, {
       nucId: n.id.toString(),
       screenId: n.screenId.toString(),

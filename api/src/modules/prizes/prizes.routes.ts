@@ -10,7 +10,11 @@ router.post('/redeem/:redeemCode', async (req, res, next) => {
   try {
     const redeemCode = param(req, 'redeemCode');
     const body = validate(redeemBodySchema, req.body);
-    const result = await prizesService.redeem(redeemCode, body.signature);
+    const result = await prizesService.redeem(
+      redeemCode,
+      body.signature,
+      typeof req.ip === 'string' ? req.ip : undefined,
+    );
     res.json(result);
   } catch (error) {
     next(error);

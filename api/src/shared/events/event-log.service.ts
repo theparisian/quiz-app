@@ -1,18 +1,23 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../db/index.js';
 import { logger } from '../logger/index.js';
 import type { LogEventInput } from './event-log.types.js';
 import { sendCriticalAlert } from './critical-alert.service.js';
 
 async function persistAndMaybeAlert(input: LogEventInput): Promise<void> {
+  const data: Prisma.EventLogUncheckedCreateInput = {
+    level: input.level,
+    eventType: input.eventType,
+    sessionId: input.sessionId ?? null,
+    nucId: input.nucId ?? null,
+    cinemaId: input.cinemaId ?? null,
+  };
+  if (input.payload !== undefined) {
+    data.payloadJson = input.payload as Prisma.InputJsonValue;
+  }
+
   await prisma.eventLog.create({
-    data: {
-      level: input.level,
-      eventType: input.eventType,
-      ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
-      ...(input.nucId !== undefined ? { nucId: input.nucId } : {}),
-      ...(input.cinemaId !== undefined ? { cinemaId: input.cinemaId } : {}),
-      ...(input.payload !== undefined ? { payloadJson: input.payload } : {}),
-    },
+    data,
   });
 
   if (input.level === 'critical') {

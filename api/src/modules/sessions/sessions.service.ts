@@ -1,5 +1,6 @@
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
+import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { generateUniqueSessionCode } from './session-code.service.js';
 import { assertTransition, isActive } from './session-state.service.js';
@@ -66,6 +67,18 @@ export const sessionsService = {
       },
       'Session created',
     );
+
+    logEvent({
+      level: 'info',
+      eventType: 'session.created',
+      sessionId: session.id,
+      cinemaId: session.screen.cinema.id,
+      payload: {
+        quizId: quiz.id.toString(),
+        screenId: screenId.toString(),
+        slugShort,
+      },
+    });
 
     return session;
   },

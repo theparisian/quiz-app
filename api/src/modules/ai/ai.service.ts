@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
+import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import {
   getAiClient,
@@ -211,6 +212,13 @@ export const aiService = {
           { generationId: generationId.toString(), errorCode: err.code },
           'AI generation refused',
         );
+
+        logEvent({
+          level: 'warn',
+          eventType: 'ai.refusal',
+          payload: { userId: userId.toString(), generationId: generationId.toString() },
+        });
+
         throw new AppError(
           'Le modèle a refusé de générer ce contenu. Reformule ta demande.',
           422,

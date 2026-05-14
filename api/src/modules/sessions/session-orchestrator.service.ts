@@ -2,6 +2,7 @@ import type { Answer, Prisma, Question } from '@prisma/client';
 import type { Server } from 'socket.io';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
+import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { computeScore } from '../../shared/scoring/scoring.service.js';
 import { assertTransition } from './session-state.service.js';
@@ -52,6 +53,7 @@ export interface RunningSessionState {
 
 type RehydrateSessionRow = Prisma.SessionGetPayload<{
   include: {
+    screen: { select: { cinemaId: true } };
     quiz: {
       include: {
         questions: {
@@ -384,7 +386,10 @@ async function endSessionInternal(sessionId: bigint) {
     clearTimers(state);
   }
 
-  const session = await prisma.session.findUnique({ where: { id: sessionId } });
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: { screen: { select: { cinemaId: true } } },
+  });
   if (!session) return;
 
   if (session.state !== 'ended' && session.state !== 'aborted') {
@@ -407,11 +412,15 @@ async function endSessionInternal(sessionId: bigint) {
 
   const winnerId = players[0]?.id ?? null;
 
+  const endedAt = new Date();
+  const durationMs =
+    session.startedAt !== null ? endedAt.getTime() - session.startedAt.getTime() : 0;
+
   await prisma.session.update({
     where: { id: sessionId },
     data: {
       state: 'ended',
-      endedAt: new Date(),
+      endedAt,
       winnerPlayerId: winnerId,
       currentQuestionStartedAt: null,
       currentQuestionPausedAt: null,
@@ -442,6 +451,18 @@ async function endSessionInternal(sessionId: bigint) {
     { sessionId: sessionId.toString(), winnerId: winnerId?.toString() ?? null },
     'Session ended',
   );
+
+  logEvent({
+    level: 'info',
+    eventType: 'session.ended',
+    sessionId,
+    cinemaId: session.screen.cinemaId,
+    payload: {
+      winnerPlayerId: winnerId?.toString() ?? null,
+      totalPlayers: players.length,
+      durationMs,
+    },
+  });
 }
 
 async function rehydrateForceEndActiveQuestion(session: RehydrateSessionRow) {
@@ -454,6 +475,16 @@ async function rehydrateForceEndActiveQuestion(session: RehydrateSessionRow) {
       { sessionId: sessionId.toString(), currentQuestionPosition: pos },
       'Rehydrate force-end: cannot resolve current question index',
     );
+    logEvent({
+      level: 'critical',
+      eventType: 'server.boot_recovery_anomaly',
+      sessionId,
+      cinemaId: session.screen.cinemaId,
+      payload: {
+        detail: 'rehydrate_force_end_invalid_question_index',
+        currentQuestionPosition: pos,
+      },
+    });
     return;
   }
 
@@ -506,6 +537,16 @@ async function rehydrateBetweenQuestionsOrBeforeFirst(session: RehydrateSessionR
         { sessionId: sessionId.toString(), currentQuestionPosition: pos },
         'Rehydrate between questions: invalid current question position',
       );
+      logEvent({
+        level: 'critical',
+        eventType: 'server.boot_recovery_anomaly',
+        sessionId,
+        cinemaId: session.screen.cinemaId,
+        payload: {
+          detail: 'rehydrate_between_questions_invalid_position',
+          currentQuestionPosition: pos,
+        },
+      });
       return;
     }
     currentQuestionIndex = idx;
@@ -541,6 +582,7 @@ export async function rehydrateRunningSessions(): Promise<void> {
   const sessions = await prisma.session.findMany({
     where: { state: { in: ['running', 'paused'] } },
     include: {
+      screen: { select: { cinemaId: true } },
       quiz: {
         include: {
           questions: {
@@ -558,6 +600,13 @@ export async function rehydrateRunningSessions(): Promise<void> {
     try {
       if (session.quiz.questions.length === 0) {
         logger.warn({ sessionId: session.id.toString() }, 'Rehydrate skip: quiz has no questions');
+        logEvent({
+          level: 'critical',
+          eventType: 'server.boot_recovery_anomaly',
+          sessionId: session.id,
+          cinemaId: session.screen.cinemaId,
+          payload: { detail: 'rehydrate_skip_quiz_empty_questions', state: session.state },
+        });
         continue;
       }
 
@@ -579,6 +628,16 @@ export async function rehydrateRunningSessions(): Promise<void> {
       await rehydrateBetweenQuestionsOrBeforeFirst(session);
     } catch (err) {
       logger.error({ err, sessionId: session.id.toString() }, 'Rehydrate session failed');
+      logEvent({
+        level: 'critical',
+        eventType: 'server.boot_recovery_anomaly',
+        sessionId: session.id,
+        cinemaId: session.screen.cinemaId,
+        payload: {
+          detail: 'rehydrate_exception',
+          message: err instanceof Error ? err.message : String(err),
+        },
+      });
     }
   }
 }
@@ -589,6 +648,7 @@ export function getOrchestrator() {
       const session = await prisma.session.findUnique({
         where: { id: sessionId },
         include: {
+          screen: { select: { cinemaId: true } },
           quiz: {
             include: {
               questions: {
@@ -654,6 +714,14 @@ export function getOrchestrator() {
       });
 
       logger.info({ sessionId: sessionId.toString() }, 'Session started');
+
+      logEvent({
+        level: 'info',
+        eventType: 'session.started',
+        sessionId,
+        cinemaId: session.screen.cinemaId,
+        payload: { totalQuestions: state.questions.length },
+      });
 
       setTimeout(() => {
         void nextQuestionInternal(sessionId);
@@ -783,7 +851,10 @@ export function getOrchestrator() {
         runningSessions.delete(key);
       }
 
-      const session = await prisma.session.findUnique({ where: { id: sessionId } });
+      const session = await prisma.session.findUnique({
+        where: { id: sessionId },
+        include: { screen: { select: { cinemaId: true } } },
+      });
       if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
 
       assertTransition(session.state, 'aborted');
@@ -809,6 +880,14 @@ export function getOrchestrator() {
         { sessionId: sessionId.toString(), reason: reason ?? null },
         'Session aborted via orchestrator',
       );
+
+      logEvent({
+        level: 'error',
+        eventType: 'session.aborted',
+        sessionId,
+        cinemaId: session.screen.cinemaId,
+        payload: { reason: reason ?? null },
+      });
     },
 
     async toggleMute(sessionId: bigint): Promise<boolean> {

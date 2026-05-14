@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import bcrypt from 'bcrypt';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
+import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import type { UpdateNucInput } from './nucs.schemas.js';
 
@@ -64,7 +65,16 @@ export const nucsService = {
     if (!nuc.authKeyHash) throw new AppError('NUC has no auth key', 401, 'NUC_AUTH_FAILED');
 
     const valid = await bcrypt.compare(authKey, nuc.authKeyHash);
-    if (!valid) throw new AppError('Invalid auth key', 401, 'NUC_AUTH_FAILED');
+    if (!valid) {
+      logEvent({
+        level: 'error',
+        eventType: 'nuc.auth_failed',
+        nucId: nuc.id,
+        cinemaId: nuc.screen.cinema.id,
+        payload: { nucUid },
+      });
+      throw new AppError('Invalid auth key', 401, 'NUC_AUTH_FAILED');
+    }
 
     const prevStatus = nuc.status;
     const now = new Date();
@@ -127,7 +137,15 @@ export const nucsService = {
       throw new AppError('NUC has no auth key configured', 401, 'NUC_AUTH_MISSING');
 
     const isValid = await bcrypt.compare(authKey, nuc.authKeyHash);
-    if (!isValid) throw new AppError('Invalid auth key', 401, 'NUC_AUTH_INVALID');
+    if (!isValid) {
+      logEvent({
+        level: 'error',
+        eventType: 'nuc.auth_failed',
+        nucId: nuc.id,
+        payload: { nucUid },
+      });
+      throw new AppError('Invalid auth key', 401, 'NUC_AUTH_INVALID');
+    }
 
     const prevStatus = nuc.status;
     const now = new Date();

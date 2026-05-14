@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
+import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { containsBadWord } from '../../shared/moderation/bad-words.js';
 
@@ -13,6 +14,7 @@ export const playersService = {
     const session = await prisma.session.findFirst({
       where: { slugShort: input.sessionSlugShort },
       orderBy: { createdAt: 'desc' },
+      include: { screen: { select: { cinemaId: true } } },
     });
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
     if (session.state !== 'lobby') {
@@ -22,6 +24,13 @@ export const playersService = {
     const pseudo = normalizePseudo(input.pseudo);
 
     if (containsBadWord(pseudo)) {
+      logEvent({
+        level: 'warn',
+        eventType: 'player.bad_word_attempted',
+        sessionId: session.id,
+        cinemaId: session.screen.cinemaId,
+        payload: { pseudoAttempted: pseudo },
+      });
       throw new AppError('Pseudo contains inappropriate words', 400, 'PSEUDO_BAD_WORD');
     }
 
@@ -59,6 +68,14 @@ export const playersService = {
       'Player joined session',
     );
 
+    logEvent({
+      level: 'info',
+      eventType: 'player.joined',
+      sessionId: session.id,
+      cinemaId: session.screen.cinemaId,
+      payload: { playerId: player.id.toString(), pseudo: player.pseudo },
+    });
+
     return {
       playerId: player.id,
       resumeToken,
@@ -70,7 +87,10 @@ export const playersService = {
   },
 
   async leave(playerId: bigint) {
-    const player = await prisma.player.findUnique({ where: { id: playerId } });
+    const player = await prisma.player.findUnique({
+      where: { id: playerId },
+      include: { session: { include: { screen: { select: { cinemaId: true } } } } },
+    });
     if (!player) throw new AppError('Player not found', 404, 'PLAYER_NOT_FOUND');
 
     await prisma.player.update({
@@ -79,6 +99,15 @@ export const playersService = {
     });
 
     logger.info({ playerId: playerId.toString() }, 'Player left');
+
+    logEvent({
+      level: 'info',
+      eventType: 'player.left',
+      sessionId: player.sessionId,
+      cinemaId: player.session.screen.cinemaId,
+      payload: { playerId: playerId.toString() },
+    });
+
     return player;
   },
 
