@@ -30,6 +30,8 @@
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "date-fns": "^4",
+    "date-fns-tz": "^3.2.0",
     "dompurify": "^3.4.2",
     "dotenv": "^16.4.0",
     "express": "^4.21.0",

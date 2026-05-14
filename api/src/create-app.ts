@@ -18,6 +18,7 @@ import { playersRouter, playersPublicRouter } from './modules/players/players.ro
 
 import { prizesPublicRouter } from './modules/prizes/prizes.routes.js';
 import { unsubscribeRouter } from './routes/unsubscribe.js';
+import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
 
 export function buildApp(): Express {
   const app = express();
@@ -51,6 +52,7 @@ export function buildApp(): Express {
   app.use('/api/sponsors', sponsorsRouter);
   app.use('/api/quizzes', quizzesRouter);
   app.use('/api/ai', aiRouter);
+  app.use('/api/dashboard', dashboardRouter);
   app.use('/api/sessions', sessionsRouter);
   app.use('/api', sessionsNestedRouter);
   app.use('/api/players', playersRouter);
