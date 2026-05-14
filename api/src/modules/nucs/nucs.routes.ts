@@ -77,6 +77,7 @@ router.delete('/nucs/:id', requireAuth(['super_admin']), async (req, res, next) 
   }
 });
 
+/** Key-based heartbeat (JSON body): supervision or scripts outside the kiosk browser — not apps/player kiosk. */
 router.post('/nuc/heartbeat', async (req, res, next) => {
   try {
     const data = validate(heartbeatSchema, req.body);
@@ -135,6 +136,7 @@ router.post('/nucs/auth', async (req, res, next) => {
   }
 });
 
+/** Player heartbeat (interface A): uses HTTP-only cookie nuc_session set via POST /api/nucs/auth. */
 router.post('/nucs/heartbeat', requireNucAuth(), async (req, res, next) => {
   try {
     const data = validate(nucHeartbeatCookieSchema, req.body);
