@@ -181,7 +181,7 @@ jobs:
             echo '  pnpm --filter @quiz-app/api db:generate'
             echo '  sed -i '"'"'s/\r$//'"'"' .env'
             echo '  source scripts/load-env.sh'
-            echo '  pnpm build'
+            echo '  pnpm turbo build --concurrency=1'
             echo '  pnpm --filter @quiz-app/api db:migrate:deploy'
             echo '  pm2 startOrReload ecosystem.config.js --update-env'
             echo '  pm2 save'
