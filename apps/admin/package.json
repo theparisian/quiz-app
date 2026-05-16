@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3004",
     "build": "next build",
-    "start": "next start --port 3004",
+    "start": "next start --port 4004",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app/"
   },
