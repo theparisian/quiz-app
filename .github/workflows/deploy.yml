@@ -179,6 +179,7 @@ jobs:
             echo '  corepack prepare pnpm@9.15.4 --activate'
             echo '  pnpm install --frozen-lockfile'
             echo '  pnpm --filter @quiz-app/api db:generate'
+            echo '  sed -i '"'"'s/\r$//'"'"' .env'
             echo '  set -a'
             echo '  source ./.env'
             echo '  set +a'
