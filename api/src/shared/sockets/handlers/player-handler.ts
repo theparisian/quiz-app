@@ -1,6 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 import { z } from 'zod';
-import { nucResumePayloadSchema } from '@quiz-app/validation/socket-events';
+import { nucResumePayloadSchema } from '@quiz-app/validation';
 import { logger } from '../../logger/index.js';
 import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';

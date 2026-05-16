@@ -3,7 +3,7 @@ import {
   consoleAbortPayloadSchema,
   consoleJoinPayloadSchema,
   consoleResumePayloadSchema,
-} from '@quiz-app/validation/socket-events';
+} from '@quiz-app/validation';
 import { logger } from '../../logger/index.js';
 import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';

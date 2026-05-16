@@ -9,7 +9,7 @@ const router: RouterType = Router();
 
 let version = '0.0.0';
 try {
-  const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../package.json'), 'utf-8'));
+  const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf-8'));
   version = pkg.version as string;
 } catch {
   // fallback default

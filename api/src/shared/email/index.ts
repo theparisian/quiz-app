@@ -92,7 +92,7 @@ const templateCache = new Map<string, string>();
 export function renderTemplate(name: string, data: Record<string, string>): string {
   let template = templateCache.get(name);
   if (!template) {
-    const templatePath = resolve(import.meta.dirname, 'templates', `${name}.html`);
+    const templatePath = resolve(__dirname, 'templates', `${name}.html`);
     template = readFileSync(templatePath, 'utf-8');
     templateCache.set(name, template);
   }
