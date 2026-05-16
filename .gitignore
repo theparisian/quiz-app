@@ -28,7 +28,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Fichiers de build
+# Fichiers de build (apps, api, packages/*/dist — tout dossier dist/)
 dist/
 build/
 
