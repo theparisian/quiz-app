@@ -100,7 +100,6 @@ jobs:
           PRIZE_UNSUBSCRIBE_BASE_URL_B64="$(printf '%s' "$PRIZE_UNSUBSCRIBE_BASE_URL" | base64 -w0)"
 
           BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
-          PM2_ESC="${PM2_APP_NAME:-quiz-api}"
           {
             echo 'set -euo pipefail'
             echo "cd \"${{ secrets.PROJECT_PATH }}\""
@@ -183,8 +182,10 @@ jobs:
             echo '  set -a'
             echo '  source ./.env'
             echo '  set +a'
+            echo '  pnpm build'
             echo '  pnpm --filter @quiz-app/api db:migrate:deploy'
-            echo "  pm2 restart \"${PM2_ESC}\" || pm2 reload \"${PM2_ESC}\" || pm2 restart quiz-app || true"
+            echo '  pm2 startOrReload ecosystem.config.js --update-env'
+            echo '  pm2 save'
             echo 'else'
             echo '  npm install'
             echo "  (pm2 restart quiz-app || pm2 start npm --name 'quiz-app' -- start)"
