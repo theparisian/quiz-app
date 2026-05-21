@@ -4,8 +4,7 @@ name: Deploy to VPS
 on:
   push:
     branches:
-      - main
-      - rewrite/v2
+      - master
   workflow_dispatch:
     inputs:
       branch:
