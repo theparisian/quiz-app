@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.SEED_SUPER_ADMIN_EMAIL ?? 'anzio@example.com';
+  const email = process.env.SEED_SUPER_ADMIN_EMAIL ?? 'contact@uxii.fr';
 
   // Create super-admin if not exists
   const existingAdmin = await prisma.user.findUnique({ where: { email } });
