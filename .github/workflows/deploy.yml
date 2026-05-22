@@ -31,6 +31,11 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          APP_URL_ADMIN: ${{ secrets.APP_URL_ADMIN }}
+          APP_URL_CONSOLE: ${{ secrets.APP_URL_CONSOLE }}
+          APP_URL_MOBILE: ${{ secrets.APP_URL_MOBILE }}
+          NEXT_PUBLIC_PLAY_URL: ${{ secrets.NEXT_PUBLIC_PLAY_URL }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -70,7 +75,7 @@ jobs:
               '  upsert_env '"$n"' "$'"$n"'"' \
               'fi'
           }
-          for key in SESSION_SECRET JWT_SECRET DATABASE_URL SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS SMTP_FROM SMTP_FROM_NAME PRIZE_HMAC_SECRET PRIZE_REDEEM_BASE_URL PRIZE_UNSUBSCRIBE_BASE_URL; do
+          for key in SESSION_SECRET JWT_SECRET DATABASE_URL CORS_ORIGINS NEXT_PUBLIC_API_URL APP_URL_ADMIN APP_URL_CONSOLE SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS SMTP_FROM SMTP_FROM_NAME PRIZE_HMAC_SECRET PRIZE_REDEEM_BASE_URL PRIZE_UNSUBSCRIBE_BASE_URL; do
             eval "v=\${$key:-}"
             if [ -z "$v" ]; then
               echo "::error::Secret GitHub $key manquant ou vide."
@@ -78,16 +83,13 @@ jobs:
             fi
           done
 
-          HAS_CORS=0
-          CORS_ORIGINS_B64=""
-          if [ -n "${CORS_ORIGINS:-}" ]; then
-            HAS_CORS=1
-            CORS_ORIGINS_B64="$(printf '%s' "$CORS_ORIGINS" | base64 -w0)"
-          fi
-
           SESSION_SECRET_B64="$(printf '%s' "$SESSION_SECRET" | base64 -w0)"
           JWT_SECRET_B64="$(printf '%s' "$JWT_SECRET" | base64 -w0)"
           DATABASE_URL_B64="$(printf '%s' "$DATABASE_URL" | base64 -w0)"
+          CORS_ORIGINS_B64="$(printf '%s' "$CORS_ORIGINS" | base64 -w0)"
+          NEXT_PUBLIC_API_URL_B64="$(printf '%s' "$NEXT_PUBLIC_API_URL" | base64 -w0)"
+          APP_URL_ADMIN_B64="$(printf '%s' "$APP_URL_ADMIN" | base64 -w0)"
+          APP_URL_CONSOLE_B64="$(printf '%s' "$APP_URL_CONSOLE" | base64 -w0)"
           SMTP_HOST_B64="$(printf '%s' "$SMTP_HOST" | base64 -w0)"
           SMTP_PORT_B64="$(printf '%s' "$SMTP_PORT" | base64 -w0)"
           SMTP_USER_B64="$(printf '%s' "$SMTP_USER" | base64 -w0)"
@@ -105,6 +107,10 @@ jobs:
             echo "SESSION_SECRET_B64=${SESSION_SECRET_B64}"
             echo "JWT_SECRET_B64=${JWT_SECRET_B64}"
             echo "DATABASE_URL_B64=${DATABASE_URL_B64}"
+            echo "CORS_ORIGINS_B64=${CORS_ORIGINS_B64}"
+            echo "NEXT_PUBLIC_API_URL_B64=${NEXT_PUBLIC_API_URL_B64}"
+            echo "APP_URL_ADMIN_B64=${APP_URL_ADMIN_B64}"
+            echo "APP_URL_CONSOLE_B64=${APP_URL_CONSOLE_B64}"
             echo "SMTP_HOST_B64=${SMTP_HOST_B64}"
             echo "SMTP_PORT_B64=${SMTP_PORT_B64}"
             echo "SMTP_USER_B64=${SMTP_USER_B64}"
@@ -114,9 +120,8 @@ jobs:
             echo "PRIZE_HMAC_SECRET_B64=${PRIZE_HMAC_SECRET_B64}"
             echo "PRIZE_REDEEM_BASE_URL_B64=${PRIZE_REDEEM_BASE_URL_B64}"
             echo "PRIZE_UNSUBSCRIBE_BASE_URL_B64=${PRIZE_UNSUBSCRIBE_BASE_URL_B64}"
-            if [ "$HAS_CORS" -eq 1 ]; then
-              echo "CORS_ORIGINS_B64=${CORS_ORIGINS_B64}"
-            fi
+            workflow_emit_optional_b64 APP_URL_MOBILE "${APP_URL_MOBILE:-}"
+            workflow_emit_optional_b64 NEXT_PUBLIC_PLAY_URL "${NEXT_PUBLIC_PLAY_URL:-}"
             workflow_emit_optional_b64 SENTRY_DSN_API "${SENTRY_DSN_API:-}"
             workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_ADMIN "${NEXT_PUBLIC_SENTRY_DSN_ADMIN:-}"
             workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_CONSOLE "${NEXT_PUBLIC_SENTRY_DSN_CONSOLE:-}"
@@ -128,6 +133,10 @@ jobs:
             echo 'SESSION_SECRET="$(printf "%s" "$SESSION_SECRET_B64" | base64 -d)"'
             echo 'JWT_SECRET="$(printf "%s" "$JWT_SECRET_B64" | base64 -d)"'
             echo 'DATABASE_URL="$(printf "%s" "$DATABASE_URL_B64" | base64 -d)"'
+            echo 'CORS_ORIGINS="$(printf "%s" "$CORS_ORIGINS_B64" | base64 -d)"'
+            echo 'NEXT_PUBLIC_API_URL="$(printf "%s" "$NEXT_PUBLIC_API_URL_B64" | base64 -d)"'
+            echo 'APP_URL_ADMIN="$(printf "%s" "$APP_URL_ADMIN_B64" | base64 -d)"'
+            echo 'APP_URL_CONSOLE="$(printf "%s" "$APP_URL_CONSOLE_B64" | base64 -d)"'
             echo 'SMTP_HOST="$(printf "%s" "$SMTP_HOST_B64" | base64 -d)"'
             echo 'SMTP_PORT="$(printf "%s" "$SMTP_PORT_B64" | base64 -d)"'
             echo 'SMTP_USER="$(printf "%s" "$SMTP_USER_B64" | base64 -d)"'
@@ -137,9 +146,6 @@ jobs:
             echo 'PRIZE_HMAC_SECRET="$(printf "%s" "$PRIZE_HMAC_SECRET_B64" | base64 -d)"'
             echo 'PRIZE_REDEEM_BASE_URL="$(printf "%s" "$PRIZE_REDEEM_BASE_URL_B64" | base64 -d)"'
             echo 'PRIZE_UNSUBSCRIBE_BASE_URL="$(printf "%s" "$PRIZE_UNSUBSCRIBE_BASE_URL_B64" | base64 -d)"'
-            if [ "$HAS_CORS" -eq 1 ]; then
-              echo 'CORS_ORIGINS="$(printf "%s" "$CORS_ORIGINS_B64" | base64 -d)"'
-            fi
             echo 'touch .env'
             echo 'upsert_env() {'
             echo '  key="$1"; val="$2"'
@@ -149,6 +155,12 @@ jobs:
             echo 'upsert_env SESSION_SECRET "$SESSION_SECRET"'
             echo 'upsert_env JWT_SECRET "$JWT_SECRET"'
             echo 'upsert_env DATABASE_URL "$DATABASE_URL"'
+            echo 'upsert_env CORS_ORIGINS "$CORS_ORIGINS"'
+            echo 'upsert_env NEXT_PUBLIC_API_URL "$NEXT_PUBLIC_API_URL"'
+            echo 'upsert_env APP_URL_ADMIN "$APP_URL_ADMIN"'
+            echo 'upsert_env APP_URL_CONSOLE "$APP_URL_CONSOLE"'
+            echo 'STORAGE_PUBLIC_URL="${NEXT_PUBLIC_API_URL%/}/uploads"'
+            echo 'upsert_env STORAGE_PUBLIC_URL "$STORAGE_PUBLIC_URL"'
             echo 'upsert_env SMTP_HOST "$SMTP_HOST"'
             echo 'upsert_env SMTP_PORT "$SMTP_PORT"'
             echo 'upsert_env SMTP_USER "$SMTP_USER"'
@@ -158,9 +170,8 @@ jobs:
             echo 'upsert_env PRIZE_HMAC_SECRET "$PRIZE_HMAC_SECRET"'
             echo 'upsert_env PRIZE_REDEEM_BASE_URL "$PRIZE_REDEEM_BASE_URL"'
             echo 'upsert_env PRIZE_UNSUBSCRIBE_BASE_URL "$PRIZE_UNSUBSCRIBE_BASE_URL"'
-            if [ "$HAS_CORS" -eq 1 ]; then
-              echo 'upsert_env CORS_ORIGINS "$CORS_ORIGINS"'
-            fi
+            workflow_emit_optional_decode_and_upsert APP_URL_MOBILE "${APP_URL_MOBILE:-}"
+            workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_PLAY_URL "${NEXT_PUBLIC_PLAY_URL:-}"
             workflow_emit_optional_decode_and_upsert SENTRY_DSN_API "${SENTRY_DSN_API:-}"
             workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_ADMIN "${NEXT_PUBLIC_SENTRY_DSN_ADMIN:-}"
             workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_CONSOLE "${NEXT_PUBLIC_SENTRY_DSN_CONSOLE:-}"
