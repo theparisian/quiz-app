@@ -9,6 +9,7 @@ import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.
 import { buildMobilePlayerStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 import { pseudoRegex } from '../../../modules/players/players.schemas.js';
 import type { SocketPlayerData } from '../socket-auth.js';
+import { broadcastPlayerJoined, broadcastPlayerLeft } from '../session-broadcast.js';
 
 const playerJoinSchema = z.object({
   pseudo: z.string().min(2).max(30).regex(pseudoRegex),
@@ -36,7 +37,11 @@ export function setupMobileHandlers(io: Server): void {
       const parsed = playerJoinSchema.safeParse(data);
       if (!parsed.success) {
         const msg = parsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
-        socket.emit('error', { code: 'VALIDATION_ERROR', message: msg });
+        if (typeof callback === 'function') {
+          callback({ ok: false, code: 'VALIDATION_ERROR', message: msg });
+        } else {
+          socket.emit('error', { code: 'VALIDATION_ERROR', message: msg });
+        }
         return;
       }
 
@@ -58,6 +63,7 @@ export function setupMobileHandlers(io: Server): void {
         await socket.join(`session:${result.sessionId}:players`);
 
         const response = {
+          ok: true,
           playerId: result.playerId.toString(),
           resumeToken: result.resumeToken,
           pseudo: result.pseudo,
@@ -71,20 +77,9 @@ export function setupMobileHandlers(io: Server): void {
           socket.emit('player:join_success', response);
         }
 
-        io.of('/player').to(`session:${result.sessionId}`).emit('player:joined', {
+        broadcastPlayerJoined(io, result.sessionId, {
           playerId: result.playerId.toString(),
           pseudo: result.pseudo,
-          joinedAt: new Date().toISOString(),
-        });
-        io.of('/console').to(`session:${result.sessionId}`).emit('player:joined', {
-          playerId: result.playerId.toString(),
-          pseudo: result.pseudo,
-          joinedAt: new Date().toISOString(),
-        });
-        nsp.to(`session:${result.sessionId}`).emit('player:joined', {
-          playerId: result.playerId.toString(),
-          pseudo: result.pseudo,
-          joinedAt: new Date().toISOString(),
         });
 
         logger.info(
@@ -93,10 +88,15 @@ export function setupMobileHandlers(io: Server): void {
         );
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string; statusCode?: number };
-        socket.emit('error', {
+        const payload = {
           code: error.code ?? 'INTERNAL_ERROR',
           message: error.message ?? 'Failed to join',
-        });
+        };
+        if (typeof callback === 'function') {
+          callback({ ok: false, ...payload });
+        } else {
+          socket.emit('error', payload);
+        }
       }
     });
 
@@ -197,15 +197,7 @@ export function setupMobileHandlers(io: Server): void {
       try {
         await playersService.leave(playerData.playerId);
 
-        io.of('/player').to(`session:${playerData.sessionId}`).emit('player:left', {
-          playerId: playerData.playerId.toString(),
-        });
-        io.of('/console').to(`session:${playerData.sessionId}`).emit('player:left', {
-          playerId: playerData.playerId.toString(),
-        });
-        nsp.to(`session:${playerData.sessionId}`).emit('player:left', {
-          playerId: playerData.playerId.toString(),
-        });
+        broadcastPlayerLeft(io, playerData.sessionId, playerData.playerId.toString());
       } catch {
         // ignore
       }

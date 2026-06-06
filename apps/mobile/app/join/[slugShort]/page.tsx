@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { getMobileSocket, disconnectMobileSocket } from '@/lib/socket';
 import { usePlayerStore } from '@/lib/stores/player-store';
 import PseudoInput from '@/components/pseudo-input';
 
@@ -15,15 +16,15 @@ interface SessionInfo {
   totalPlayers: number;
 }
 
-interface JoinResponse {
-  player: {
-    id: string;
-    pseudo: string;
-    scoreTotal: number;
-    sessionId: string;
-    sessionState: string;
-  };
-  resumeToken: string;
+interface JoinAck {
+  ok?: boolean;
+  playerId?: string;
+  resumeToken?: string;
+  pseudo?: string;
+  sessionId?: string;
+  scoreTotal?: number;
+  code?: string;
+  message?: string;
 }
 
 export default function JoinPage() {
@@ -33,6 +34,8 @@ export default function JoinPage() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
+  // Vrai dès qu'on a rejoint : on conserve alors le socket vivant pour la page /play.
+  const joinedRef = useRef(false);
 
   useEffect(() => {
     api
@@ -47,36 +50,77 @@ export default function JoinPage() {
       .catch(() => setError('Session introuvable.'));
   }, [slugShort]);
 
+  // Si on quitte la page sans avoir rejoint, on ferme le socket éventuellement ouvert.
+  useEffect(() => {
+    return () => {
+      if (!joinedRef.current) {
+        disconnectMobileSocket();
+      }
+    };
+  }, []);
+
+  function mapJoinError(code?: string, message?: string): string {
+    if (code === 'PSEUDO_BAD_WORD') return 'Ce pseudo contient des mots inappropriés.';
+    if (code === 'PSEUDO_DUPLICATE') return 'Ce pseudo est déjà pris.';
+    if (code === 'SESSION_NOT_IN_LOBBY') return 'La session a déjà commencé.';
+    if (code === 'SESSION_NOT_FOUND') return 'Session introuvable.';
+    return message ?? 'Erreur lors de la connexion.';
+  }
+
   async function handleJoin(pseudo: string) {
     setJoining(true);
     setError(null);
+
+    const sock = getMobileSocket();
+
     try {
-      const result = await api.post<JoinResponse>('/api/players/join', {
-        sessionSlugShort: slugShort,
-        pseudo,
-      });
-
-      usePlayerStore.getState().hydrate({
-        playerId: result.player.id,
-        pseudo: result.player.pseudo,
-        resumeToken: result.resumeToken,
-        sessionId: result.player.sessionId,
-        slugShort,
-        ...(session?.cinema.name ? { cinemaName: session.cinema.name } : {}),
-        ...(session?.quiz.title ? { quizTitle: session.quiz.title } : {}),
-        ...(session?.quiz.brandingJson ? { brandingJson: session.quiz.brandingJson } : {}),
-        scoreTotal: result.player.scoreTotal,
-      });
-
-      router.push(`/play/${result.player.sessionId}`);
-    } catch (err: unknown) {
-      const e = err as { code?: string; message?: string };
-      if (e.code === 'PSEUDO_BAD_WORD') setError('Ce pseudo contient des mots inappropriés.');
-      else if (e.code === 'PSEUDO_DUPLICATE') setError('Ce pseudo est déjà pris.');
-      else if (e.code === 'SESSION_NOT_IN_LOBBY') setError('La session a déjà commencé.');
-      else setError(e.message ?? 'Erreur lors de la connexion.');
+      if (!sock.connected) {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('connect_timeout')), 8000);
+          sock.once('connect', () => {
+            clearTimeout(timer);
+            resolve();
+          });
+          sock.once('connect_error', () => {
+            clearTimeout(timer);
+            reject(new Error('connect_error'));
+          });
+          sock.connect();
+        });
+      }
+    } catch {
+      setError('Connexion au serveur impossible.');
       setJoining(false);
+      return;
     }
+
+    sock.emit(
+      'player:join',
+      { sessionSlugShort: slugShort, pseudo },
+      (ack: JoinAck | undefined) => {
+        if (!ack || ack.ok !== true || !ack.playerId || !ack.resumeToken || !ack.sessionId) {
+          setError(mapJoinError(ack?.code, ack?.message));
+          setJoining(false);
+          return;
+        }
+
+        joinedRef.current = true;
+
+        usePlayerStore.getState().hydrate({
+          playerId: ack.playerId,
+          pseudo: ack.pseudo ?? pseudo,
+          resumeToken: ack.resumeToken,
+          sessionId: ack.sessionId,
+          slugShort,
+          ...(session?.cinema.name ? { cinemaName: session.cinema.name } : {}),
+          ...(session?.quiz.title ? { quizTitle: session.quiz.title } : {}),
+          ...(session?.quiz.brandingJson ? { brandingJson: session.quiz.brandingJson } : {}),
+          scoreTotal: ack.scoreTotal ?? 0,
+        });
+
+        router.push(`/play/${ack.sessionId}`);
+      },
+    );
   }
 
   if (error && !session) {

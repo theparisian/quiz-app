@@ -71,7 +71,13 @@ export function usePlayerSession(sessionId: string | null): {
       });
     }
 
-    sock.connect();
+    // Socket déjà ouvert (transition depuis la page join) : 'connect' ne se redéclenche
+    // pas, on lance donc le resume manuellement. Sinon on ouvre la connexion.
+    if (sock.connected) {
+      onConnect();
+    } else {
+      sock.connect();
+    }
 
     return () => {
       sock.off('connect', onConnect);

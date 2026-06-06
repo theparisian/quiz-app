@@ -6,6 +6,10 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { joinSessionSchema, updateEmailSchema } from './players.schemas.js';
 import { playersService } from './players.service.js';
 import { prizesService } from '../prizes/prizes.service.js';
+import {
+  broadcastPlayerJoined,
+  broadcastPlayerLeft,
+} from '../../shared/sockets/session-broadcast.js';
 
 const router = Router();
 
@@ -16,6 +20,15 @@ router.post('/join', async (req, res, next) => {
       sessionSlugShort: data.sessionSlugShort,
       pseudo: data.pseudo,
     });
+
+    const io = req.app.get('io') as import('socket.io').Server | undefined;
+    if (io) {
+      broadcastPlayerJoined(io, result.sessionId, {
+        playerId: result.playerId.toString(),
+        pseudo: result.pseudo,
+      });
+    }
+
     res.status(201).json({
       player: {
         id: result.playerId.toString(),
@@ -43,6 +56,12 @@ router.post('/:id/leave', async (req, res, next) => {
       throw new AppError('Token mismatch', 403, 'FORBIDDEN');
     }
     await playersService.leave(playerId);
+
+    const io = req.app.get('io') as import('socket.io').Server | undefined;
+    if (io) {
+      broadcastPlayerLeft(io, player.sessionId, playerId.toString());
+    }
+
     res.json({ message: 'Player left' });
   } catch (error) {
     next(error);
@@ -55,7 +74,13 @@ router.post(
   async (req, res, next) => {
     try {
       const playerId = BigInt(param(req, 'id'));
-      await playersService.kick(playerId);
+      const player = await playersService.kick(playerId);
+
+      const io = req.app.get('io') as import('socket.io').Server | undefined;
+      if (io) {
+        broadcastPlayerLeft(io, player.sessionId, playerId.toString());
+      }
+
       res.json({ message: 'Player kicked' });
     } catch (error) {
       next(error);
