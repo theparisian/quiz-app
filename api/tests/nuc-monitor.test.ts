@@ -27,6 +27,7 @@ function connectPlayerSocket(baseUrl: string, cookieHeader: string): ClientSocke
   return ioClient(`${baseUrl}/player`, {
     transports: ['polling', 'websocket'],
     extraHeaders: { Cookie: cookieHeader },
+    forceNew: true,
   });
 }
 
@@ -124,6 +125,7 @@ describe('NUC offline monitor (integration)', () => {
     const con = ioClient(`${baseUrl}/console`, {
       transports: ['websocket'],
       extraHeaders: { Cookie: `token=${adminToken}` },
+      forceNew: true,
     });
     sockets.push(con);
     await new Promise<void>((r) => con.on('connect', r));
@@ -165,6 +167,7 @@ describe('NUC offline monitor (integration)', () => {
     const con = ioClient(`${baseUrl}/console`, {
       transports: ['websocket'],
       extraHeaders: { Cookie: `token=${adminToken}` },
+      forceNew: true,
     });
     sockets.push(con);
     await new Promise<void>((r) => con.on('connect', r));
@@ -207,6 +210,7 @@ describe('NUC offline monitor (integration)', () => {
     const adminSock = ioClient(`${baseUrl}/admin`, {
       transports: ['websocket'],
       extraHeaders: { Cookie: `token=${adminToken}` },
+      forceNew: true,
     });
     sockets.push(adminSock);
     await new Promise<void>((r) => adminSock.on('connect', r));
@@ -255,6 +259,7 @@ describe('NUC offline monitor (integration)', () => {
     const adminSock = ioClient(`${baseUrl}/admin`, {
       transports: ['websocket'],
       extraHeaders: { Cookie: `token=${adminToken}` },
+      forceNew: true,
     });
     sockets.push(adminSock);
     await new Promise<void>((r) => adminSock.on('connect', r));
