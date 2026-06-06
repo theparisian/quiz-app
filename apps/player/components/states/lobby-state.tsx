@@ -4,7 +4,9 @@ import { useNucStore } from '@/lib/stores/nuc-store';
 import QrCode from '@/components/shared/qr-code';
 import PlayerPill from '@/components/shared/player-pill';
 
-const PLAY_URL = process.env.NEXT_PUBLIC_PLAY_URL || 'https://play.demo.uxii.fr';
+const MOBILE_URL =
+  process.env.NEXT_PUBLIC_MOBILE_URL || process.env.NEXT_PUBLIC_PLAY_URL || 'http://localhost:3002';
+const mobileHost = MOBILE_URL.replace(/^https?:\/\//, '');
 
 export default function LobbyState() {
   const slugShort = useNucStore((s) => s.slugShort);
@@ -21,10 +23,10 @@ export default function LobbyState() {
 
       <div className="flex flex-1 items-start justify-center gap-16">
         <div className="flex flex-col items-center gap-6">
-          <QrCode value={`${PLAY_URL}/?s=${slugShort}`} size={320} />
+          <QrCode value={`${MOBILE_URL}/?s=${slugShort}`} size={320} />
           <div className="text-xl text-gray-400">
             Scannez le QR ou tapez le code sur{' '}
-            <span className="font-semibold text-white">play.demo.uxii.fr</span>
+            <span className="font-semibold text-white">{mobileHost}</span>
           </div>
         </div>
 

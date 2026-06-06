@@ -171,6 +171,7 @@ jobs:
             echo 'upsert_env PRIZE_REDEEM_BASE_URL "$PRIZE_REDEEM_BASE_URL"'
             echo 'upsert_env PRIZE_UNSUBSCRIBE_BASE_URL "$PRIZE_UNSUBSCRIBE_BASE_URL"'
             workflow_emit_optional_decode_and_upsert APP_URL_MOBILE "${APP_URL_MOBILE:-}"
+            echo 'if [ -n "${APP_URL_MOBILE:-}" ]; then upsert_env NEXT_PUBLIC_MOBILE_URL "$APP_URL_MOBILE"; fi'
             workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_PLAY_URL "${NEXT_PUBLIC_PLAY_URL:-}"
             workflow_emit_optional_decode_and_upsert SENTRY_DSN_API "${SENTRY_DSN_API:-}"
             workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_ADMIN "${NEXT_PUBLIC_SENTRY_DSN_ADMIN:-}"
