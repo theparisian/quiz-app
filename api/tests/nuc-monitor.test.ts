@@ -1,6 +1,7 @@
 import { createServer, type Server as HttpServer } from 'http';
 import { type AddressInfo } from 'net';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
+import request from 'supertest';
 import { describe, beforeEach, afterEach, expect, it } from 'vitest';
 import bcrypt from 'bcrypt';
 import { prisma } from '../src/shared/db/index.js';
@@ -14,6 +15,20 @@ import {
 } from '../src/shared/nuc-monitor/nuc-offline-monitor.js';
 import { truncateQuizRelatedTables, minimalCinemaAndScreen } from './helpers/integration.js';
 import type { Server } from 'socket.io';
+
+function nucSessionCookieHeader(setCookie: string | string[] | undefined): string {
+  const lines = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
+  const line = lines.find((c) => c.startsWith('nuc_session='));
+  if (!line) throw new Error('nuc_session cookie missing from auth response');
+  return line.split(';')[0]!;
+}
+
+function connectPlayerSocket(baseUrl: string, cookieHeader: string): ClientSocket {
+  return ioClient(`${baseUrl}/player`, {
+    transports: ['polling', 'websocket'],
+    extraHeaders: { Cookie: cookieHeader },
+  });
+}
 
 function waitNucStatus(socket: ClientSocket): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
@@ -228,15 +243,11 @@ describe('NUC offline monitor (integration)', () => {
       },
     });
 
-    const authRes = await fetch(`${baseUrl}/api/nucs/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nucUid, authKey }),
-    });
-    expect(authRes.ok).toBe(true);
-    const setCookie = authRes.headers.get('set-cookie') ?? '';
-    const nucCookie = setCookie.match(/nuc_session=([^;]+)/)?.[1];
-    expect(nucCookie).toBeTruthy();
+    const authRes = await request(httpServer)
+      .post('/api/nucs/auth')
+      .send({ nucUid, authKey })
+      .expect(200);
+    const cookieHeader = nucSessionCookieHeader(authRes.headers['set-cookie']);
 
     // Auth marks the NUC online; simulate an offline reconnect before join_screen.
     await prisma.nuc.update({ where: { id: nuc.id }, data: { status: 'offline' } });
@@ -261,10 +272,7 @@ describe('NUC offline monitor (integration)', () => {
 
     const statusP = waitNucStatus(adminSock);
 
-    const playerSock = ioClient(`${baseUrl}/player`, {
-      transports: ['websocket'],
-      extraHeaders: { Cookie: `nuc_session=${nucCookie}` },
-    });
+    const playerSock = connectPlayerSocket(baseUrl, cookieHeader);
     sockets.push(playerSock);
     await new Promise<void>((r) => playerSock.on('connect', r));
 
@@ -300,20 +308,13 @@ describe('NUC offline monitor (integration)', () => {
       },
     });
 
-    const authRes = await fetch(`${baseUrl}/api/nucs/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nucUid, authKey }),
-    });
-    expect(authRes.ok).toBe(true);
-    const setCookie = authRes.headers.get('set-cookie') ?? '';
-    const nucCookie = setCookie.match(/nuc_session=([^;]+)/)?.[1];
-    expect(nucCookie).toBeTruthy();
+    const authRes = await request(httpServer)
+      .post('/api/nucs/auth')
+      .send({ nucUid, authKey })
+      .expect(200);
+    const cookieHeader = nucSessionCookieHeader(authRes.headers['set-cookie']);
 
-    const playerSock = ioClient(`${baseUrl}/player`, {
-      transports: ['websocket'],
-      extraHeaders: { Cookie: `nuc_session=${nucCookie}` },
-    });
+    const playerSock = connectPlayerSocket(baseUrl, cookieHeader);
     sockets.push(playerSock);
     await new Promise<void>((r) => playerSock.on('connect', r));
 
