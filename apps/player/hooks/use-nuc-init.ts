@@ -30,33 +30,39 @@ export function useNucInit(): void {
     setSocket(sock);
     const setConnectionStatus = useNucStore.getState().setConnectionStatus;
 
+    function requestResume(sessionId?: string) {
+      if (sessionId) {
+        sock.emit('nuc:resume', { nucUid, sessionId });
+      } else {
+        sock.emit('nuc:resume', { nucUid });
+      }
+    }
+
     function requestResumeAfterScreen(response: {
       ok: boolean;
       screenId: string;
       currentSession?: { sessionId: string; slugShort: string; state: string } | null;
     }) {
-      if (!response.ok) return;
       const sid =
         useNucStore.getState().sessionId ??
         (response.currentSession ? response.currentSession.sessionId : undefined);
-      if (sid) {
-        sock.emit('nuc:resume', { nucUid, sessionId: sid });
-      } else {
-        sock.emit('nuc:resume', { nucUid });
-      }
+      requestResume(sid);
     }
 
     sock.on('connect', () => {
       setConnectionStatus('connected');
       sock.emit(
         'nuc:join_screen',
-        { nucId: nucUid },
+        { nucUid },
         (response: {
           ok: boolean;
           screenId: string;
           currentSession?: { sessionId: string; slugShort: string; state: string } | null;
         }) => {
-          if (!response.ok) return;
+          if (!response?.ok) {
+            requestResume();
+            return;
+          }
 
           useNucStore.getState().setNucContext({
             nucId: nucUid,
@@ -76,6 +82,16 @@ export function useNucInit(): void {
           requestResumeAfterScreen(response);
         },
       );
+    });
+
+    sock.on('error', (err: { code?: string }) => {
+      if (
+        err.code === 'NUC_AUTH_FAILED' ||
+        err.code === 'NUC_JOIN_SCREEN_ERROR' ||
+        err.code === 'NUC_AUTH_REQUIRED'
+      ) {
+        requestResume();
+      }
     });
 
     sock.on('disconnect', () => {

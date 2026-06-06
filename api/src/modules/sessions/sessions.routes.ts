@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../../shared/auth/index.js';
 import { validate } from '../../shared/validation/index.js';
 import { param } from '../../shared/utils/index.js';
+import { prisma } from '../../shared/db/index.js';
 import {
   createSessionSchema,
   listSessionsQuerySchema,
@@ -60,10 +61,19 @@ router.post('/', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
 
     const io = req.app.get('io') as import('socket.io').Server | undefined;
     if (io) {
-      io.of('/player').to(`screen:${session.screen.id}`).emit('screen:session_started', {
+      const payload = {
         sessionId: session.id.toString(),
         slugShort: session.slugShort,
+      };
+      const playerNsp = io.of('/player');
+      playerNsp.to(`screen:${session.screen.id}`).emit('screen:session_started', payload);
+      const nucs = await prisma.nuc.findMany({
+        where: { screenId: session.screen.id },
+        select: { id: true },
       });
+      for (const nuc of nucs) {
+        playerNsp.to(`nuc:${nuc.id}`).emit('screen:session_started', payload);
+      }
     }
 
     res.status(201).json(shapeSessionDetail(session));

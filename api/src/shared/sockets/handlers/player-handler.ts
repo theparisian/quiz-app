@@ -16,9 +16,25 @@ const nucJoinSchema = z.object({
   sessionId: z.string().min(1),
 });
 
-const nucJoinScreenSchema = z.object({
-  nucId: z.string().min(1),
-});
+const nucJoinScreenSchema = z
+  .object({
+    nucUid: z.string().min(1).optional(),
+    nucId: z.string().min(1).optional(),
+  })
+  .refine((d) => !!(d.nucUid ?? d.nucId), { message: 'nucUid required' });
+
+function joinScreenError(
+  socket: Socket,
+  callback: ((res: unknown) => void) | undefined,
+  code: string,
+  message: string,
+): void {
+  if (typeof callback === 'function') {
+    callback({ ok: false, code, message });
+  } else {
+    socket.emit('error', { code, message });
+  }
+}
 
 const nucJoinSessionSchema = z.object({
   sessionId: z.string().min(1),
@@ -38,26 +54,22 @@ export function setupPlayerHandlers(io: Server): void {
     socket.on('nuc:join_screen', async (data: unknown, callback?: (res: unknown) => void) => {
       const parsed = nucJoinScreenSchema.safeParse(data);
       if (!parsed.success) {
-        socket.emit('error', {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid nuc:join_screen payload',
-        });
+        joinScreenError(socket, callback, 'VALIDATION_ERROR', 'Invalid nuc:join_screen payload');
         return;
       }
 
       try {
         const cookieToken = parseNucCookie(socket);
         if (!cookieToken) {
-          socket.emit('error', {
-            code: 'NUC_AUTH_REQUIRED',
-            message: 'NUC session cookie required',
-          });
+          joinScreenError(socket, callback, 'NUC_AUTH_REQUIRED', 'NUC session cookie required');
           return;
         }
 
         const jwt = await verifyNucJwt(cookieToken);
-        if (jwt.nucId !== parsed.data.nucId) {
-          socket.emit('error', { code: 'NUC_AUTH_FAILED', message: 'NUC ID mismatch with cookie' });
+        const nucUid = parsed.data.nucUid ?? parsed.data.nucId!;
+        const nuc = await prisma.nuc.findUnique({ where: { nucUid } });
+        if (!nuc || nuc.id.toString() !== jwt.nucId) {
+          joinScreenError(socket, callback, 'NUC_AUTH_FAILED', 'NUC UID does not match session');
           return;
         }
 
@@ -72,6 +84,19 @@ export function setupPlayerHandlers(io: Server): void {
           select: { id: true, slugShort: true, state: true },
           orderBy: { createdAt: 'desc' },
         });
+
+        const ip =
+          (socket.handshake.headers['x-forwarded-for'] as string | undefined)
+            ?.split(',')[0]
+            ?.trim() ?? socket.handshake.address;
+        const onlineResult = await nucsService.markOnlineFromConnection(BigInt(jwt.nucId), ip);
+        if (onlineResult?.cameOnline) {
+          broadcastNucStatusChanged(io, {
+            nucId: onlineResult.nucId.toString(),
+            screenId: onlineResult.screenId.toString(),
+            status: 'online',
+          });
+        }
 
         const response = {
           ok: true,
@@ -91,29 +116,18 @@ export function setupPlayerHandlers(io: Server): void {
           socket.emit('nuc:join_screen_success', response);
         }
 
-        const ip =
-          (socket.handshake.headers['x-forwarded-for'] as string | undefined)
-            ?.split(',')[0]
-            ?.trim() ?? socket.handshake.address;
-        const onlineResult = await nucsService.markOnlineFromConnection(BigInt(jwt.nucId), ip);
-        if (onlineResult?.cameOnline) {
-          broadcastNucStatusChanged(io, {
-            nucId: onlineResult.nucId.toString(),
-            screenId: onlineResult.screenId.toString(),
-            status: 'online',
-          });
-        }
-
         logger.info(
           { nucId: jwt.nucId, screenId: screenId.toString(), socketId: socket.id },
           'NUC joined screen room',
         );
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string };
-        socket.emit('error', {
-          code: error.code ?? 'NUC_JOIN_SCREEN_ERROR',
-          message: error.message ?? 'Failed to join screen',
-        });
+        joinScreenError(
+          socket,
+          callback,
+          error.code ?? 'NUC_JOIN_SCREEN_ERROR',
+          error.message ?? 'Failed to join screen',
+        );
       }
     });
 

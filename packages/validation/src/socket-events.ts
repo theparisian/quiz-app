@@ -174,9 +174,12 @@ export const playerLeftSchema = z.object({
 
 // ─── Client → Server: NUC discovery (PR5c) ──────────────
 
-export const nucJoinScreenPayloadSchema = z.object({
-  nucId: z.string().min(1),
-});
+export const nucJoinScreenPayloadSchema = z
+  .object({
+    nucUid: z.string().min(1).optional(),
+    nucId: z.string().min(1).optional(),
+  })
+  .refine((d) => !!(d.nucUid ?? d.nucId), { message: 'nucUid required' });
 
 export const nucJoinSessionPayloadSchema = z.object({
   sessionId: z.string().min(1),

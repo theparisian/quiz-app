@@ -241,9 +241,18 @@ describe('NUC offline monitor (integration)', () => {
     sockets.push(adminSock);
     await new Promise<void>((r) => adminSock.on('connect', r));
 
+    await new Promise<void>((resolve, reject) => {
+      adminSock.emit(
+        'admin:watch_cinema',
+        { cinemaSlug: infra.cinemaSlug },
+        (res: { cinemaSlug?: string } | undefined) => {
+          if (res?.cinemaSlug) resolve();
+          else reject(new Error('admin:watch_cinema failed'));
+        },
+      );
+    });
+
     const statusP = waitNucStatus(adminSock);
-    adminSock.emit('admin:watch_cinema', { cinemaSlug: infra.cinemaSlug });
-    await new Promise<void>((r) => setTimeout(r, 300));
 
     const playerSock = ioClient(`${baseUrl}/player`, {
       transports: ['websocket'],
@@ -253,7 +262,7 @@ describe('NUC offline monitor (integration)', () => {
     await new Promise<void>((r) => playerSock.on('connect', r));
 
     await new Promise<void>((resolve, reject) => {
-      playerSock.emit('nuc:join_screen', { nucId: nuc.nucUid }, (res: { ok?: boolean }) => {
+      playerSock.emit('nuc:join_screen', { nucUid: nuc.nucUid }, (res: { ok?: boolean }) => {
         if (res?.ok) resolve();
         else reject(new Error('nuc:join_screen failed'));
       });
@@ -263,5 +272,63 @@ describe('NUC offline monitor (integration)', () => {
     expect(evt.status).toBe('online');
     expect(evt.nucId).toBe(nuc.id.toString());
     expect(evt.screenId).toBe(infra.screenId.toString());
+  });
+
+  it('nuc:join_screen then session create emits screen:session_started', async () => {
+    const infra = await minimalCinemaAndScreen();
+
+    const authKey = 's'.repeat(64);
+    const hash = await bcrypt.hash(authKey, 8);
+    const nucUid = `nuc-ss-${Date.now()}`;
+    await prisma.nuc.create({
+      data: {
+        screenId: infra.screenId,
+        nucUid,
+        authKeyHash: hash,
+        status: 'offline',
+      },
+    });
+
+    const authRes = await fetch(`${baseUrl}/api/nucs/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nucUid, authKey }),
+    });
+    expect(authRes.ok).toBe(true);
+    const setCookie = authRes.headers.get('set-cookie') ?? '';
+    const nucCookie = setCookie.match(/nuc_session=([^;]+)/)?.[1];
+    expect(nucCookie).toBeTruthy();
+
+    const playerSock = ioClient(`${baseUrl}/player`, {
+      transports: ['websocket'],
+      extraHeaders: { Cookie: `nuc_session=${nucCookie}` },
+    });
+    sockets.push(playerSock);
+    await new Promise<void>((r) => playerSock.on('connect', r));
+
+    const joinOk = await new Promise<boolean>((resolve) => {
+      playerSock.emit('nuc:join_screen', { nucUid }, (res: { ok?: boolean }) => {
+        resolve(!!res?.ok);
+      });
+    });
+    expect(joinOk).toBe(true);
+
+    const sessionStartedP = new Promise<{ sessionId: string; slugShort: string }>(
+      (resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('screen:session_started timeout')), 8000);
+        playerSock.once(
+          'screen:session_started',
+          (data: { sessionId: string; slugShort: string }) => {
+            clearTimeout(t);
+            resolve(data);
+          },
+        );
+      },
+    );
+
+    const session = await minimalSessionOnScreen(baseUrl, adminToken, infra.screenId);
+    const evt = await sessionStartedP;
+    expect(evt.sessionId).toBe(session.id);
+    expect(evt.slugShort).toMatch(/^\d{4}$/);
   });
 });
