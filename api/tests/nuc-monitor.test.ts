@@ -5,6 +5,7 @@ import { describe, beforeEach, afterEach, expect, it } from 'vitest';
 import bcrypt from 'bcrypt';
 import { prisma } from '../src/shared/db/index.js';
 import { signJwt } from '../src/shared/auth/jwt.js';
+import { signNucJwt } from '../src/shared/auth/nuc-jwt.js';
 import { buildApp } from '../src/create-app.js';
 import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
 import { setIoInstance } from '../src/modules/sessions/session-orchestrator.service.js';
@@ -172,5 +173,95 @@ describe('NUC offline monitor (integration)', () => {
 
     const updated = await prisma.nuc.findUnique({ where: { id: nuc.id } });
     expect(updated?.status).toBe('online');
+  });
+
+  it('POST /api/nucs/auth when NUC was provisioning emits nuc:status_changed on /admin', async () => {
+    const infra = await minimalCinemaAndScreen();
+
+    const authKey = 'p'.repeat(64);
+    const hash = await bcrypt.hash(authKey, 8);
+    const nucUid = `nuc-prov-${Date.now()}`;
+    const nuc = await prisma.nuc.create({
+      data: {
+        screenId: infra.screenId,
+        nucUid,
+        authKeyHash: hash,
+        status: 'provisioning',
+      },
+    });
+
+    const adminSock = ioClient(`${baseUrl}/admin`, {
+      transports: ['websocket'],
+      extraHeaders: { Cookie: `token=${adminToken}` },
+    });
+    sockets.push(adminSock);
+    await new Promise<void>((r) => adminSock.on('connect', r));
+
+    const statusP = waitNucStatus(adminSock);
+    adminSock.emit('admin:watch_cinema', { cinemaSlug: infra.cinemaSlug });
+    await new Promise<void>((r) => setTimeout(r, 300));
+
+    const auth = await fetch(`${baseUrl}/api/nucs/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nucUid, authKey }),
+    });
+    expect(auth.ok).toBe(true);
+
+    const evt = await statusP;
+    expect(evt.status).toBe('online');
+    expect(evt.nucId).toBe(nuc.id.toString());
+    expect(evt.screenId).toBe(infra.screenId.toString());
+  });
+
+  it('nuc:join_screen when NUC was offline emits nuc:status_changed on /admin', async () => {
+    const infra = await minimalCinemaAndScreen();
+
+    const authKey = 'q'.repeat(64);
+    const hash = await bcrypt.hash(authKey, 8);
+    const nucUid = `nuc-js-${Date.now()}`;
+    const nuc = await prisma.nuc.create({
+      data: {
+        screenId: infra.screenId,
+        nucUid,
+        authKeyHash: hash,
+        status: 'offline',
+      },
+    });
+
+    const nucToken = await signNucJwt({
+      nucId: nuc.id.toString(),
+      screenId: infra.screenId.toString(),
+    });
+
+    const adminSock = ioClient(`${baseUrl}/admin`, {
+      transports: ['websocket'],
+      extraHeaders: { Cookie: `token=${adminToken}` },
+    });
+    sockets.push(adminSock);
+    await new Promise<void>((r) => adminSock.on('connect', r));
+
+    const statusP = waitNucStatus(adminSock);
+    adminSock.emit('admin:watch_cinema', { cinemaSlug: infra.cinemaSlug });
+    await new Promise<void>((r) => setTimeout(r, 300));
+
+    const playerSock = ioClient(`${baseUrl}/player`, {
+      transports: ['websocket'],
+      extraHeaders: { Cookie: `nuc_session=${nucToken}` },
+    });
+    sockets.push(playerSock);
+    await new Promise<void>((r) => playerSock.on('connect', r));
+
+    await new Promise<void>((resolve, reject) => {
+      playerSock.emit('nuc:join_screen', { nucId: nuc.nucUid }, (res: { ok?: boolean }) => {
+        if (res?.ok) resolve();
+        else reject(new Error('nuc:join_screen failed'));
+      });
+    });
+
+    const evt = await statusP;
+    expect(evt.status).toBe('online');
+    expect(evt.nucId).toBe(nuc.id.toString());
+    expect(evt.screenId).toBe(infra.screenId.toString());
   });
 });

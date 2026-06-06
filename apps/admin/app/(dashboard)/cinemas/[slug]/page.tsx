@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
+import { useCinemaNucMonitor } from '../../../../hooks/use-cinema-nuc-monitor';
 
 interface Nuc {
   id: string;
@@ -66,6 +67,8 @@ export default function CinemaDetailPage() {
     queryKey: ['cinema', slug],
     queryFn: () => api.get<CinemaDetail>(`/api/cinemas/${slug}`),
   });
+
+  useCinemaNucMonitor(slug, Boolean(cinema));
 
   const addScreenMutation = useMutation({
     mutationFn: (body: { name: string; capacity?: number }) =>

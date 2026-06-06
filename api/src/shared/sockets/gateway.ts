@@ -5,6 +5,7 @@ import { setupNamespace } from './namespace-handler.js';
 import { setupPlayerHandlers } from './handlers/player-handler.js';
 import { setupMobileHandlers } from './handlers/mobile-handler.js';
 import { setupConsoleHandlers } from './handlers/console-handler.js';
+import { setupAdminHandlers } from './handlers/admin-handler.js';
 
 export function setupSocketGateway(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
@@ -26,8 +27,9 @@ export function setupSocketGateway(httpServer: HttpServer): Server {
   setupPlayerHandlers(io);
   setupMobileHandlers(io);
   setupConsoleHandlers(io);
+  setupAdminHandlers(io);
 
-  logger.info('Session socket handlers registered on /player, /mobile, /console');
+  logger.info('Session socket handlers registered on /player, /mobile, /console, /admin');
 
   return io;
 }

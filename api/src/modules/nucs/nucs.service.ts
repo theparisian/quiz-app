@@ -4,9 +4,14 @@ import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
+import type { NucStatus } from '@prisma/client';
 import type { UpdateNucInput } from './nucs.schemas.js';
 
 const SALT_ROUNDS = 10;
+
+function shouldBroadcastNucOnline(prevStatus: NucStatus): boolean {
+  return prevStatus !== 'online';
+}
 
 export const nucsService = {
   async listByScreenId(screenId: bigint) {
@@ -94,7 +99,32 @@ export const nucsService = {
       nucId: nuc.id,
       screenId: nuc.screenId,
       cinemaSlug: nuc.screen.cinema.slug,
-      cameOnline: prevStatus === 'offline' || prevStatus === 'error',
+      cameOnline: shouldBroadcastNucOnline(prevStatus),
+    };
+  },
+
+  async markOnlineFromConnection(nucId: bigint, ip?: string) {
+    const before = await prisma.nuc.findUnique({
+      where: { id: nucId },
+      select: { status: true, screenId: true },
+    });
+    if (!before) return null;
+
+    const now = new Date();
+    await prisma.nuc.update({
+      where: { id: nucId },
+      data: {
+        status: 'online',
+        lastSeenAt: now,
+        lastHeartbeatAt: now,
+        ...(ip ? { lastIp: ip } : {}),
+      },
+    });
+
+    return {
+      cameOnline: shouldBroadcastNucOnline(before.status),
+      nucId,
+      screenId: before.screenId,
     };
   },
 
@@ -118,7 +148,7 @@ export const nucsService = {
     });
 
     return {
-      cameOnline: before.status === 'offline' || before.status === 'error',
+      cameOnline: shouldBroadcastNucOnline(before.status),
       nucId,
       screenId: before.screenId,
     };
@@ -162,7 +192,7 @@ export const nucsService = {
 
     return {
       status: 'ok' as const,
-      cameOnline: prevStatus === 'offline' || prevStatus === 'error',
+      cameOnline: shouldBroadcastNucOnline(prevStatus),
       nucId: nuc.id,
       screenId: nuc.screenId,
     };

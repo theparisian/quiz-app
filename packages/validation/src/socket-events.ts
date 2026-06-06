@@ -69,6 +69,14 @@ export type ConsoleJoinPayload = z.infer<typeof consoleJoinPayloadSchema>;
 export type ConsoleResumePayload = z.infer<typeof consoleResumePayloadSchema>;
 export type ConsoleAbortPayload = z.infer<typeof consoleAbortPayloadSchema>;
 
+// ─── Client → Server: Admin ────────────────────────────────
+
+export const adminWatchCinemaPayloadSchema = z.object({
+  cinemaSlug: z.string().min(1),
+});
+
+export type AdminWatchCinemaPayload = z.infer<typeof adminWatchCinemaPayloadSchema>;
+
 // ─── Server → Client: Session events ─────────────────────
 
 export const sessionStateChangedSchema = z.object({

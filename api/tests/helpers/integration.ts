@@ -69,7 +69,7 @@ export async function resetStorage() {
   resetStorageForTests();
 }
 
-export async function minimalCinemaAndScreen(): Promise<{ screenId: bigint }> {
+export async function minimalCinemaAndScreen(): Promise<{ screenId: bigint; cinemaSlug: string }> {
   const slug = `tmp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const c = await prisma.cinema.create({
     data: {
@@ -85,5 +85,5 @@ export async function minimalCinemaAndScreen(): Promise<{ screenId: bigint }> {
       status: 'active',
     },
   });
-  return { screenId: s.id };
+  return { screenId: s.id, cinemaSlug: slug };
 }

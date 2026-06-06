@@ -7,6 +7,8 @@ import { AppError } from '../../errors/app-error.js';
 import { verifyNucJwt } from '../../auth/nuc-jwt.js';
 import { authenticateNuc, type SocketNucData } from '../socket-auth.js';
 import { buildNucStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
+import { nucsService } from '../../../modules/nucs/nucs.service.js';
+import { broadcastNucStatusChanged } from '../../nuc-monitor/broadcast-nuc-status.js';
 
 const nucJoinSchema = z.object({
   nucUid: z.string().min(1),
@@ -87,6 +89,19 @@ export function setupPlayerHandlers(io: Server): void {
           callback(response);
         } else {
           socket.emit('nuc:join_screen_success', response);
+        }
+
+        const ip =
+          (socket.handshake.headers['x-forwarded-for'] as string | undefined)
+            ?.split(',')[0]
+            ?.trim() ?? socket.handshake.address;
+        const onlineResult = await nucsService.markOnlineFromConnection(BigInt(jwt.nucId), ip);
+        if (onlineResult?.cameOnline) {
+          broadcastNucStatusChanged(io, {
+            nucId: onlineResult.nucId.toString(),
+            screenId: onlineResult.screenId.toString(),
+            status: 'online',
+          });
         }
 
         logger.info(

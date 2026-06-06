@@ -7,7 +7,7 @@ export function startHeartbeat(onFail?: () => void) {
   stopHeartbeat();
   failCount = 0;
 
-  intervalId = setInterval(async () => {
+  const tick = async () => {
     try {
       await api.post('/api/nucs/heartbeat', {});
       failCount = 0;
@@ -17,7 +17,10 @@ export function startHeartbeat(onFail?: () => void) {
         onFail();
       }
     }
-  }, 30_000);
+  };
+
+  void tick();
+  intervalId = setInterval(tick, 30_000);
 }
 
 export function stopHeartbeat() {
