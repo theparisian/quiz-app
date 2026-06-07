@@ -41,6 +41,7 @@ export const saveFullEditSchema = z.object({
   durationEstimateSeconds: z.union([z.number().int().min(1).max(7200), z.null()]).optional(),
   brandingJson: z.record(z.unknown()).nullable().optional(),
   coverImageUrl: z.string().url().nullable().optional(),
+  backgroundOverlayOpacity: z.number().int().min(0).max(100).optional(),
   questions: z.array(questionSaveSchema),
 });
 
@@ -56,9 +57,12 @@ export const createQuizSchema = z.object({
   brandingJson: z.record(z.unknown()).nullable().optional(),
 });
 
-export const updateQuizSchema = createQuizSchema
-  .partial()
-  .merge(z.object({ coverImageUrl: z.string().url().nullable().optional() }));
+export const updateQuizSchema = createQuizSchema.partial().merge(
+  z.object({
+    coverImageUrl: z.string().url().nullable().optional(),
+    backgroundOverlayOpacity: z.number().int().min(0).max(100).optional(),
+  }),
+);
 
 const quizStatusSchema = z.enum(['draft', 'published', 'archived']);
 const quizTypeSchema = z.enum(['standard', 'sponsored', 'custom']);

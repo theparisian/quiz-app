@@ -50,6 +50,9 @@ export interface QuizApiDetail {
   durationEstimateSeconds: number | null;
   brandingJson: unknown;
   coverImageUrl: string | null;
+  backgroundMediaUrl: string | null;
+  backgroundMediaType: 'image' | 'video' | null;
+  backgroundOverlayOpacity: number;
   questions: {
     id: string;
     position: number;
@@ -103,6 +106,9 @@ export interface QuizEditorState {
   brandingPrimary: string;
   brandingSecondary: string;
   coverImageUrl: string | null;
+  backgroundMediaUrl: string | null;
+  backgroundMediaType: 'image' | 'video' | null;
+  backgroundOverlayOpacity: number;
   questions: EditorQuestion[];
   expandedTempId: string | null;
   isDirty: boolean;
@@ -120,6 +126,9 @@ export interface QuizEditorState {
     brandingPrimary?: string;
     brandingSecondary?: string;
     coverImageUrl?: string | null;
+    backgroundMediaUrl?: string | null;
+    backgroundMediaType?: 'image' | 'video' | null;
+    backgroundOverlayOpacity?: number;
   }) => void;
   addQuestion: () => void;
   updateQuestion: (
@@ -212,6 +221,9 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
   brandingPrimary: '#1e40af',
   brandingSecondary: '#64748b',
   coverImageUrl: null,
+  backgroundMediaUrl: null,
+  backgroundMediaType: null,
+  backgroundOverlayOpacity: 0,
   questions: [],
   expandedTempId: null,
   isDirty: false,
@@ -230,6 +242,9 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       brandingPrimary: colors.primary,
       brandingSecondary: colors.secondary,
       coverImageUrl: api.coverImageUrl,
+      backgroundMediaUrl: api.backgroundMediaUrl,
+      backgroundMediaType: api.backgroundMediaType,
+      backgroundOverlayOpacity: api.backgroundOverlayOpacity,
       questions: mapQuestionsFromApi(api),
       expandedTempId: null,
       isDirty: false,
@@ -387,6 +402,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       durationEstimateSeconds: s.durationEstimateSeconds,
       brandingJson: buildBrandingJson(s.brandingPrimary, s.brandingSecondary),
       coverImageUrl: s.coverImageUrl,
+      backgroundOverlayOpacity: s.backgroundOverlayOpacity,
       questions: ordered.map((q, idx) => ({
         id: q.id,
         position: idx,

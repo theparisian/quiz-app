@@ -19,11 +19,17 @@ const router = Router();
 
 const UPLOAD_MAX = 2 * 1024 * 1024;
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+const BACKGROUND_TYPES = [...IMAGE_TYPES, 'video/mp4', 'video/webm'];
 
 const quizCoverUpload = createUploadMiddleware({
   kind: 'quiz-cover',
   maxSize: UPLOAD_MAX,
   allowedMimes: IMAGE_TYPES,
+});
+
+const quizBackgroundUpload = createUploadMiddleware({
+  kind: 'quiz-background',
+  allowedMimes: BACKGROUND_TYPES,
 });
 
 const questionImageUpload = createUploadMiddleware({
@@ -131,6 +137,9 @@ function shapeQuizDetail(quiz: Awaited<ReturnType<typeof quizzesService.getBySlu
     language: quiz.language,
     durationEstimateSeconds: quiz.durationEstimateSeconds,
     coverImageUrl: quiz.coverImageUrl,
+    backgroundMediaUrl: quiz.backgroundMediaUrl,
+    backgroundMediaType: quiz.backgroundMediaType,
+    backgroundOverlayOpacity: quiz.backgroundOverlayOpacity,
     brandingJson: quiz.brandingJson,
     status: quiz.status,
     aiGenerated: quiz.aiGenerated,
@@ -287,6 +296,52 @@ router.delete('/:slug/cover', requireAuth(['super_admin']), async (req, res, nex
   try {
     const storage = getStorage();
     await quizzesService.removeCoverImage(param(req, 'slug'), storage);
+    res.json(shapeQuizDetail(await quizzesService.getBySlug(param(req, 'slug'))));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post(
+  '/:slug/background',
+  requireAuth(['super_admin']),
+  quizBackgroundUpload,
+  async (req, res, next) => {
+    try {
+      const slug = param(req, 'slug');
+      if (!req.file) throw new AppError('No file uploaded', 400, 'UPLOAD_MISSING');
+      const storage = getStorage();
+      const result = await uploadFile({
+        kind: 'quiz-background',
+        id: slug,
+        file: {
+          buffer: req.file.buffer,
+          mimetype: req.file.mimetype,
+          originalname: req.file.originalname,
+        },
+        storage,
+      });
+      logger.info(
+        {
+          kind: 'quiz-background',
+          id: slug,
+          size: req.file.size,
+          mime: req.file.mimetype,
+        },
+        'File uploaded',
+      );
+      await quizzesService.setBackgroundMedia(slug, result.key, result.url, req.file.mimetype);
+      res.json(shapeQuizDetail(await quizzesService.getBySlug(slug)));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.delete('/:slug/background', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const storage = getStorage();
+    await quizzesService.removeBackgroundMedia(param(req, 'slug'), storage);
     res.json(shapeQuizDetail(await quizzesService.getBySlug(param(req, 'slug'))));
   } catch (error) {
     next(error);

@@ -36,6 +36,14 @@ interface AnswerInfo {
   text: string;
 }
 
+type QuizBackgroundMediaType = 'image' | 'video';
+
+interface QuizBackgroundState {
+  quizBackgroundMediaUrl: string | null;
+  quizBackgroundMediaType: QuizBackgroundMediaType | null;
+  quizBackgroundOverlayOpacity: number;
+}
+
 interface NucState {
   nucId: string | null;
   screenId: string | null;
@@ -82,6 +90,10 @@ interface NucState {
 
   connectionStatus: NucConnectionStatus;
 
+  quizBackgroundMediaUrl: string | null;
+  quizBackgroundMediaType: QuizBackgroundMediaType | null;
+  quizBackgroundOverlayOpacity: number;
+
   setNucContext: (ctx: {
     nucId: string;
     screenId: string;
@@ -95,6 +107,29 @@ interface NucState {
   applySnapshot: (snap: Record<string, unknown>) => void;
   setConnectionStatus: (s: NucConnectionStatus) => void;
   reset: () => void;
+}
+
+const emptyQuizBackground: QuizBackgroundState = {
+  quizBackgroundMediaUrl: null,
+  quizBackgroundMediaType: null,
+  quizBackgroundOverlayOpacity: 0,
+};
+
+function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundState {
+  const quiz = payload.quiz as
+    | {
+        backgroundMediaUrl?: string | null;
+        backgroundMediaType?: QuizBackgroundMediaType | null;
+        backgroundOverlayOpacity?: number;
+      }
+    | undefined;
+  if (!quiz) return emptyQuizBackground;
+  const type = quiz.backgroundMediaType;
+  return {
+    quizBackgroundMediaUrl: quiz.backgroundMediaUrl ?? null,
+    quizBackgroundMediaType: type === 'image' || type === 'video' ? type : null,
+    quizBackgroundOverlayOpacity: quiz.backgroundOverlayOpacity ?? 0,
+  };
 }
 
 const initialState = {
@@ -132,6 +167,8 @@ const initialState = {
   winnerPlayerId: null as string | null,
   abortReason: null as string | null,
   connectionStatus: 'disconnected' as NucConnectionStatus,
+
+  ...emptyQuizBackground,
 };
 
 export const useNucStore = create<NucState>((set, get) => ({
@@ -209,9 +246,12 @@ export const useNucStore = create<NucState>((set, get) => ({
         currentQuestion: null,
         finalScoreboard: null,
         lastResults: null,
+        ...emptyQuizBackground,
       });
       return;
     }
+
+    const quizBackground = readQuizBackground(snap);
 
     const players = (snap.players as PlayerInfo[]) ?? [];
 
@@ -228,6 +268,7 @@ export const useNucStore = create<NucState>((set, get) => ({
     if (session.state === 'lobby') {
       set({
         ...base,
+        ...quizBackground,
         uiState: 'lobby',
         scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
         currentQuestion: null,
@@ -241,6 +282,7 @@ export const useNucStore = create<NucState>((set, get) => ({
     if (session.state === 'aborted') {
       set({
         ...base,
+        ...quizBackground,
         uiState: 'aborted',
         abortReason: null,
         scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
@@ -251,6 +293,7 @@ export const useNucStore = create<NucState>((set, get) => ({
     if (session.state === 'ended') {
       set({
         ...base,
+        ...quizBackground,
         uiState: 'final_results',
         finalScoreboard: (snap.finalScoreboard as FinalEntry[]) ?? null,
         winnerPlayerId: null,
@@ -282,6 +325,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       }));
       set({
         ...base,
+        ...quizBackground,
         uiState: 'question',
         currentQuestionPosition: cq.position,
         currentQuestion: {
@@ -321,6 +365,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       }));
       set({
         ...base,
+        ...quizBackground,
         uiState: 'question_results',
         lastResults: {
           correctAnswerId: lr.correctAnswerId || null,
@@ -337,6 +382,7 @@ export const useNucStore = create<NucState>((set, get) => ({
 
     set({
       ...base,
+      ...quizBackground,
       uiState: 'lobby',
       scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
     });
@@ -350,6 +396,7 @@ export const useNucStore = create<NucState>((set, get) => ({
         set({
           uiState: 'lobby',
           totalQuestions: (payload.totalQuestions as number) ?? 0,
+          ...readQuizBackground(payload),
         });
         break;
 

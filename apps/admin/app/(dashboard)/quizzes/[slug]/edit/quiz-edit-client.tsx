@@ -104,6 +104,9 @@ export function QuizEditClient({ slug }: { slug: string }) {
   const brandingPrimary = useQuizEditorStore((s) => s.brandingPrimary);
   const brandingSecondary = useQuizEditorStore((s) => s.brandingSecondary);
   const coverImageUrl = useQuizEditorStore((s) => s.coverImageUrl);
+  const backgroundMediaUrl = useQuizEditorStore((s) => s.backgroundMediaUrl);
+  const backgroundMediaType = useQuizEditorStore((s) => s.backgroundMediaType);
+  const backgroundOverlayOpacity = useQuizEditorStore((s) => s.backgroundOverlayOpacity);
   const questions = useQuizEditorStore((s) => s.questions);
   const expandedTempId = useQuizEditorStore((s) => s.expandedTempId);
   const hydrate = useQuizEditorStore((s) => s.hydrate);
@@ -561,6 +564,90 @@ export function QuizEditClient({ slug }: { slug: string }) {
                 </button>
               )}
             </div>
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-sm font-medium">Fond des questions (écran cinéma)</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Photo ou vidéo plein écran pendant la phase questions du player NUC.
+            </p>
+            {backgroundMediaUrl && (
+              <div className="relative mt-2 max-h-40 overflow-hidden rounded border">
+                {backgroundMediaType === 'video' ? (
+                  <video
+                    src={resolveMediaUrl(backgroundMediaUrl) ?? backgroundMediaUrl}
+                    muted
+                    loop
+                    playsInline
+                    autoPlay
+                    className="h-40 w-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={resolveMediaUrl(backgroundMediaUrl) ?? backgroundMediaUrl}
+                    alt=""
+                    className="h-40 w-full object-cover"
+                  />
+                )}
+                {backgroundOverlayOpacity > 0 && (
+                  <div
+                    className="pointer-events-none absolute inset-0 bg-black"
+                    style={{ opacity: backgroundOverlayOpacity / 100 }}
+                  />
+                )}
+              </div>
+            )}
+            <div className="mt-2 flex gap-2">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm"
+                disabled={readOnly}
+                className="text-sm"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const q = await apiUploadFile<QuizApiDetail>(
+                    `/api/quizzes/${slug}/background`,
+                    f,
+                  );
+                  markSaved(q);
+                }}
+              />
+              {backgroundMediaUrl && !readOnly && (
+                <button
+                  type="button"
+                  className="rounded border px-2 py-1 text-sm"
+                  onClick={async () => {
+                    const q = await api.delete<QuizApiDetail>(`/api/quizzes/${slug}/background`);
+                    if (q) markSaved(q);
+                  }}
+                >
+                  Supprimer fond
+                </button>
+              )}
+            </div>
+            <label className="mt-4 block text-sm">
+              <span>Assombrissement ({backgroundOverlayOpacity} %)</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                disabled={readOnly || !backgroundMediaUrl}
+                className="mt-2 w-full max-w-md disabled:opacity-50"
+                value={backgroundOverlayOpacity}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  updateMetadata({ backgroundOverlayOpacity: value });
+                }}
+                onPointerUp={async (e) => {
+                  if (readOnly) return;
+                  const value = Number((e.target as HTMLInputElement).value);
+                  const q = await api.patch<QuizApiDetail>(`/api/quizzes/${slug}`, {
+                    backgroundOverlayOpacity: value,
+                  });
+                  if (q) markSaved(q);
+                }}
+              />
+            </label>
           </div>
         </div>
       </div>

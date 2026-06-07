@@ -1,4 +1,4 @@
-import { Prisma, type AnswerPosition } from '@prisma/client';
+import { Prisma, type AnswerPosition, type QuizBackgroundMediaType } from '@prisma/client';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { extractKeyFromPublicUrl } from '../../shared/storage/storage-url.js';
@@ -18,6 +18,10 @@ function slugify(title: string): string {
 
 function storagePublicBase(): string {
   return (process.env.STORAGE_PUBLIC_URL ?? 'http://localhost:3000/uploads').replace(/\/+$/, '');
+}
+
+function backgroundMediaTypeFromMime(mime: string): QuizBackgroundMediaType {
+  return mime.startsWith('video/') ? 'video' : 'image';
 }
 
 const ANSWER_ORDER: Record<AnswerPosition, number> = { A: 0, B: 1, C: 2, D: 3 };
@@ -254,6 +258,7 @@ export const quizzesService = {
       'description',
       'brandingJson',
       'coverImageUrl',
+      'backgroundOverlayOpacity',
       'language',
     ]);
 
@@ -283,6 +288,9 @@ export const quizzesService = {
       data.durationEstimateSeconds = input.durationEstimateSeconds ?? null;
     if (input.brandingJson !== undefined) data.brandingJson = input.brandingJson ?? null;
     if (input.coverImageUrl !== undefined) data.coverImageUrl = input.coverImageUrl ?? null;
+    if (input.backgroundOverlayOpacity !== undefined) {
+      data.backgroundOverlayOpacity = input.backgroundOverlayOpacity;
+    }
 
     return prisma.quiz.update({
       where: { id: quiz.id },
@@ -326,6 +334,9 @@ export const quizzesService = {
       }
       if (payload.coverImageUrl !== undefined) {
         quizUpdate.coverImageUrl = payload.coverImageUrl ?? null;
+      }
+      if (payload.backgroundOverlayOpacity !== undefined) {
+        quizUpdate.backgroundOverlayOpacity = payload.backgroundOverlayOpacity;
       }
       if (quizRow.status !== 'published') {
         quizUpdate.type = payload.type;
@@ -563,6 +574,9 @@ export const quizzesService = {
           language: quiz.language,
           durationEstimateSeconds: quiz.durationEstimateSeconds,
           coverImageUrl: quiz.coverImageUrl,
+          backgroundMediaUrl: quiz.backgroundMediaUrl,
+          backgroundMediaType: quiz.backgroundMediaType,
+          backgroundOverlayOpacity: quiz.backgroundOverlayOpacity,
           brandingJson:
             quiz.brandingJson == null
               ? Prisma.JsonNull
@@ -632,6 +646,37 @@ export const quizzesService = {
     const key = extractKeyFromPublicUrl(quiz.coverImageUrl, base);
     if (key) await storage.delete(key);
     return prisma.quiz.update({ where: { id: quiz.id }, data: { coverImageUrl: null } });
+  },
+
+  async setBackgroundMedia(slug: string, _key: string, url: string, mime: string) {
+    const quiz = await prisma.quiz.findUnique({ where: { slug } });
+    if (!quiz) throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    if (quiz.status === 'archived')
+      throw new AppError('Quiz is archived', 403, 'QUIZ_ARCHIVED_READONLY');
+    return prisma.quiz.update({
+      where: { id: quiz.id },
+      data: {
+        backgroundMediaUrl: url,
+        backgroundMediaType: backgroundMediaTypeFromMime(mime),
+      },
+    });
+  },
+
+  async removeBackgroundMedia(slug: string, storage: StorageProvider) {
+    const quiz = await prisma.quiz.findUnique({ where: { slug } });
+    if (!quiz) throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    if (quiz.status === 'archived')
+      throw new AppError('Quiz is archived', 403, 'QUIZ_ARCHIVED_READONLY');
+    const base = storagePublicBase();
+    const key = extractKeyFromPublicUrl(quiz.backgroundMediaUrl, base);
+    if (key) await storage.delete(key);
+    return prisma.quiz.update({
+      where: { id: quiz.id },
+      data: {
+        backgroundMediaUrl: null,
+        backgroundMediaType: null,
+      },
+    });
   },
 
   async setQuestionImage(slug: string, questionId: bigint, url: string) {

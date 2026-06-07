@@ -5,6 +5,7 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { computeScore } from '../../shared/scoring/scoring.service.js';
+import { shapeQuizBackgroundPayload } from '../quizzes/quiz-background.js';
 import { assertTransition } from './session-state.service.js';
 
 export function getResultsDisplayMs(): number {
@@ -705,6 +706,7 @@ export function getOrchestrator() {
       broadcastToSession(sessionId, 'session:started', {
         sessionId: sessionId.toString(),
         totalQuestions: state.questions.length,
+        quiz: shapeQuizBackgroundPayload(session.quiz),
       });
 
       broadcastToSession(sessionId, 'session:state_changed', {

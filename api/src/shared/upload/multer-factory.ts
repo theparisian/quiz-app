@@ -4,14 +4,17 @@ import { AppError } from '../errors/app-error.js';
 
 export function createUploadMiddleware(opts: {
   kind: string;
-  maxSize: number;
+  maxSize?: number;
   allowedMimes: string[];
 }) {
   void opts.kind;
 
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: opts.maxSize, files: 1 },
+    limits: {
+      ...(opts.maxSize != null ? { fileSize: opts.maxSize } : {}),
+      files: 1,
+    },
     fileFilter: (_req, file, cb) => {
       if (opts.allowedMimes.includes(file.mimetype)) {
         cb(null, true);

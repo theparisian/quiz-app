@@ -46,6 +46,11 @@ enum QuizType {
   custom
 }
 
+enum QuizBackgroundMediaType {
+  image
+  video
+}
+
 enum QuizStatus {
   draft
   published
@@ -229,8 +234,11 @@ model Quiz {
   sponsorId              BigInt?    @map("sponsor_id")
   language               String     @default("fr") @db.VarChar(10)
   durationEstimateSeconds Int?      @map("duration_estimate_seconds")
-  coverImageUrl          String?    @map("cover_image_url") @db.VarChar(500)
-  brandingJson           Json?      @map("branding_json")
+  coverImageUrl              String?                  @map("cover_image_url") @db.VarChar(500)
+  backgroundMediaUrl         String?                  @map("background_media_url") @db.VarChar(500)
+  backgroundMediaType        QuizBackgroundMediaType? @map("background_media_type")
+  backgroundOverlayOpacity   Int                      @default(0) @map("background_overlay_opacity")
+  brandingJson               Json?                    @map("branding_json")
   status                 QuizStatus @default(draft)
   createdByUserId        BigInt     @map("created_by_user_id")
   aiGenerated            Boolean    @default(false) @map("ai_generated")
