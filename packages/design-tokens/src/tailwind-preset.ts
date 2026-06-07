@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import { ELEVATION_SHADOW, SURFACE_RADIUS } from './elevation';
 
 export const tailwindPreset: Partial<Config> = {
   theme: {
@@ -23,6 +24,27 @@ export const tailwindPreset: Partial<Config> = {
       fontFamily: {
         sans: ['Biennale', 'system-ui', 'sans-serif'],
         display: ['Biennale', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        none: '0',
+        sm: '0.75rem',
+        DEFAULT: SURFACE_RADIUS,
+        md: SURFACE_RADIUS,
+        lg: SURFACE_RADIUS,
+        xl: '1.25rem',
+        '2xl': '1.5rem',
+        '3xl': '2rem',
+        full: '9999px',
+      },
+      boxShadow: {
+        sm: ELEVATION_SHADOW,
+        DEFAULT: ELEVATION_SHADOW,
+        md: ELEVATION_SHADOW,
+        lg: ELEVATION_SHADOW,
+        xl: ELEVATION_SHADOW,
+        '2xl': ELEVATION_SHADOW,
+        inner: 'inset 0 2px 4px 0 rgba(103, 110, 144, 0.06)',
+        none: 'none',
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-in-out',
