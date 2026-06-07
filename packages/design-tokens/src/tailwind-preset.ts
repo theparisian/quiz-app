@@ -21,8 +21,8 @@ export const tailwindPreset: Partial<Config> = {
         warning: '#f59e0b',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Biennale', 'system-ui', 'sans-serif'],
+        display: ['Biennale', 'system-ui', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-in-out',

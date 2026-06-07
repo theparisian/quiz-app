@@ -7,7 +7,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./tailwind-preset": "./src/tailwind-preset.ts"
+    "./tailwind-preset": "./src/tailwind-preset.ts",
+    "./fonts.css": "./src/fonts.css",
+    "./typography-base.css": "./src/typography-base.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

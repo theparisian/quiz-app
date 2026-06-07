@@ -44,7 +44,7 @@ export default function IdleState() {
           className="max-h-[30vh] max-w-[60vw] object-contain"
         />
       ) : (
-        <div className="text-[clamp(48px,8vw,120px)] font-bold tracking-tight">
+        <div className="font-title text-[clamp(48px,8vw,120px)] tracking-tight">
           {cinemaName ?? 'Cinéma'}
         </div>
       )}

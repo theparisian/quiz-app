@@ -1,3 +1,7 @@
+@import '@quiz-app/design-tokens/fonts.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import '@quiz-app/design-tokens/typography-base.css';
