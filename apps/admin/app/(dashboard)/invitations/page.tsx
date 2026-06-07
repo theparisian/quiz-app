@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { UserPlus, XCircle } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
 interface Invitation {
@@ -80,8 +81,9 @@ export default function InvitationsPage() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
+          <UserPlus size={16} weight="bold" />
           Inviter un projectionniste
         </button>
       </div>
@@ -184,8 +186,9 @@ export default function InvitationsPage() {
                   {inv.status === 'pending' && (
                     <button
                       onClick={() => revokeMutation.mutate(inv.id)}
-                      className="text-xs text-red-600 hover:underline"
+                      className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline"
                     >
+                      <XCircle size={14} />
                       Révoquer
                     </button>
                   )}

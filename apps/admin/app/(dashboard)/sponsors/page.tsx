@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 import { resolveMediaUrl } from '../../../lib/media-url';
 
@@ -71,20 +72,27 @@ export default function SponsorsPage() {
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
+          <Plus size={16} weight="bold" />
           Créer un sponsor
         </button>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-4">
-        <input
-          type="search"
-          placeholder="Rechercher…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-        />
+        <div className="relative w-full max-w-xs">
+          <MagnifyingGlass
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="search"
+            placeholder="Rechercher…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
@@ -181,8 +189,12 @@ export default function SponsorsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{s.quizzesCount ?? '—'}</td>
                     <td className="px-4 py-3 text-right text-sm">
-                      <Link href={`/sponsors/${s.slug}`} className="text-blue-600 hover:underline">
+                      <Link
+                        href={`/sponsors/${s.slug}`}
+                        className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                      >
                         Fiche
+                        <ArrowRight size={14} />
                       </Link>
                     </td>
                   </tr>

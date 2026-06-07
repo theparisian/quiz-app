@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PaperPlaneTilt } from '@phosphor-icons/react';
 import { api } from '../../lib/api';
 
 export default function LoginPage() {
@@ -56,8 +57,9 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
+            <PaperPlaneTilt size={16} />
             {loading ? 'Envoi...' : 'Recevoir un lien magique'}
           </button>
         </form>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Sparkle, X } from '@phosphor-icons/react';
 import { api, apiUploadFile } from '../../lib/api';
 import { useQuizEditorStore, type AiGeneratedQuestion } from '../../lib/quiz-editor-store';
 
@@ -163,14 +164,17 @@ export function AiGenerateModal(props: {
           </div>
         )}
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-lg font-semibold text-gray-900">✨ Générer avec IA</h2>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <Sparkle size={20} className="text-violet-600" weight="fill" />
+            Générer avec IA
+          </h2>
           <button
             type="button"
-            className="text-2xl leading-none text-gray-500 hover:text-gray-900"
+            className="leading-none text-gray-500 hover:text-gray-900"
             onClick={() => !loading && props.onClose()}
             aria-label="Fermer"
           >
-            ×
+            <X size={22} />
           </button>
         </div>
         <div className="space-y-4 p-4">
@@ -366,10 +370,11 @@ export function AiGenerateModal(props: {
             </button>
             <button
               type="button"
-              className="rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
               disabled={loading || sourceText.trim().length < 50}
               onClick={() => void onSubmit()}
             >
+              <Sparkle size={16} weight="fill" />
               Générer le quizz
             </button>
           </div>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MagnifyingGlass, PencilSimple, Plus } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
 interface QuizRow {
@@ -107,20 +108,27 @@ export default function QuizzesPage() {
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
+          <Plus size={16} weight="bold" />
           Créer un quizz
         </button>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
-        <input
-          type="search"
-          placeholder="Rechercher…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-        />
+        <div className="relative min-w-[200px] flex-1">
+          <MagnifyingGlass
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="search"
+            placeholder="Rechercher…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
@@ -244,8 +252,9 @@ export default function QuizzesPage() {
                   <td className="px-4 py-3 text-right text-sm">
                     <Link
                       href={`/quizzes/${q.slug}/edit`}
-                      className="text-blue-600 hover:underline"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:underline"
                     >
+                      <PencilSimple size={14} />
                       Éditer
                     </Link>
                   </td>

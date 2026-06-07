@@ -2,6 +2,17 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import {
+  type Icon,
+  ArrowRight,
+  CalendarBlank,
+  Desktop,
+  EnvelopeSimple,
+  FilmSlate,
+  PlayCircle,
+  Sparkle,
+  WarningCircle,
+} from '@phosphor-icons/react';
 import { api } from '../../lib/api';
 
 interface DashboardStats {
@@ -66,16 +77,21 @@ function StatCard({
   value,
   sub,
   color,
+  icon: CardIcon,
 }: {
   label: string;
   value: string | number;
   sub?: string;
   color?: string;
+  icon?: Icon;
 }) {
   const vColor = color ?? 'text-gray-900';
   return (
     <div className="rounded-lg border bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-gray-500">{label}</p>
+      <div className="flex items-center gap-2 text-gray-500">
+        {CardIcon ? <CardIcon size={18} className="shrink-0" /> : null}
+        <p className="text-sm font-medium">{label}</p>
+      </div>
       <p className={`mt-1 text-3xl font-bold ${vColor}`}>{value}</p>
       {sub ? <p className="mt-1 text-xs text-gray-500">{sub}</p> : null}
     </div>
@@ -232,6 +248,7 @@ export default function DashboardPage() {
                     label="Santé NUCs — en ligne"
                     value={obs.health.nucs.online}
                     sub={`${obs.health.nucs.offline} hors ligne • ${obs.health.nucs.error} erreur`}
+                    icon={Desktop}
                     color={
                       obs.health.nucs.offline === 0 && obs.health.nucs.error === 0
                         ? 'text-green-600'
@@ -242,6 +259,7 @@ export default function DashboardPage() {
                     label="Sessions actives — en cours"
                     value={obs.health.sessions.running}
                     sub={`${obs.health.sessions.paused} en pause • ${obs.health.sessions.lobby} lobby • abandons jour : ${obs.health.abortedToday}`}
+                    icon={PlayCircle}
                     color={
                       obs.health.sessions.running + obs.health.sessions.paused === 0
                         ? 'text-gray-900'
@@ -252,12 +270,16 @@ export default function DashboardPage() {
                     label="Aujourd’hui — sessions"
                     value={obs.today.sessionsCount}
                     sub={`${obs.today.playersCount} joueurs • ${obs.today.prizesSentCount} lots envoyés`}
+                    icon={CalendarBlank}
                   />
                 </div>
               </section>
 
               <section className="rounded-lg border bg-white p-5 shadow-sm">
-                <h2 className="text-sm font-semibold text-gray-800">NUCs hors ligne</h2>
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                  <Desktop size={16} className="text-gray-400" />
+                  NUCs hors ligne
+                </h2>
                 {obs.health.offlineNucs.length === 0 ? (
                   <p className="mt-3 text-sm text-green-700">Tous les NUCs sont en ligne.</p>
                 ) : (
@@ -280,7 +302,8 @@ export default function DashboardPage() {
               </section>
 
               <section className="rounded-lg border bg-white p-5 shadow-sm">
-                <h2 className="text-sm font-semibold text-gray-800">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                  <WarningCircle size={16} className="text-gray-400" />
                   Erreurs récentes (7 derniers jours)
                 </h2>
                 {obs.recentErrors.errors.length === 0 ? (
@@ -362,14 +385,18 @@ export default function DashboardPage() {
 
           {legacy ? (
             <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard label="Cinémas" value={legacy.cinemas} />
+              <StatCard label="Cinémas" value={legacy.cinemas} icon={FilmSlate} />
               <StatCard
                 label="Invitations en attente"
                 value={legacy.invitationsPending}
                 color="text-blue-600"
+                icon={EnvelopeSimple}
               />
               <div className="rounded-lg border bg-white p-5 shadow-sm sm:col-span-2 lg:col-span-2">
-                <p className="text-sm font-medium text-gray-500">IA</p>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Sparkle size={18} className="shrink-0" />
+                  <p className="text-sm font-medium">IA</p>
+                </div>
                 <p className="mt-1 text-3xl font-bold text-violet-700">
                   {legacy.ai?.month.generations ?? 0} générations ce mois
                 </p>
@@ -378,9 +405,10 @@ export default function DashboardPage() {
                 </p>
                 <Link
                   href="/ai/usage"
-                  className="mt-3 inline-block text-sm font-medium text-violet-600 hover:underline"
+                  className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-violet-600 hover:underline"
                 >
-                  Voir l&apos;historique →
+                  Voir l&apos;historique
+                  <ArrowRight size={14} />
                 </Link>
               </div>
             </div>

@@ -19,6 +19,20 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import {
+  Archive,
+  ArrowClockwise,
+  ArrowCounterClockwise,
+  CaretLeft,
+  CheckCircle,
+  Copy,
+  Eye,
+  FloppyDisk,
+  PencilSimple,
+  Plus,
+  Sparkle,
+  Trash,
+} from '@phosphor-icons/react';
 import { api, apiUploadFile } from '../../../../../lib/api';
 import { AiGenerateModal } from '../../../../components/ai-generate-modal';
 import type { AnswerPos, QuizApiDetail } from '../../../../../lib/quiz-editor-store';
@@ -251,8 +265,12 @@ export function QuizEditClient({ slug }: { slug: string }) {
         </div>
       )}
       <div className="flex flex-wrap items-center gap-3">
-        <Link href="/quizzes" className="text-sm text-blue-600 hover:underline">
-          ← Retour
+        <Link
+          href="/quizzes"
+          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+        >
+          <CaretLeft size={14} />
+          Retour
         </Link>
         <h1 className="text-xl font-bold text-gray-900">Édition du quizz</h1>
         <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${statusBadge}`}>
@@ -268,13 +286,14 @@ export function QuizEditClient({ slug }: { slug: string }) {
             href={`/quizzes/${slug}/preview`}
             target="_blank"
             rel="noreferrer"
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
           >
+            <Eye size={15} />
             Preview
           </a>
           <button
             type="button"
-            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
             onClick={() => {
               if (useQuizEditorStore.getState().isDirty) {
                 if (!confirm('Abandonner les modifications locales ?')) return;
@@ -286,29 +305,32 @@ export function QuizEditClient({ slug }: { slug: string }) {
               })();
             }}
           >
+            <ArrowCounterClockwise size={15} />
             Annuler
           </button>
           <button
             type="button"
             disabled={!isDirty || readOnly || saveMut.isPending}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
             onClick={() => saveMut.mutate()}
           >
+            <FloppyDisk size={15} />
             Enregistrer
           </button>
           {quizStatus === 'draft' && (
             <button
               type="button"
-              className="rounded-md bg-green-600 px-3 py-1.5 text-sm text-white"
+              className="inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-sm text-white"
               onClick={() => publishMut.mutate()}
             >
+              <CheckCircle size={15} />
               Publier
             </button>
           )}
           {quizStatus === 'published' && (
             <button
               type="button"
-              className="rounded-md bg-amber-600 px-3 py-1.5 text-sm text-white"
+              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-sm text-white"
               onClick={() => {
                 if (
                   confirm(
@@ -319,41 +341,46 @@ export function QuizEditClient({ slug }: { slug: string }) {
                 }
               }}
             >
+              <PencilSimple size={15} />
               Repasser en brouillon
             </button>
           )}
           {quizStatus !== 'archived' && (
             <button
               type="button"
-              className="rounded-md border px-3 py-1.5 text-sm"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm"
               onClick={() => archiveMut.mutate()}
             >
+              <Archive size={15} />
               Archiver
             </button>
           )}
           {quizStatus === 'archived' && (
             <button
               type="button"
-              className="rounded-md border px-3 py-1.5 text-sm"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm"
               onClick={() => unarchiveMut.mutate()}
             >
+              <ArrowClockwise size={15} />
               Désarchiver
             </button>
           )}
           <button
             type="button"
-            className="rounded-md border px-3 py-1.5 text-sm"
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm"
             onClick={() => duplicateMut.mutate()}
           >
+            <Copy size={15} />
             Dupliquer
           </button>
           <button
             type="button"
-            className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700"
+            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700"
             onClick={() => {
               if (confirm('Supprimer définitivement ce quiz ?')) deleteMut.mutate();
             }}
           >
+            <Trash size={15} />
             Supprimer
           </button>
         </div>
@@ -550,10 +577,11 @@ export function QuizEditClient({ slug }: { slug: string }) {
                   ? 'Disponible uniquement en brouillon'
                   : 'Générer des questions avec l’IA'
               }
-              className="rounded-md border border-violet-500 px-3 py-1.5 text-xs font-medium text-violet-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-violet-500 px-3 py-1.5 text-xs font-medium text-violet-700 disabled:opacity-50"
               onClick={() => setAiOpen(true)}
             >
-              ✨ Générer avec IA
+              <Sparkle size={14} weight="fill" />
+              Générer avec IA
             </button>
             <button
               type="button"
@@ -561,10 +589,11 @@ export function QuizEditClient({ slug }: { slug: string }) {
               title={
                 structuredLocked ? 'Repasse le quiz en brouillon pour modifier ce champ' : undefined
               }
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
               onClick={() => addQuestion()}
             >
-              + Ajouter une question
+              <Plus size={14} weight="bold" />
+              Ajouter une question
             </button>
           </div>
         </div>
@@ -745,18 +774,20 @@ export function QuizEditClient({ slug }: { slug: string }) {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          className="rounded border px-3 py-1 text-sm"
+                          className="inline-flex items-center gap-1.5 rounded border px-3 py-1 text-sm"
                           disabled={readOnly || structuredLocked}
                           onClick={() => duplicateQuestion(q.tempId)}
                         >
+                          <Copy size={14} />
                           Dupliquer cette question
                         </button>
                         <button
                           type="button"
-                          className="rounded border border-red-100 px-3 py-1 text-sm text-red-700 disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded border border-red-100 px-3 py-1 text-sm text-red-700 disabled:opacity-50"
                           disabled={readOnly || structuredLocked}
                           onClick={() => removeQuestion(q.tempId)}
                         >
+                          <Trash size={14} />
                           Supprimer
                         </button>
                       </div>
