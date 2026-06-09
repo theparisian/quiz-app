@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { readAnswerDisplayStyle, type AnswerDisplayStyle } from '@quiz-app/design-tokens';
 
 export type NucUiState =
   | 'idle'
@@ -42,6 +43,7 @@ interface QuizBackgroundState {
   quizBackgroundMediaUrl: string | null;
   quizBackgroundMediaType: QuizBackgroundMediaType | null;
   quizBackgroundOverlayOpacity: number;
+  quizAnswerDisplayStyle: AnswerDisplayStyle;
 }
 
 interface NucState {
@@ -93,6 +95,7 @@ interface NucState {
   quizBackgroundMediaUrl: string | null;
   quizBackgroundMediaType: QuizBackgroundMediaType | null;
   quizBackgroundOverlayOpacity: number;
+  quizAnswerDisplayStyle: AnswerDisplayStyle;
 
   setNucContext: (ctx: {
     nucId: string;
@@ -113,6 +116,7 @@ const emptyQuizBackground: QuizBackgroundState = {
   quizBackgroundMediaUrl: null,
   quizBackgroundMediaType: null,
   quizBackgroundOverlayOpacity: 0,
+  quizAnswerDisplayStyle: 'multicolor',
 };
 
 function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundState {
@@ -121,6 +125,7 @@ function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundSta
         backgroundMediaUrl?: string | null;
         backgroundMediaType?: QuizBackgroundMediaType | null;
         backgroundOverlayOpacity?: number;
+        brandingJson?: unknown;
       }
     | undefined;
   if (!quiz) return emptyQuizBackground;
@@ -129,6 +134,7 @@ function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundSta
     quizBackgroundMediaUrl: quiz.backgroundMediaUrl ?? null,
     quizBackgroundMediaType: type === 'image' || type === 'video' ? type : null,
     quizBackgroundOverlayOpacity: quiz.backgroundOverlayOpacity ?? 0,
+    quizAnswerDisplayStyle: readAnswerDisplayStyle(quiz.brandingJson),
   };
 }
 

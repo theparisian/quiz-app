@@ -35,6 +35,7 @@ import {
 } from '@phosphor-icons/react';
 import { api, apiUploadFile } from '../../../../../lib/api';
 import { AiGenerateModal } from '../../../../components/ai-generate-modal';
+import { QuizAnswerStylePicker } from '../../../../components/quiz-answer-style-picker';
 import type { AnswerPos, QuizApiDetail } from '../../../../../lib/quiz-editor-store';
 import { resolveMediaUrl } from '../../../../../lib/media-url';
 import { buildQuizSavePayload, useQuizEditorStore } from '../../../../../lib/quiz-editor-store';
@@ -87,11 +88,21 @@ function SortableQRow(props: {
   );
 }
 
+type EditTab = 'settings' | 'questions' | 'design' | 'music';
+
+const EDIT_TABS: { id: EditTab; label: string }[] = [
+  { id: 'settings', label: 'Paramètres' },
+  { id: 'questions', label: 'Questions' },
+  { id: 'design', label: 'Design' },
+  { id: 'music', label: 'Musique' },
+];
+
 export function QuizEditClient({ slug }: { slug: string }) {
   const qc = useQueryClient();
   const [pubErr, setPubErr] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiOkBanner, setAiOkBanner] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<EditTab>('settings');
 
   const isDirty = useQuizEditorStore((s) => s.isDirty);
   const quizStatus = useQuizEditorStore((s) => s.quizStatus);
@@ -103,6 +114,7 @@ export function QuizEditClient({ slug }: { slug: string }) {
   const durationEstimateSeconds = useQuizEditorStore((s) => s.durationEstimateSeconds);
   const brandingPrimary = useQuizEditorStore((s) => s.brandingPrimary);
   const brandingSecondary = useQuizEditorStore((s) => s.brandingSecondary);
+  const answerDisplayStyle = useQuizEditorStore((s) => s.answerDisplayStyle);
   const coverImageUrl = useQuizEditorStore((s) => s.coverImageUrl);
   const backgroundMediaUrl = useQuizEditorStore((s) => s.backgroundMediaUrl);
   const backgroundMediaType = useQuizEditorStore((s) => s.backgroundMediaType);
@@ -422,478 +434,534 @@ export function QuizEditClient({ slug }: { slug: string }) {
         </div>
       )}
 
-      <div className="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-800">Métadonnées</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="block text-sm">
-            <span>Titre *</span>
-            <input
-              className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
-              disabled={readOnly}
-              value={title}
-              onChange={(e) => updateMetadata({ title: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm md:col-span-2">
-            <span>Description</span>
-            <textarea
-              className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
-              disabled={readOnly}
-              rows={3}
-              value={description ?? ''}
-              onChange={(e) => updateMetadata({ description: e.target.value || null })}
-            />
-          </label>
-          <label className="block text-sm">
-            <span>Type</span>
-            <select
-              className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
-              disabled={readOnly || structuredLocked}
-              title={structuredLocked ? 'Repasse en brouillon pour modifier ce champ' : undefined}
-              value={type}
-              onChange={(e) =>
-                updateMetadata({
-                  type: e.target.value as typeof type,
-                })
-              }
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex flex-wrap gap-1">
+          {EDIT_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-t-md border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
             >
-              <option value="standard">standard</option>
-              <option value="sponsored">sponsored</option>
-              <option value="custom">custom</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span>Sponsor (actifs)</span>
-            <select
-              className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
-              disabled={readOnly || structuredLocked}
-              title={structuredLocked ? 'Repasse en brouillon pour modifier ce champ' : undefined}
-              value={sponsorId ?? ''}
-              onChange={(e) =>
-                updateMetadata({
-                  sponsorId: e.target.value === '' ? null : e.target.value,
-                })
-              }
-            >
-              <option value="">—</option>
-              {sponsorsQ.data?.items.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span>Langue</span>
-            <input
-              className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
-              disabled={readOnly}
-              value={language}
-              onChange={(e) => updateMetadata({ language: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            <span>Durée estimée (secondes)</span>
-            <input
-              type="number"
-              className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
-              disabled={readOnly || structuredLocked}
-              title={structuredLocked ? 'Repasse en brouillon pour modifier ce champ' : undefined}
-              value={durationEstimateSeconds ?? ''}
-              onChange={(e) =>
-                updateMetadata({
-                  durationEstimateSeconds: e.target.value === '' ? null : Number(e.target.value),
-                })
-              }
-            />
-          </label>
-          <div className="flex gap-4 md:col-span-2">
-            <label className="text-sm">
-              Couleur primaire
-              <input
-                type="color"
-                disabled={readOnly}
-                className="ml-2 h-10 w-16 rounded border disabled:opacity-50"
-                value={brandingPrimary}
-                onChange={(e) => updateMetadata({ brandingPrimary: e.target.value })}
-              />
-            </label>
-            <label className="text-sm">
-              Couleur secondaire
-              <input
-                type="color"
-                disabled={readOnly}
-                className="ml-2 h-10 w-16 rounded border disabled:opacity-50"
-                value={brandingSecondary}
-                onChange={(e) => updateMetadata({ brandingSecondary: e.target.value })}
-              />
-            </label>
-          </div>
-          <div className="md:col-span-2">
-            <p className="text-sm font-medium">Image de couverture</p>
-            {coverImageUrl && (
-              <img
-                src={resolveMediaUrl(coverImageUrl) ?? coverImageUrl}
-                alt=""
-                className="mt-2 max-h-32 rounded border object-contain"
-              />
-            )}
-            <div className="mt-2 flex gap-2">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                disabled={readOnly}
-                className="text-sm"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  const q = await apiUploadFile<QuizApiDetail>(`/api/quizzes/${slug}/cover`, f);
-                  markSaved(q);
-                }}
-              />
-              {coverImageUrl && !readOnly && (
-                <button
-                  type="button"
-                  className="rounded border px-2 py-1 text-sm"
-                  onClick={async () => {
-                    const q = await api.delete<QuizApiDetail>(`/api/quizzes/${slug}/cover`);
-                    if (q) markSaved(q);
-                  }}
-                >
-                  Supprimer couverture
-                </button>
+              {tab.label}
+              {tab.id === 'questions' && (
+                <span className="ml-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                  {items.length}
+                </span>
               )}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <p className="text-sm font-medium">Fond des questions (écran cinéma)</p>
-            <p className="mt-1 text-xs text-gray-500">
-              Photo ou vidéo plein écran pendant la phase questions du player NUC.
-            </p>
-            {backgroundMediaUrl && (
-              <div className="relative mt-2 max-h-40 overflow-hidden rounded border">
-                {backgroundMediaType === 'video' ? (
-                  <video
-                    src={resolveMediaUrl(backgroundMediaUrl) ?? backgroundMediaUrl}
-                    muted
-                    loop
-                    playsInline
-                    autoPlay
-                    className="h-40 w-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={resolveMediaUrl(backgroundMediaUrl) ?? backgroundMediaUrl}
-                    alt=""
-                    className="h-40 w-full object-cover"
-                  />
-                )}
-                {backgroundOverlayOpacity > 0 && (
-                  <div
-                    className="pointer-events-none absolute inset-0 bg-black"
-                    style={{ opacity: backgroundOverlayOpacity / 100 }}
-                  />
-                )}
-              </div>
-            )}
-            <div className="mt-2 flex gap-2">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm"
-                disabled={readOnly}
-                className="text-sm"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  const q = await apiUploadFile<QuizApiDetail>(
-                    `/api/quizzes/${slug}/background`,
-                    f,
-                  );
-                  markSaved(q);
-                }}
-              />
-              {backgroundMediaUrl && !readOnly && (
-                <button
-                  type="button"
-                  className="rounded border px-2 py-1 text-sm"
-                  onClick={async () => {
-                    const q = await api.delete<QuizApiDetail>(`/api/quizzes/${slug}/background`);
-                    if (q) markSaved(q);
-                  }}
-                >
-                  Supprimer fond
-                </button>
-              )}
-            </div>
-            <label className="mt-4 block text-sm">
-              <span>Assombrissement ({backgroundOverlayOpacity} %)</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                disabled={readOnly || !backgroundMediaUrl}
-                className="mt-2 w-full max-w-md disabled:opacity-50"
-                value={backgroundOverlayOpacity}
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  updateMetadata({ backgroundOverlayOpacity: value });
-                }}
-                onPointerUp={async (e) => {
-                  if (readOnly) return;
-                  const value = Number((e.target as HTMLInputElement).value);
-                  const q = await api.patch<QuizApiDetail>(`/api/quizzes/${slug}`, {
-                    backgroundOverlayOpacity: value,
-                  });
-                  if (q) markSaved(q);
-                }}
-              />
-            </label>
-          </div>
-        </div>
+            </button>
+          ))}
+        </nav>
       </div>
 
-      <div className="rounded-lg border bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-800">Questions ({items.length})</h2>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={readOnly || structuredLocked}
-              title={
-                structuredLocked || readOnly
-                  ? 'Disponible uniquement en brouillon'
-                  : 'Générer des questions avec l’IA'
-              }
-              className="inline-flex items-center gap-1.5 rounded-md border border-violet-500 px-3 py-1.5 text-xs font-medium text-violet-700 disabled:opacity-50"
-              onClick={() => setAiOpen(true)}
-            >
-              <Sparkle size={14} weight="fill" />
-              Générer avec IA
-            </button>
-            <button
-              type="button"
-              disabled={readOnly || structuredLocked}
-              title={
-                structuredLocked ? 'Repasse le quiz en brouillon pour modifier ce champ' : undefined
-              }
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
-              onClick={() => addQuestion()}
-            >
-              <Plus size={14} weight="bold" />
-              Ajouter une question
-            </button>
+      {activeTab === 'settings' && (
+        <div className="rounded-lg border bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-800">Paramètres généraux</h2>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="block text-sm">
+              <span>Titre *</span>
+              <input
+                className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                disabled={readOnly}
+                value={title}
+                onChange={(e) => updateMetadata({ title: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm md:col-span-2">
+              <span>Description</span>
+              <textarea
+                className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                disabled={readOnly}
+                rows={3}
+                value={description ?? ''}
+                onChange={(e) => updateMetadata({ description: e.target.value || null })}
+              />
+            </label>
+            <label className="block text-sm">
+              <span>Type</span>
+              <select
+                className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                disabled={readOnly || structuredLocked}
+                title={structuredLocked ? 'Repasse en brouillon pour modifier ce champ' : undefined}
+                value={type}
+                onChange={(e) =>
+                  updateMetadata({
+                    type: e.target.value as typeof type,
+                  })
+                }
+              >
+                <option value="standard">standard</option>
+                <option value="sponsored">sponsored</option>
+                <option value="custom">custom</option>
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span>Sponsor (actifs)</span>
+              <select
+                className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                disabled={readOnly || structuredLocked}
+                title={structuredLocked ? 'Repasse en brouillon pour modifier ce champ' : undefined}
+                value={sponsorId ?? ''}
+                onChange={(e) =>
+                  updateMetadata({
+                    sponsorId: e.target.value === '' ? null : e.target.value,
+                  })
+                }
+              >
+                <option value="">—</option>
+                {sponsorsQ.data?.items.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span>Langue</span>
+              <input
+                className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                disabled={readOnly}
+                value={language}
+                onChange={(e) => updateMetadata({ language: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              <span>Durée estimée (secondes)</span>
+              <input
+                type="number"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                disabled={readOnly || structuredLocked}
+                title={structuredLocked ? 'Repasse en brouillon pour modifier ce champ' : undefined}
+                value={durationEstimateSeconds ?? ''}
+                onChange={(e) =>
+                  updateMetadata({
+                    durationEstimateSeconds: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              />
+            </label>
           </div>
         </div>
+      )}
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext
-            items={items.map((q) => q.tempId)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="mt-4 space-y-3">
-              {items.map((q, qi) => {
-                const expanded = expandedTempId === q.tempId;
-                return (
-                  <SortableQRow
-                    key={q.tempId}
-                    id={q.tempId}
-                    dragDisabled={readOnly || structuredLocked}
-                    expanded={expanded}
-                    onToggle={() => setExpanded(expanded ? null : q.tempId)}
-                    title={`${qi + 1}. ${q.text.slice(0, 60)}${q.text.length > 60 ? '…' : ''}`}
-                    subtitle={`${q.timeLimitSeconds}s · ${q.pointsMax} pts`}
+      {activeTab === 'design' && (
+        <div className="rounded-lg border bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-800">Design</h2>
+          <div className="mt-3 grid gap-6">
+            <div className="flex flex-wrap gap-6">
+              <label className="text-sm">
+                Couleur primaire
+                <input
+                  type="color"
+                  disabled={readOnly}
+                  className="ml-2 h-10 w-16 rounded border disabled:opacity-50"
+                  value={brandingPrimary}
+                  onChange={(e) => updateMetadata({ brandingPrimary: e.target.value })}
+                />
+              </label>
+              <label className="text-sm">
+                Couleur secondaire
+                <input
+                  type="color"
+                  disabled={readOnly}
+                  className="ml-2 h-10 w-16 rounded border disabled:opacity-50"
+                  value={brandingSecondary}
+                  onChange={(e) => updateMetadata({ brandingSecondary: e.target.value })}
+                />
+              </label>
+            </div>
+
+            <QuizAnswerStylePicker
+              value={answerDisplayStyle}
+              disabled={readOnly}
+              onChange={(style) => updateMetadata({ answerDisplayStyle: style })}
+            />
+
+            <div>
+              <p className="text-sm font-medium">Image de couverture</p>
+              {coverImageUrl && (
+                <img
+                  src={resolveMediaUrl(coverImageUrl) ?? coverImageUrl}
+                  alt=""
+                  className="mt-2 max-h-32 rounded border object-contain"
+                />
+              )}
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  disabled={readOnly}
+                  className="text-sm"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const q = await apiUploadFile<QuizApiDetail>(`/api/quizzes/${slug}/cover`, f);
+                    markSaved(q);
+                  }}
+                />
+                {coverImageUrl && !readOnly && (
+                  <button
+                    type="button"
+                    className="rounded border px-2 py-1 text-sm"
+                    onClick={async () => {
+                      const q = await api.delete<QuizApiDetail>(`/api/quizzes/${slug}/cover`);
+                      if (q) markSaved(q);
+                    }}
                   >
-                    <div className="space-y-3">
-                      <label className="block text-sm">
-                        Texte de la question
-                        <textarea
-                          className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
-                          disabled={readOnly}
-                          rows={3}
-                          value={q.text}
-                          onChange={(e) => updateQuestion(q.tempId, { text: e.target.value })}
-                        />
-                      </label>
-                      <div className="flex flex-wrap gap-4">
-                        {q.imageUrl && (
-                          <img
-                            src={resolveMediaUrl(q.imageUrl) ?? q.imageUrl}
-                            alt=""
-                            className="max-h-32 rounded border"
-                          />
-                        )}
-                        <label className="text-sm">
-                          Image (optionnelle)
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    Supprimer couverture
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium">Fond des questions (écran cinéma)</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Photo ou vidéo plein écran pendant la phase questions du player NUC.
+              </p>
+              {backgroundMediaUrl && (
+                <div className="relative mt-2 max-h-40 overflow-hidden rounded border">
+                  {backgroundMediaType === 'video' ? (
+                    <video
+                      src={resolveMediaUrl(backgroundMediaUrl) ?? backgroundMediaUrl}
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
+                      className="h-40 w-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={resolveMediaUrl(backgroundMediaUrl) ?? backgroundMediaUrl}
+                      alt=""
+                      className="h-40 w-full object-cover"
+                    />
+                  )}
+                  {backgroundOverlayOpacity > 0 && (
+                    <div
+                      className="pointer-events-none absolute inset-0 bg-black"
+                      style={{ opacity: backgroundOverlayOpacity / 100 }}
+                    />
+                  )}
+                </div>
+              )}
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm"
+                  disabled={readOnly}
+                  className="text-sm"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const q = await apiUploadFile<QuizApiDetail>(
+                      `/api/quizzes/${slug}/background`,
+                      f,
+                    );
+                    markSaved(q);
+                  }}
+                />
+                {backgroundMediaUrl && !readOnly && (
+                  <button
+                    type="button"
+                    className="rounded border px-2 py-1 text-sm"
+                    onClick={async () => {
+                      const q = await api.delete<QuizApiDetail>(`/api/quizzes/${slug}/background`);
+                      if (q) markSaved(q);
+                    }}
+                  >
+                    Supprimer fond
+                  </button>
+                )}
+              </div>
+              <label className="mt-4 block text-sm">
+                <span>Assombrissement ({backgroundOverlayOpacity} %)</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  disabled={readOnly || !backgroundMediaUrl}
+                  className="mt-2 w-full max-w-md disabled:opacity-50"
+                  value={backgroundOverlayOpacity}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    updateMetadata({ backgroundOverlayOpacity: value });
+                  }}
+                  onPointerUp={async (e) => {
+                    if (readOnly) return;
+                    const value = Number((e.target as HTMLInputElement).value);
+                    const q = await api.patch<QuizApiDetail>(`/api/quizzes/${slug}`, {
+                      backgroundOverlayOpacity: value,
+                    });
+                    if (q) markSaved(q);
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'music' && (
+        <div className="rounded-lg border bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-800">Musique</h2>
+          <p className="mt-3 text-sm text-gray-600">
+            La musique d&apos;ambiance est configurée au niveau du cinéma (fichier MP3 sur le NUC).
+            La personnalisation musicale par quiz sera disponible prochainement.
+          </p>
+        </div>
+      )}
+
+      {activeTab === 'questions' && (
+        <div className="rounded-lg border bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-800">Questions ({items.length})</h2>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={readOnly || structuredLocked}
+                title={
+                  structuredLocked || readOnly
+                    ? 'Disponible uniquement en brouillon'
+                    : 'Générer des questions avec l’IA'
+                }
+                className="inline-flex items-center gap-1.5 rounded-md border border-violet-500 px-3 py-1.5 text-xs font-medium text-violet-700 disabled:opacity-50"
+                onClick={() => setAiOpen(true)}
+              >
+                <Sparkle size={14} weight="fill" />
+                Générer avec IA
+              </button>
+              <button
+                type="button"
+                disabled={readOnly || structuredLocked}
+                title={
+                  structuredLocked
+                    ? 'Repasse le quiz en brouillon pour modifier ce champ'
+                    : undefined
+                }
+                className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
+                onClick={() => addQuestion()}
+              >
+                <Plus size={14} weight="bold" />
+                Ajouter une question
+              </button>
+            </div>
+          </div>
+
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext
+              items={items.map((q) => q.tempId)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="mt-4 space-y-3">
+                {items.map((q, qi) => {
+                  const expanded = expandedTempId === q.tempId;
+                  return (
+                    <SortableQRow
+                      key={q.tempId}
+                      id={q.tempId}
+                      dragDisabled={readOnly || structuredLocked}
+                      expanded={expanded}
+                      onToggle={() => setExpanded(expanded ? null : q.tempId)}
+                      title={`${qi + 1}. ${q.text.slice(0, 60)}${q.text.length > 60 ? '…' : ''}`}
+                      subtitle={`${q.timeLimitSeconds}s · ${q.pointsMax} pts`}
+                    >
+                      <div className="space-y-3">
+                        <label className="block text-sm">
+                          Texte de la question
+                          <textarea
+                            className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
                             disabled={readOnly}
-                            className="ml-2"
-                            onChange={async (e) => {
-                              const f = e.target.files?.[0];
-                              if (!f || !q.id) return;
-                              const res = await apiUploadFile<QuizApiDetail>(
-                                `/api/quizzes/${slug}/questions/${q.id}/image`,
-                                f,
-                              );
-                              markSaved(res);
-                            }}
+                            rows={3}
+                            value={q.text}
+                            onChange={(e) => updateQuestion(q.tempId, { text: e.target.value })}
                           />
                         </label>
-                        {q.imageUrl && !readOnly && q.id && (
-                          <button
-                            type="button"
-                            className="rounded border px-2 py-1 text-sm"
-                            onClick={async () => {
-                              const res = await api.delete<QuizApiDetail>(
-                                `/api/quizzes/${slug}/questions/${q.id}/image`,
-                              );
-                              if (res) markSaved(res);
-                            }}
-                          >
-                            Supprimer image
-                          </button>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">Réponses</p>
-                        {(['A', 'B', 'C', 'D'] as const).map((pos) => {
-                          const ans = q.answers.find((a) => a.position === pos)!;
-                          return (
-                            <div key={pos} className="flex items-center gap-2">
-                              <span className="w-8 font-mono text-sm">{pos}</span>
-                              <input
-                                type="radio"
-                                name={`corr-${q.tempId}`}
-                                checked={ans.isCorrect}
-                                disabled={readOnly || structuredLocked}
-                                title={
-                                  structuredLocked
-                                    ? 'Repasse en brouillon pour modifier ce champ'
-                                    : undefined
-                                }
-                                onChange={() => setCorrectAnswer(q.tempId, pos)}
-                              />
-                              <input
-                                type="text"
-                                className="flex-1 rounded border px-2 py-1 text-sm disabled:bg-gray-100"
-                                disabled={readOnly}
-                                value={ans.text}
-                                onChange={(e) =>
-                                  updateAnswer(q.tempId, pos as AnswerPos, {
-                                    text: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        <label className="text-sm">
-                          Time limit
-                          <input
-                            type="number"
-                            disabled={readOnly || structuredLocked}
-                            title={
-                              structuredLocked
-                                ? 'Repasse en brouillon pour modifier ce champ'
-                                : undefined
-                            }
-                            className="ml-2 w-20 rounded border px-2 py-1 text-sm disabled:bg-gray-100"
-                            value={q.timeLimitSeconds}
+                        <div className="flex flex-wrap gap-4">
+                          {q.imageUrl && (
+                            <img
+                              src={resolveMediaUrl(q.imageUrl) ?? q.imageUrl}
+                              alt=""
+                              className="max-h-32 rounded border"
+                            />
+                          )}
+                          <label className="text-sm">
+                            Image (optionnelle)
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                              disabled={readOnly}
+                              className="ml-2"
+                              onChange={async (e) => {
+                                const f = e.target.files?.[0];
+                                if (!f || !q.id) return;
+                                const res = await apiUploadFile<QuizApiDetail>(
+                                  `/api/quizzes/${slug}/questions/${q.id}/image`,
+                                  f,
+                                );
+                                markSaved(res);
+                              }}
+                            />
+                          </label>
+                          {q.imageUrl && !readOnly && q.id && (
+                            <button
+                              type="button"
+                              className="rounded border px-2 py-1 text-sm"
+                              onClick={async () => {
+                                const res = await api.delete<QuizApiDetail>(
+                                  `/api/quizzes/${slug}/questions/${q.id}/image`,
+                                );
+                                if (res) markSaved(res);
+                              }}
+                            >
+                              Supprimer image
+                            </button>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-700">Réponses</p>
+                          {(['A', 'B', 'C', 'D'] as const).map((pos) => {
+                            const ans = q.answers.find((a) => a.position === pos)!;
+                            return (
+                              <div key={pos} className="flex items-center gap-2">
+                                <span className="w-8 font-mono text-sm">{pos}</span>
+                                <input
+                                  type="radio"
+                                  name={`corr-${q.tempId}`}
+                                  checked={ans.isCorrect}
+                                  disabled={readOnly || structuredLocked}
+                                  title={
+                                    structuredLocked
+                                      ? 'Repasse en brouillon pour modifier ce champ'
+                                      : undefined
+                                  }
+                                  onChange={() => setCorrectAnswer(q.tempId, pos)}
+                                />
+                                <input
+                                  type="text"
+                                  className="flex-1 rounded border px-2 py-1 text-sm disabled:bg-gray-100"
+                                  disabled={readOnly}
+                                  value={ans.text}
+                                  onChange={(e) =>
+                                    updateAnswer(q.tempId, pos as AnswerPos, {
+                                      text: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          <label className="text-sm">
+                            Time limit
+                            <input
+                              type="number"
+                              disabled={readOnly || structuredLocked}
+                              title={
+                                structuredLocked
+                                  ? 'Repasse en brouillon pour modifier ce champ'
+                                  : undefined
+                              }
+                              className="ml-2 w-20 rounded border px-2 py-1 text-sm disabled:bg-gray-100"
+                              value={q.timeLimitSeconds}
+                              onChange={(e) =>
+                                updateQuestion(q.tempId, {
+                                  timeLimitSeconds: Number(e.target.value),
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="text-sm">
+                            Points max
+                            <input
+                              type="number"
+                              disabled={readOnly || structuredLocked}
+                              className="ml-2 w-24 rounded border px-2 py-1 text-sm disabled:bg-gray-100"
+                              title={
+                                structuredLocked
+                                  ? 'Repasse en brouillon pour modifier ce champ'
+                                  : undefined
+                              }
+                              value={q.pointsMax}
+                              onChange={(e) =>
+                                updateQuestion(q.tempId, { pointsMax: Number(e.target.value) })
+                              }
+                            />
+                          </label>
+                          <label className="text-sm">
+                            Points floor
+                            <input
+                              type="number"
+                              disabled={readOnly || structuredLocked}
+                              className="ml-2 w-24 rounded border px-2 py-1 text-sm disabled:bg-gray-100"
+                              title={
+                                structuredLocked
+                                  ? 'Repasse en brouillon pour modifier ce champ'
+                                  : undefined
+                              }
+                              value={q.pointsFloor}
+                              onChange={(e) =>
+                                updateQuestion(q.tempId, { pointsFloor: Number(e.target.value) })
+                              }
+                            />
+                          </label>
+                        </div>
+                        <label className="block text-sm">
+                          Explication
+                          <textarea
+                            className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                            disabled={readOnly}
+                            rows={2}
+                            value={q.explanation ?? ''}
                             onChange={(e) =>
                               updateQuestion(q.tempId, {
-                                timeLimitSeconds: Number(e.target.value),
+                                explanation: e.target.value || null,
                               })
                             }
                           />
                         </label>
-                        <label className="text-sm">
-                          Points max
-                          <input
-                            type="number"
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 rounded border px-3 py-1 text-sm"
                             disabled={readOnly || structuredLocked}
-                            className="ml-2 w-24 rounded border px-2 py-1 text-sm disabled:bg-gray-100"
-                            title={
-                              structuredLocked
-                                ? 'Repasse en brouillon pour modifier ce champ'
-                                : undefined
-                            }
-                            value={q.pointsMax}
-                            onChange={(e) =>
-                              updateQuestion(q.tempId, { pointsMax: Number(e.target.value) })
-                            }
-                          />
-                        </label>
-                        <label className="text-sm">
-                          Points floor
-                          <input
-                            type="number"
+                            onClick={() => duplicateQuestion(q.tempId)}
+                          >
+                            <Copy size={14} />
+                            Dupliquer cette question
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 rounded border border-red-100 px-3 py-1 text-sm text-red-700 disabled:opacity-50"
                             disabled={readOnly || structuredLocked}
-                            className="ml-2 w-24 rounded border px-2 py-1 text-sm disabled:bg-gray-100"
-                            title={
-                              structuredLocked
-                                ? 'Repasse en brouillon pour modifier ce champ'
-                                : undefined
-                            }
-                            value={q.pointsFloor}
-                            onChange={(e) =>
-                              updateQuestion(q.tempId, { pointsFloor: Number(e.target.value) })
-                            }
-                          />
-                        </label>
+                            onClick={() => removeQuestion(q.tempId)}
+                          >
+                            <Trash size={14} />
+                            Supprimer
+                          </button>
+                        </div>
                       </div>
-                      <label className="block text-sm">
-                        Explication
-                        <textarea
-                          className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
-                          disabled={readOnly}
-                          rows={2}
-                          value={q.explanation ?? ''}
-                          onChange={(e) =>
-                            updateQuestion(q.tempId, {
-                              explanation: e.target.value || null,
-                            })
-                          }
-                        />
-                      </label>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1.5 rounded border px-3 py-1 text-sm"
-                          disabled={readOnly || structuredLocked}
-                          onClick={() => duplicateQuestion(q.tempId)}
-                        >
-                          <Copy size={14} />
-                          Dupliquer cette question
-                        </button>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1.5 rounded border border-red-100 px-3 py-1 text-sm text-red-700 disabled:opacity-50"
-                          disabled={readOnly || structuredLocked}
-                          onClick={() => removeQuestion(q.tempId)}
-                        >
-                          <Trash size={14} />
-                          Supprimer
-                        </button>
-                      </div>
-                    </div>
-                  </SortableQRow>
-                );
-              })}
-            </div>
-          </SortableContext>
-        </DndContext>
-        <button
-          type="button"
-          className="mt-4 w-full rounded border border-dashed py-3 text-sm text-gray-600 disabled:opacity-50"
-          disabled={readOnly || structuredLocked}
-          onClick={() => addQuestion()}
-        >
-          + Ajouter une question
-        </button>
-      </div>
+                    </SortableQRow>
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
+          <button
+            type="button"
+            className="mt-4 w-full rounded border border-dashed py-3 text-sm text-gray-600 disabled:opacity-50"
+            disabled={readOnly || structuredLocked}
+            onClick={() => addQuestion()}
+          >
+            + Ajouter une question
+          </button>
+        </div>
+      )}
       <AiGenerateModal
         open={aiOpen}
         onClose={() => setAiOpen(false)}

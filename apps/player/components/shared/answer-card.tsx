@@ -1,25 +1,38 @@
 'use client';
 
-import { ANSWER_COLORS } from '@quiz-app/design-tokens';
+import { ANSWER_COLORS, type AnswerDisplayStyle } from '@quiz-app/design-tokens';
 
 interface AnswerCardProps {
   position: 'A' | 'B' | 'C' | 'D';
   text: string;
   index: number;
+  displayStyle?: AnswerDisplayStyle;
 }
 
-export default function AnswerCard({ position, text, index }: AnswerCardProps) {
+export default function AnswerCard({
+  position,
+  text,
+  index,
+  displayStyle = 'multicolor',
+}: AnswerCardProps) {
   const color = ANSWER_COLORS[position];
+  const isGlass = displayStyle === 'glass';
 
   return (
     <div
-      className="animate-cascade-in flex items-center gap-6 rounded-2xl px-8 py-6 text-white opacity-0"
+      className={`animate-cascade-in flex items-center gap-6 rounded-2xl px-8 py-6 opacity-0 ${
+        isGlass
+          ? 'border border-white/25 bg-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-md'
+          : 'text-white'
+      }`}
       style={{
-        backgroundColor: color.bg,
+        backgroundColor: isGlass ? undefined : color.bg,
         animationDelay: `${index * 0.1}s`,
       }}
     >
-      <span className="text-4xl font-black">{position}</span>
+      <span className="text-4xl font-black" style={isGlass ? { color: color.bg } : undefined}>
+        {position}
+      </span>
       <span className="text-2xl font-semibold">{text}</span>
     </div>
   );

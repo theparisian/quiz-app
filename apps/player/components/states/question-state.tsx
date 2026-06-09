@@ -15,6 +15,7 @@ export default function QuestionState() {
   const questionTimeLimitMs = useNucStore((s) => s.questionTimeLimitMs);
   const answersSubmittedCount = useNucStore((s) => s.answersSubmittedCount);
   const answersTotal = useNucStore((s) => s.answersTotal);
+  const quizAnswerDisplayStyle = useNucStore((s) => s.quizAnswerDisplayStyle);
 
   useEffect(() => {
     pauseBackground();
@@ -51,6 +52,7 @@ export default function QuestionState() {
                 position={answer.position as 'A' | 'B' | 'C' | 'D'}
                 text={answer.text}
                 index={i}
+                displayStyle={quizAnswerDisplayStyle}
               />
             ))}
           </div>

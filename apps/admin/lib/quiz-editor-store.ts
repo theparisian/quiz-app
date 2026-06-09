@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { readAnswerDisplayStyle, type AnswerDisplayStyle } from '@quiz-app/design-tokens';
 
 export type AnswerPos = 'A' | 'B' | 'C' | 'D';
 
@@ -81,8 +82,12 @@ function readBrandingColors(json: unknown): { primary: string; secondary: string
   return { primary: '#1e40af', secondary: '#64748b' };
 }
 
-function buildBrandingJson(primary: string, secondary: string): Record<string, unknown> {
-  return { primary, secondary };
+function buildBrandingJson(
+  primary: string,
+  secondary: string,
+  answerDisplayStyle: AnswerDisplayStyle,
+): Record<string, unknown> {
+  return { primary, secondary, answerDisplayStyle };
 }
 
 function defaultAnswers(): EditorAnswer[] {
@@ -105,6 +110,7 @@ export interface QuizEditorState {
   durationEstimateSeconds: number | null;
   brandingPrimary: string;
   brandingSecondary: string;
+  answerDisplayStyle: AnswerDisplayStyle;
   coverImageUrl: string | null;
   backgroundMediaUrl: string | null;
   backgroundMediaType: 'image' | 'video' | null;
@@ -125,6 +131,7 @@ export interface QuizEditorState {
     durationEstimateSeconds?: number | null;
     brandingPrimary?: string;
     brandingSecondary?: string;
+    answerDisplayStyle?: AnswerDisplayStyle;
     coverImageUrl?: string | null;
     backgroundMediaUrl?: string | null;
     backgroundMediaType?: 'image' | 'video' | null;
@@ -220,6 +227,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
   durationEstimateSeconds: null,
   brandingPrimary: '#1e40af',
   brandingSecondary: '#64748b',
+  answerDisplayStyle: 'multicolor',
   coverImageUrl: null,
   backgroundMediaUrl: null,
   backgroundMediaType: null,
@@ -241,6 +249,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       durationEstimateSeconds: api.durationEstimateSeconds,
       brandingPrimary: colors.primary,
       brandingSecondary: colors.secondary,
+      answerDisplayStyle: readAnswerDisplayStyle(api.brandingJson),
       coverImageUrl: api.coverImageUrl,
       backgroundMediaUrl: api.backgroundMediaUrl,
       backgroundMediaType: api.backgroundMediaType,
@@ -400,7 +409,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       sponsorId: s.sponsorId,
       language: s.language,
       durationEstimateSeconds: s.durationEstimateSeconds,
-      brandingJson: buildBrandingJson(s.brandingPrimary, s.brandingSecondary),
+      brandingJson: buildBrandingJson(s.brandingPrimary, s.brandingSecondary, s.answerDisplayStyle),
       coverImageUrl: s.coverImageUrl,
       backgroundOverlayOpacity: s.backgroundOverlayOpacity,
       questions: ordered.map((q, idx) => ({
