@@ -28,7 +28,7 @@ export default function QuestionState() {
     <div className="relative flex h-full flex-col">
       <QuizBackground />
       <div className="relative z-10 flex h-full flex-col">
-        <div className="flex items-center justify-center bg-white/5 py-4 text-xl font-medium text-gray-300">
+        <div className="fixed right-16 top-4 z-20 text-xl font-medium text-gray-300">
           Question {currentQuestionPosition} / {totalQuestions}
         </div>
 
