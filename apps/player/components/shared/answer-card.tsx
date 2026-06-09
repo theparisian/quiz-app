@@ -13,10 +13,10 @@ export default function AnswerCard({ position, text, index }: AnswerCardProps) {
 
   return (
     <div
-      className="flex items-center gap-6 rounded-2xl px-8 py-6 text-white opacity-0"
+      className="animate-cascade-in flex items-center gap-6 rounded-2xl px-8 py-6 text-white opacity-0"
       style={{
         backgroundColor: color.bg,
-        animation: `cascade-in 0.3s ease-out ${index * 0.1}s forwards`,
+        animationDelay: `${index * 0.1}s`,
       }}
     >
       <span className="text-4xl font-black">{position}</span>

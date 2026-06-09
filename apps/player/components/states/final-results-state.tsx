@@ -34,8 +34,8 @@ export default function FinalResultsState() {
       <div className="mb-12 flex items-end justify-center gap-4">
         {second && (
           <div
-            className="flex w-48 flex-col items-center rounded-t-2xl bg-gray-800 p-6 opacity-0"
-            style={{ animation: 'slide-in-left 0.6s ease-out 2.5s forwards', minHeight: '180px' }}
+            className="animate-slide-in-left flex w-48 flex-col items-center rounded-t-2xl bg-gray-800 p-6 opacity-0"
+            style={{ animationDelay: '2.5s', minHeight: '180px' }}
           >
             <div className="text-2xl font-bold text-gray-400">#2</div>
             <div className="mt-2 text-xl font-semibold">{second.pseudo}</div>
@@ -45,8 +45,8 @@ export default function FinalResultsState() {
 
         {first && (
           <div
-            className="flex w-56 flex-col items-center rounded-t-2xl bg-yellow-500/20 p-8 opacity-0"
-            style={{ animation: 'scale-up 0.6s ease-out 3s forwards', minHeight: '240px' }}
+            className="animate-scale-up flex w-56 flex-col items-center rounded-t-2xl bg-yellow-500/20 p-8 opacity-0"
+            style={{ animationDelay: '3s', minHeight: '240px' }}
           >
             <div className="text-4xl font-black text-yellow-400">#1</div>
             <div className="mt-2 text-2xl font-bold">{first.pseudo}</div>
@@ -56,8 +56,8 @@ export default function FinalResultsState() {
 
         {third && (
           <div
-            className="flex w-48 flex-col items-center rounded-t-2xl bg-gray-800 p-6 opacity-0"
-            style={{ animation: 'slide-in-right 0.6s ease-out 2s forwards', minHeight: '140px' }}
+            className="animate-slide-in-right flex w-48 flex-col items-center rounded-t-2xl bg-gray-800 p-6 opacity-0"
+            style={{ animationDelay: '2s', minHeight: '140px' }}
           >
             <div className="text-2xl font-bold text-gray-400">#3</div>
             <div className="mt-2 text-xl font-semibold">{third.pseudo}</div>
@@ -73,8 +73,8 @@ export default function FinalResultsState() {
             {rest.map((entry, i) => (
               <div
                 key={entry.playerId}
-                className="flex items-center justify-between rounded-lg bg-white/5 px-6 py-3 opacity-0"
-                style={{ animation: `cascade-in 0.3s ease-out ${3.5 + i * 0.1}s forwards` }}
+                className="animate-cascade-in flex items-center justify-between rounded-lg bg-white/5 px-6 py-3 opacity-0"
+                style={{ animationDelay: `${3.5 + i * 0.1}s` }}
               >
                 <div className="flex items-center gap-4">
                   <span className="w-8 text-right text-gray-500">#{entry.rank}</span>

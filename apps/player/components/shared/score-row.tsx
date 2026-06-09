@@ -11,8 +11,8 @@ interface ScoreRowProps {
 export default function ScoreRow({ rank, pseudo, scoreTotal, scoreDiff, index }: ScoreRowProps) {
   return (
     <div
-      className="flex items-center justify-between rounded-xl bg-white/5 px-6 py-4 opacity-0"
-      style={{ animation: `cascade-in 0.3s ease-out ${index * 0.1}s forwards` }}
+      className="animate-cascade-in flex items-center justify-between rounded-xl bg-white/5 px-6 py-4 opacity-0"
+      style={{ animationDelay: `${index * 0.1}s` }}
     >
       <div className="flex items-center gap-4">
         <span className="w-10 text-right text-xl font-bold text-gray-400">#{rank}</span>
