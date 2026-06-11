@@ -34,7 +34,7 @@ export default function ScreenDetailPage() {
           <p className="mt-4 text-gray-400">Chargement...</p>
         ) : data && data.items.length > 0 ? (
           <div className="mt-3 overflow-hidden rounded-lg border bg-white">
-            <div className="grid grid-cols-[1fr_1fr_80px_80px] gap-2 border-b bg-gray-50 px-4 py-2 text-xs font-medium uppercase text-gray-500">
+            <div className="grid grid-cols-[1fr_1fr_80px_110px] gap-2 border-b bg-gray-50 px-4 py-2 text-xs font-medium uppercase text-gray-500">
               <span>Date</span>
               <span>Quiz</span>
               <span className="text-center">Joueurs</span>
