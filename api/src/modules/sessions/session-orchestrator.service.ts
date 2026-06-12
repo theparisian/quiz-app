@@ -920,6 +920,21 @@ export function getOrchestrator() {
         throw new AppError('Wrong question', 400, 'WRONG_QUESTION');
       }
 
+      const player = await prisma.player.findUnique({
+        where: { id: input.playerId },
+        select: { joinedQuestionPosition: true },
+      });
+      if (
+        player?.joinedQuestionPosition != null &&
+        player.joinedQuestionPosition === currentQuestion.position
+      ) {
+        throw new AppError(
+          'Cannot answer current question after late join',
+          403,
+          'LATE_JOIN_LOCKED',
+        );
+      }
+
       const answerExists = currentQuestion.answers.some((a) => a.id === input.answerId);
       if (!answerExists) {
         throw new AppError('Invalid answer', 400, 'INVALID_ANSWER');

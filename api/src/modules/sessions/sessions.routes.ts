@@ -1,8 +1,16 @@
 import { Router } from 'express';
+import { pseudoSuggestionsResponseSchema } from '@quiz-app/validation';
 import { requireAuth } from '../../shared/auth/index.js';
 import { validate } from '../../shared/validation/index.js';
 import { param } from '../../shared/utils/index.js';
 import { prisma } from '../../shared/db/index.js';
+import { AppError } from '../../shared/errors/app-error.js';
+import { generateSuggestions } from '../../shared/pseudo-generator.js';
+import {
+  checkPseudoSuggestionsRateLimit,
+  clientKeyFromRequest,
+} from '../../shared/rate-limit/pseudo-suggestions.rate-limit.js';
+import { PSEUDO_MAX_LENGTH } from '../players/players.schemas.js';
 import {
   createSessionSchema,
   listSessionsQuerySchema,
@@ -158,6 +166,61 @@ router.get('/by-code/:slugShort', async (req, res, next) => {
       },
       totalPlayers: session.totalPlayers,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/by-code/:slugShort/pseudo-suggestions', async (req, res, next) => {
+  try {
+    const clientKey = clientKeyFromRequest(req.ip);
+    const rate = checkPseudoSuggestionsRateLimit(clientKey);
+    if (!rate.allowed) {
+      throw new AppError('Too many requests', 429, 'RATE_LIMIT_EXCEEDED');
+    }
+
+    const slugShort = param(req, 'slugShort');
+    const session = await prisma.session.findFirst({
+      where: { slugShort },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        state: true,
+        players: {
+          where: { status: { not: 'kicked' } },
+          select: { pseudo: true },
+        },
+      },
+    });
+
+    if (!session || session.state === 'ended' || session.state === 'aborted') {
+      throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
+    }
+
+    const suggestions = generateSuggestions({
+      excluded: session.players.map((p) => p.pseudo),
+      count: 3,
+      maxLength: PSEUDO_MAX_LENGTH,
+    });
+
+    while (suggestions.length < 3) {
+      const extra = generateSuggestions({
+        excluded: [...session.players.map((p) => p.pseudo), ...suggestions],
+        count: 1,
+        maxLength: PSEUDO_MAX_LENGTH,
+      });
+      if (extra.length === 0) break;
+      suggestions.push(extra[0]!);
+    }
+
+    if (suggestions.length < 3) {
+      throw new AppError('Unable to generate suggestions', 503, 'SUGGESTIONS_UNAVAILABLE');
+    }
+
+    const payload = pseudoSuggestionsResponseSchema.parse({
+      suggestions: [suggestions[0], suggestions[1], suggestions[2]],
+    });
+    res.json(payload);
   } catch (error) {
     next(error);
   }

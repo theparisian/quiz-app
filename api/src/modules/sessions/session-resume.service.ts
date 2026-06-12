@@ -72,6 +72,92 @@ async function loadSessionFull(sessionId: bigint) {
   return session;
 }
 
+function resolveJoinedQuestionPosition(
+  session: { currentQuestionPosition: number | null; state: string },
+  mem: RunningSessionState | undefined,
+): number {
+  const dbPos = session.currentQuestionPosition ?? 0;
+  if (dbPos > 0) return dbPos;
+  if (mem && mem.currentQuestionIndex >= 0 && mem.currentQuestionIndex < mem.questions.length) {
+    return mem.questions[mem.currentQuestionIndex]!.position;
+  }
+  return 0;
+}
+
+function isLateJoinerOnCurrentQuestion(
+  joinedQuestionPosition: number | null,
+  questionPosition: number,
+): boolean {
+  return joinedQuestionPosition != null && joinedQuestionPosition === questionPosition;
+}
+
+export async function buildPlayerJoinSnapshot(
+  sessionId: bigint,
+  playerId: bigint,
+): Promise<Record<string, unknown>> {
+  const session = await loadSessionFull(sessionId);
+  const player = await prisma.player.findUnique({ where: { id: playerId } });
+  if (!player || player.sessionId !== sessionId) {
+    throw new AppError('Session mismatch', 403, 'SESSION_MISMATCH');
+  }
+
+  const totalQuestions = session.quiz.questions.length;
+  const mem = getOrchestrator().getRunningState(sessionId);
+  const currentQuestionPosition = resolveJoinedQuestionPosition(session, mem);
+
+  const base = {
+    sessionState: session.state,
+    currentQuestionPosition,
+    totalQuestions,
+    canAnswerCurrentQuestion: false as const,
+  };
+
+  if (session.state === 'paused' && mem) {
+    return base;
+  }
+
+  if (!mem) {
+    return base;
+  }
+
+  if (
+    !mem.questionEnded &&
+    mem.currentQuestionStartedAt &&
+    mem.currentQuestionIndex >= 0 &&
+    mem.currentQuestionIndex < mem.questions.length
+  ) {
+    return {
+      ...base,
+      timerRemainingMs: questionRemainingMsFromMem(
+        session.state,
+        mem,
+        mem.currentQuestionTimeLimitMs,
+      ),
+    };
+  }
+
+  if (
+    mem.questionEnded &&
+    mem.currentQuestionIndex >= 0 &&
+    mem.currentQuestionIndex < mem.questions.length
+  ) {
+    const hasNext = mem.currentQuestionIndex + 1 < mem.questions.length;
+    if (!hasNext) {
+      return {
+        ...base,
+        showFinalImmediately: true,
+        timerRemainingMs: resultsPhaseRemainingMs(mem),
+      };
+    }
+    return {
+      ...base,
+      timerRemainingMs: resultsPhaseRemainingMs(mem),
+    };
+  }
+
+  return base;
+}
+
 export async function buildMobilePlayerStateSnapshot(
   playerId: bigint,
   sessionId: bigint,
@@ -100,6 +186,7 @@ export async function buildMobilePlayerStateSnapshot(
       pseudo: player.pseudo,
       scoreTotal: player.scoreTotal,
       currentRank: session.state === 'running' || session.state === 'paused' ? currentRank : null,
+      joinedQuestionPosition: player.joinedQuestionPosition,
     },
     session: {
       sessionId: session.id.toString(),
@@ -160,31 +247,46 @@ export async function buildMobilePlayerStateSnapshot(
     mem.currentQuestionIndex < mem.questions.length
   ) {
     const q = mem.questions[mem.currentQuestionIndex]!;
-    const pa = await prisma.playerAnswer.findUnique({
-      where: {
-        playerId_questionId: { playerId, questionId: q.id },
-      },
-    });
-    let alreadyPosition: string | null = null;
-    if (pa?.chosenAnswerId) {
-      const ans = q.answers.find((a) => a.id === pa.chosenAnswerId);
-      alreadyPosition = ans ? ans.position : null;
-    }
+    const lockedForLateJoiner = isLateJoinerOnCurrentQuestion(
+      player.joinedQuestionPosition,
+      q.position,
+    );
 
-    out.currentQuestion = {
-      position: q.position,
-      questionId: q.id.toString(),
-      text: q.text,
-      imageUrl: q.imageUrl,
-      answers: q.answers.map((a) => ({
-        id: a.id.toString(),
-        position: a.position as 'A' | 'B' | 'C' | 'D',
-        text: a.text,
-      })),
-      timeLimitMs: mem.currentQuestionTimeLimitMs,
-      remainingMs: questionRemainingMsFromMem(session.state, mem, mem.currentQuestionTimeLimitMs),
-      alreadyAnsweredPosition: alreadyPosition,
-    };
+    if (lockedForLateJoiner) {
+      out.lateJoinWait = {
+        timerRemainingMs: questionRemainingMsFromMem(
+          session.state,
+          mem,
+          mem.currentQuestionTimeLimitMs,
+        ),
+      };
+    } else {
+      const pa = await prisma.playerAnswer.findUnique({
+        where: {
+          playerId_questionId: { playerId, questionId: q.id },
+        },
+      });
+      let alreadyPosition: string | null = null;
+      if (pa?.chosenAnswerId) {
+        const ans = q.answers.find((a) => a.id === pa.chosenAnswerId);
+        alreadyPosition = ans ? ans.position : null;
+      }
+
+      out.currentQuestion = {
+        position: q.position,
+        questionId: q.id.toString(),
+        text: q.text,
+        imageUrl: q.imageUrl,
+        answers: q.answers.map((a) => ({
+          id: a.id.toString(),
+          position: a.position as 'A' | 'B' | 'C' | 'D',
+          text: a.text,
+        })),
+        timeLimitMs: mem.currentQuestionTimeLimitMs,
+        remainingMs: questionRemainingMsFromMem(session.state, mem, mem.currentQuestionTimeLimitMs),
+        alreadyAnsweredPosition: alreadyPosition,
+      };
+    }
   }
 
   if (
@@ -192,21 +294,44 @@ export async function buildMobilePlayerStateSnapshot(
     mem.questionEnded &&
     mem.currentQuestionStartedAt === null &&
     mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length &&
-    mem.currentQuestionIndex + 1 < mem.questions.length
+    mem.currentQuestionIndex < mem.questions.length
   ) {
     const q = mem.questions[mem.currentQuestionIndex]!;
-    const correct = q.answers.find((a) => a.isCorrect);
-    const pa = await prisma.playerAnswer.findUnique({
-      where: { playerId_questionId: { playerId, questionId: q.id } },
-    });
-    const isCorrect = !!(pa?.chosenAnswerId && correct && pa.chosenAnswerId === correct.id);
-    out.showingResults = {
-      correctAnswerId: correct?.id.toString() ?? '',
-      pointsAwarded: pa?.pointsAwarded ?? 0,
-      isCorrect,
-      nextQuestionInMs: resultsPhaseRemainingMs(mem),
-    };
+    const hasNext = mem.currentQuestionIndex + 1 < mem.questions.length;
+    const lockedForLateJoiner = isLateJoinerOnCurrentQuestion(
+      player.joinedQuestionPosition,
+      q.position,
+    );
+
+    if (lockedForLateJoiner && !hasNext) {
+      const board = ranked.map((p, i) => ({
+        playerId: p.id.toString(),
+        pseudo: p.pseudo,
+        scoreTotal: p.scoreTotal,
+        rank: i + 1,
+      }));
+      out.finalResults = {
+        rank: rankIdx >= 0 ? rankIdx + 1 : ranked.length,
+        finalScoreboard: board,
+        eligibleForPrize: false,
+      };
+    } else if (lockedForLateJoiner && hasNext) {
+      out.lateJoinWait = {
+        timerRemainingMs: resultsPhaseRemainingMs(mem),
+      };
+    } else {
+      const correct = q.answers.find((a) => a.isCorrect);
+      const pa = await prisma.playerAnswer.findUnique({
+        where: { playerId_questionId: { playerId, questionId: q.id } },
+      });
+      const isCorrect = !!(pa?.chosenAnswerId && correct && pa.chosenAnswerId === correct.id);
+      out.showingResults = {
+        correctAnswerId: correct?.id.toString() ?? '',
+        pointsAwarded: pa?.pointsAwarded ?? 0,
+        isCorrect,
+        nextQuestionInMs: resultsPhaseRemainingMs(mem),
+      };
+    }
   }
 
   return out;

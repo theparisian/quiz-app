@@ -78,6 +78,11 @@ enum PlayerStatus {
   kicked
 }
 
+enum PseudoSource {
+  SUGGESTED
+  CUSTOM
+}
+
 enum PrizeType {
   discount_qr
   video
@@ -321,17 +326,19 @@ model Session {
 }
 
 model Player {
-  id            BigInt       @id @default(autoincrement())
-  sessionId     BigInt       @map("session_id")
-  userId        BigInt?      @map("user_id")
-  pseudo        String       @db.VarChar(50)
-  resumeToken   String       @unique @map("resume_token") @db.VarChar(100)
-  joinedAt      DateTime     @default(now()) @map("joined_at")
-  lastSeenAt    DateTime?    @map("last_seen_at")
-  status        PlayerStatus @default(active)
-  scoreTotal    Int          @default(0) @map("score_total")
-  rankFinal     Int?         @map("rank_final")
-  emailForPrize String?      @map("email_for_prize") @db.VarChar(255)
+  id                     BigInt       @id @default(autoincrement())
+  sessionId              BigInt       @map("session_id")
+  userId                 BigInt?      @map("user_id")
+  pseudo                 String       @db.VarChar(50)
+  resumeToken            String       @unique @map("resume_token") @db.VarChar(100)
+  joinedAt               DateTime     @default(now()) @map("joined_at")
+  lastSeenAt             DateTime?    @map("last_seen_at")
+  status                 PlayerStatus @default(active)
+  scoreTotal             Int          @default(0) @map("score_total")
+  rankFinal              Int?         @map("rank_final")
+  emailForPrize          String?      @map("email_for_prize") @db.VarChar(255)
+  joinedQuestionPosition Int?         @map("joined_question_position")
+  pseudoSource           PseudoSource @default(CUSTOM) @map("pseudo_source")
 
   session       Session        @relation(fields: [sessionId], references: [id])
   playerAnswers PlayerAnswer[]

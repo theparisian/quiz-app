@@ -23,6 +23,8 @@ interface JoinAck {
   pseudo?: string;
   sessionId?: string;
   scoreTotal?: number;
+  joinedQuestionPosition?: number | null;
+  stateSnapshot?: Record<string, unknown> | null;
   code?: string;
   message?: string;
 }
@@ -34,23 +36,28 @@ export default function JoinPage() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
-  // Vrai dès qu'on a rejoint : on conserve alors le socket vivant pour la page /play.
   const joinedRef = useRef(false);
 
   useEffect(() => {
     api
       .get<SessionInfo>(`/api/sessions/by-code/${slugShort}`)
       .then((s) => {
-        if (s.state !== 'lobby') {
-          setError('La session a déjà commencé.');
+        const storedSessionId = localStorage.getItem('quiz_session_id');
+        const storedToken = localStorage.getItem('quiz_resume_token');
+        if (storedSessionId === s.sessionId && storedToken) {
+          router.replace(`/play/${storedSessionId}`);
+          return;
+        }
+
+        if (s.state === 'ended' || s.state === 'aborted') {
+          setError('Cette partie est terminée — à la prochaine séance !');
           return;
         }
         setSession(s);
       })
       .catch(() => setError('Session introuvable.'));
-  }, [slugShort]);
+  }, [slugShort, router]);
 
-  // Si on quitte la page sans avoir rejoint, on ferme le socket éventuellement ouvert.
   useEffect(() => {
     return () => {
       if (!joinedRef.current) {
@@ -62,12 +69,12 @@ export default function JoinPage() {
   function mapJoinError(code?: string, message?: string): string {
     if (code === 'PSEUDO_BAD_WORD') return 'Ce pseudo contient des mots inappropriés.';
     if (code === 'PSEUDO_DUPLICATE') return 'Ce pseudo est déjà pris.';
-    if (code === 'SESSION_NOT_IN_LOBBY') return 'La session a déjà commencé.';
+    if (code === 'SESSION_FINISHED') return 'Cette partie est terminée — à la prochaine séance !';
     if (code === 'SESSION_NOT_FOUND') return 'Session introuvable.';
     return message ?? 'Erreur lors de la connexion.';
   }
 
-  async function handleJoin(pseudo: string) {
+  async function handleJoin(pseudo: string, pseudoSource: 'SUGGESTED' | 'CUSTOM') {
     setJoining(true);
     setError(null);
 
@@ -96,7 +103,7 @@ export default function JoinPage() {
 
     sock.emit(
       'player:join',
-      { sessionSlugShort: slugShort, pseudo },
+      { sessionSlugShort: slugShort, pseudo, pseudoSource },
       (ack: JoinAck | undefined) => {
         if (!ack || ack.ok !== true || !ack.playerId || !ack.resumeToken || !ack.sessionId) {
           setError(mapJoinError(ack?.code, ack?.message));
@@ -116,6 +123,8 @@ export default function JoinPage() {
           ...(session?.quiz.title ? { quizTitle: session.quiz.title } : {}),
           ...(session?.quiz.brandingJson ? { brandingJson: session.quiz.brandingJson } : {}),
           scoreTotal: ack.scoreTotal ?? 0,
+          joinedQuestionPosition: ack.joinedQuestionPosition ?? null,
+          stateSnapshot: ack.stateSnapshot ?? null,
         });
 
         router.push(`/play/${ack.sessionId}`);
@@ -126,7 +135,7 @@ export default function JoinPage() {
   if (error && !session) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <div className="text-xl text-red-400">{error}</div>
+        <div className="text-center text-xl text-gray-300">{error}</div>
         <button onClick={() => router.push('/')} className="text-brand-400 mt-6 underline">
           Retour
         </button>
@@ -148,10 +157,13 @@ export default function JoinPage() {
         <div className="mb-2 text-4xl">🎬</div>
         <h1 className="text-2xl font-bold">Quiz au {session.cinema.name}</h1>
         <p className="mt-1 text-gray-400">{session.quiz.title}</p>
+        {session.state !== 'lobby' && (
+          <p className="text-brand-400 mt-2 text-sm">Partie en cours — rejoins-nous !</p>
+        )}
       </div>
 
       <div className="w-full max-w-xs">
-        <PseudoInput onSubmit={handleJoin} disabled={joining} />
+        <PseudoInput sessionCode={slugShort} onSubmit={handleJoin} disabled={joining} />
         {error && (
           <div className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-center text-sm text-red-400">
             {error}

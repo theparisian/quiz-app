@@ -8,9 +8,11 @@ export default function FinalScreen() {
   const finalRank = usePlayerStore((s) => s.finalRank);
   const scoreTotal = usePlayerStore((s) => s.scoreTotal);
   const totalPlayers = usePlayerStore((s) => s.totalPlayers);
+  const joinedQuestionPosition = usePlayerStore((s) => s.joinedQuestionPosition);
   const [emailSent, setEmailSent] = useState(false);
 
   const isTop3 = finalRank !== null && finalRank <= 3;
+  const isLateJoiner = joinedQuestionPosition != null;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
@@ -22,6 +24,9 @@ export default function FinalScreen() {
             <div className="text-lg text-gray-400">
               Position : <span className="font-bold text-white">#{finalRank}</span>
             </div>
+            {isLateJoiner && (
+              <div className="mt-1 text-xs text-gray-500">Arrivé en cours de partie</div>
+            )}
             <div className="text-lg text-gray-400">
               Score : <span className="font-bold text-white">{scoreTotal} pts</span>
             </div>
@@ -45,6 +50,9 @@ export default function FinalScreen() {
                 #{finalRank ?? '—'} / {totalPlayers}
               </span>
             </div>
+            {isLateJoiner && (
+              <div className="mt-1 text-xs text-gray-500">Arrivé en cours de partie</div>
+            )}
             <div className="text-lg text-gray-400">
               Score : <span className="font-bold text-white">{scoreTotal} pts</span>
             </div>

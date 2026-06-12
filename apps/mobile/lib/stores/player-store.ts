@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export type PlayerUiState =
   | 'lobby'
+  | 'late_wait'
   | 'question_active'
   | 'waiting_others'
   | 'question_results'
@@ -46,6 +47,8 @@ interface PlayerState {
 
   finalRank: number | null;
   finalScoreboard: { playerId: string; pseudo: string; scoreTotal: number; rank: number }[] | null;
+  joinedQuestionPosition: number | null;
+  lateWaitTimerMs: number | null;
 
   players: { playerId: string; pseudo: string }[];
 
@@ -61,6 +64,8 @@ interface PlayerState {
     quizTitle?: string;
     brandingJson?: Record<string, unknown> | null;
     scoreTotal?: number;
+    joinedQuestionPosition?: number | null;
+    stateSnapshot?: Record<string, unknown> | null;
   }) => void;
   selectAnswer: (answerId: string, position: 'A' | 'B' | 'C' | 'D') => void;
   applyEvent: (event: string, payload: Record<string, unknown>) => void;
@@ -100,12 +105,31 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   finalRank: null,
   finalScoreboard: null,
+  joinedQuestionPosition: null,
+  lateWaitTimerMs: null,
 
   players: [],
 
   connectionStatus: 'disconnected',
 
   hydrate: (data) => {
+    const snapshot = data.stateSnapshot;
+    const joinedQuestionPosition = data.joinedQuestionPosition ?? null;
+    let uiState: PlayerUiState = 'lobby';
+    let lateWaitTimerMs: number | null = null;
+    let finalRank: number | null = null;
+    const finalScoreboard: PlayerState['finalScoreboard'] = null;
+
+    if (snapshot) {
+      if (snapshot.showFinalImmediately === true) {
+        uiState = 'final_results';
+        finalRank = null;
+      } else if (snapshot.canAnswerCurrentQuestion === false) {
+        uiState = 'late_wait';
+        lateWaitTimerMs = (snapshot.timerRemainingMs as number | undefined) ?? null;
+      }
+    }
+
     set({
       playerId: data.playerId,
       pseudo: data.pseudo,
@@ -116,7 +140,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       quizTitle: data.quizTitle ?? null,
       brandingJson: data.brandingJson ?? null,
       scoreTotal: data.scoreTotal ?? 0,
-      uiState: 'lobby',
+      joinedQuestionPosition,
+      uiState,
+      lateWaitTimerMs,
+      finalRank,
+      finalScoreboard,
+      state: (snapshot?.sessionState as string | undefined) ?? null,
+      totalQuestions: (snapshot?.totalQuestions as number | undefined) ?? 0,
     });
     localStorage.setItem('quiz_resume_token', data.resumeToken);
     localStorage.setItem('quiz_player_id', data.playerId);
@@ -140,6 +170,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           pseudo: string;
           scoreTotal: number;
           currentRank: number | null;
+          joinedQuestionPosition?: number | null;
         }
       | undefined;
     const session = snap.session as
@@ -163,7 +194,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       state: session.state,
       totalQuestions: session.totalQuestions,
       totalPlayers: session.totalPlayers,
+      joinedQuestionPosition: player.joinedQuestionPosition ?? null,
     };
+
+    const lateJoinWait = snap.lateJoinWait as { timerRemainingMs?: number } | undefined;
+    if (lateJoinWait) {
+      set({
+        ...base,
+        uiState: 'late_wait',
+        lateWaitTimerMs: lateJoinWait.timerRemainingMs ?? null,
+      });
+      return;
+    }
 
     const finalResults = snap.finalResults as
       | {
@@ -356,6 +398,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           selectedAnswerId: null,
           selectedAnswerPosition: null,
           lastQuestionResult: null,
+          lateWaitTimerMs: null,
         });
         break;
       }
@@ -459,6 +502,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lastQuestionResult: null,
       finalRank: null,
       finalScoreboard: null,
+      joinedQuestionPosition: null,
+      lateWaitTimerMs: null,
       players: [],
       connectionStatus: 'disconnected',
     }),

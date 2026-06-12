@@ -94,16 +94,18 @@ describe('players API (integration)', () => {
       .expect(400);
   });
 
-  it('join when session not in lobby → 409', async () => {
+  it('join when session finished → 409 SESSION_FINISHED', async () => {
     await prisma.session.update({
       where: { id: BigInt(sessionId) },
       data: { state: 'ended', endedAt: new Date() },
     });
 
-    await request(app)
+    const res = await request(app)
       .post('/api/players/join')
       .send({ sessionSlugShort, pseudo: 'Bob' })
       .expect(409);
+
+    expect(res.body.error.code).toBe('SESSION_FINISHED');
   });
 
   it('GET /sessions/:id/players returns player list', async () => {

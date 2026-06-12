@@ -19,6 +19,7 @@ export type PongPayload = z.infer<typeof pongSchema>;
 export const playerJoinPayloadSchema = z.object({
   pseudo: z.string().min(2).max(30),
   sessionSlugShort: z.string().regex(/^\d{4}$/),
+  pseudoSource: z.enum(['SUGGESTED', 'CUSTOM']).optional(),
 });
 
 export const playerSubmitAnswerPayloadSchema = z.object({

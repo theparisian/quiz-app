@@ -1,20 +1,16 @@
 import type { Server, Socket } from 'socket.io';
 import { z } from 'zod';
-import { playerResumePayloadSchema } from '@quiz-app/validation';
+import { playerResumePayloadSchema, playerJoinPayloadSchema } from '@quiz-app/validation';
 import { logger } from '../../logger/index.js';
 import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';
 import { playersService } from '../../../modules/players/players.service.js';
 import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.service.js';
 import { buildMobilePlayerStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
-import { pseudoRegex } from '../../../modules/players/players.schemas.js';
 import type { SocketPlayerData } from '../socket-auth.js';
 import { broadcastPlayerJoined, broadcastPlayerLeft } from '../session-broadcast.js';
 
-const playerJoinSchema = z.object({
-  pseudo: z.string().min(2).max(30).regex(pseudoRegex),
-  sessionSlugShort: z.string().regex(/^\d{4}$/),
-});
+const playerJoinSchema = playerJoinPayloadSchema;
 
 const submitAnswerSchema = z.object({
   questionId: z.string().min(1),
@@ -49,6 +45,7 @@ export function setupMobileHandlers(io: Server): void {
         const result = await playersService.join({
           sessionSlugShort: parsed.data.sessionSlugShort,
           pseudo: parsed.data.pseudo,
+          pseudoSource: parsed.data.pseudoSource,
         });
 
         const socketData: SocketPlayerData = {
@@ -69,6 +66,8 @@ export function setupMobileHandlers(io: Server): void {
           pseudo: result.pseudo,
           sessionId: result.sessionId.toString(),
           scoreTotal: result.scoreTotal,
+          joinedQuestionPosition: result.joinedQuestionPosition,
+          stateSnapshot: result.stateSnapshot,
         };
 
         if (typeof callback === 'function') {

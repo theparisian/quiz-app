@@ -4,21 +4,39 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { containsBadWord } from '../../shared/moderation/bad-words.js';
+import { getOrchestrator } from '../sessions/session-orchestrator.service.js';
+import { buildPlayerJoinSnapshot } from '../sessions/session-resume.service.js';
+import type { JoinSessionInput } from './players.schemas.js';
 
 function normalizePseudo(raw: string): string {
   return raw.trim().replace(/\s+/g, ' ');
 }
 
+function resolveJoinedQuestionPositionAtJoin(
+  session: { currentQuestionPosition: number | null },
+  sessionId: bigint,
+): number {
+  const dbPos = session.currentQuestionPosition ?? 0;
+  if (dbPos > 0) return dbPos;
+
+  const mem = getOrchestrator().getRunningState(sessionId);
+  if (mem && mem.currentQuestionIndex >= 0 && mem.currentQuestionIndex < mem.questions.length) {
+    return mem.questions[mem.currentQuestionIndex]!.position;
+  }
+  return 0;
+}
+
 export const playersService = {
-  async join(input: { sessionSlugShort: string; pseudo: string; userId?: bigint }) {
+  async join(input: JoinSessionInput & { userId?: bigint }) {
     const session = await prisma.session.findFirst({
       where: { slugShort: input.sessionSlugShort },
       orderBy: { createdAt: 'desc' },
       include: { screen: { select: { cinemaId: true } } },
     });
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
-    if (session.state !== 'lobby') {
-      throw new AppError('Session is not in lobby', 409, 'SESSION_NOT_IN_LOBBY');
+
+    if (session.state === 'ended' || session.state === 'aborted') {
+      throw new AppError('Session is finished', 409, 'SESSION_FINISHED');
     }
 
     const pseudo = normalizePseudo(input.pseudo);
@@ -46,6 +64,10 @@ export const playersService = {
       throw new AppError('Pseudo already taken in this session', 409, 'PSEUDO_DUPLICATE');
 
     const resumeToken = nanoid(32);
+    const isLateJoin = session.state === 'running' || session.state === 'paused';
+    const joinedQuestionPosition = isLateJoin
+      ? resolveJoinedQuestionPositionAtJoin(session, session.id)
+      : null;
 
     const player = await prisma.player.create({
       data: {
@@ -55,6 +77,8 @@ export const playersService = {
         resumeToken,
         status: 'active',
         scoreTotal: 0,
+        joinedQuestionPosition,
+        pseudoSource: input.pseudoSource ?? 'CUSTOM',
       },
     });
 
@@ -63,8 +87,22 @@ export const playersService = {
       data: { totalPlayers: { increment: 1 } },
     });
 
+    if (isLateJoin) {
+      getOrchestrator().addPlayerToSession(session.id, player.id);
+      logEvent({
+        level: 'info',
+        eventType: 'player_late_joined',
+        sessionId: session.id,
+        cinemaId: session.screen.cinemaId,
+        payload: {
+          playerId: player.id.toString(),
+          joinedQuestionPosition,
+        },
+      });
+    }
+
     logger.info(
-      { playerId: player.id.toString(), sessionId: session.id.toString(), pseudo },
+      { playerId: player.id.toString(), sessionId: session.id.toString(), pseudo, isLateJoin },
       'Player joined session',
     );
 
@@ -76,6 +114,8 @@ export const playersService = {
       payload: { playerId: player.id.toString(), pseudo: player.pseudo },
     });
 
+    const stateSnapshot = isLateJoin ? await buildPlayerJoinSnapshot(session.id, player.id) : null;
+
     return {
       playerId: player.id,
       resumeToken,
@@ -83,6 +123,8 @@ export const playersService = {
       sessionId: session.id,
       sessionState: session.state,
       scoreTotal: 0,
+      joinedQuestionPosition,
+      stateSnapshot,
     };
   },
 

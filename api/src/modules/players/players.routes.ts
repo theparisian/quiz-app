@@ -36,8 +36,10 @@ router.post('/join', async (req, res, next) => {
         scoreTotal: result.scoreTotal,
         sessionId: result.sessionId.toString(),
         sessionState: result.sessionState,
+        joinedQuestionPosition: result.joinedQuestionPosition,
       },
       resumeToken: result.resumeToken,
+      stateSnapshot: result.stateSnapshot,
     });
   } catch (error) {
     next(error);
