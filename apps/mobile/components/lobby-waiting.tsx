@@ -6,6 +6,8 @@ export default function LobbyWaiting() {
   const pseudo = usePlayerStore((s) => s.pseudo);
   const players = usePlayerStore((s) => s.players);
   const totalPlayers = usePlayerStore((s) => s.totalPlayers);
+  const prizes = usePlayerStore((s) => s.prizes);
+  const rank1 = prizes?.rank1;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
@@ -15,6 +17,23 @@ export default function LobbyWaiting() {
           {pseudo}
         </div>
       </div>
+
+      {rank1 && (
+        <div className="mb-4 text-center text-sm text-gray-300">
+          À gagner : {rank1.label} 🥇
+          {rank1.isSuperPrize && (
+            <span className="ml-2 rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-400">
+              Super lot
+            </span>
+          )}
+        </div>
+      )}
+
+      {prizes?.all && (
+        <div className="mb-6 text-center text-sm text-emerald-300">
+          🎁 Un lot pour tous les joueurs : {prizes.all.label}
+        </div>
+      )}
 
       <div className="mb-8 text-gray-400">On attend les autres joueurs...</div>
 

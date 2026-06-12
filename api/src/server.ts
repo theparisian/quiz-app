@@ -19,6 +19,7 @@ import {
   rehydrateRunningSessions,
   setIoInstance,
 } from './modules/sessions/session-orchestrator.service.js';
+import { requeuePendingPrizeEmailsOnBoot } from './shared/email/prize-email-queue.service.js';
 import { startNucOfflineMonitor } from './shared/nuc-monitor/index.js';
 
 initSentry();
@@ -58,6 +59,7 @@ process.once('SIGINT', () => {
 
 void (async () => {
   await rehydrateRunningSessions();
+  await requeuePendingPrizeEmailsOnBoot();
   nucMonitorStop = startNucOfflineMonitor(io);
 
   httpServer.listen(PORT, () => {

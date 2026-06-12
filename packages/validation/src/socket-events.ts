@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sessionPrizesDisplaySchema } from './prizes.js';
 
 // ─── Generic ──────────────────────────────────────────────
 
@@ -155,6 +156,14 @@ export const sessionEndedSchema = z.object({
     }),
   ),
   winnerPlayerId: z.string().nullable(),
+  prizeAvailabilityByRank: z
+    .object({
+      rank1: z.boolean().optional(),
+      rank2: z.boolean().optional(),
+      rank3: z.boolean().optional(),
+    })
+    .optional(),
+  prizes: sessionPrizesDisplaySchema.optional(),
 });
 
 export const sessionAbortedSchema = z.object({

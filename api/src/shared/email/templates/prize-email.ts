@@ -7,6 +7,7 @@ export interface PrizeEmailData {
   prizeLabel: string;
   redeemUrl: string;
   redeemCode: string;
+  shortCode: string;
   unsubscribeUrl: string;
   qrCodeDataUrl: string;
 }
@@ -51,11 +52,13 @@ export function buildPrizeEmail(data: PrizeEmailData): {
             <img src="${data.qrCodeDataUrl}" alt="QR code lot" width="400" height="400" style="width:400px;max-width:100%;height:auto;border-radius:8px;"/>
           </div>
           <p style="margin:0 0 16px;line-height:1.5;color:#444;font-size:14px;">
-            Présente ce code à la confiserie pour bénéficier de ton avantage.
+            Présente ce QR code à la confiserie pour bénéficier de ton avantage.
           </p>
-          <p style="margin:0 0 24px;font-family:ui-monospace,monospace;font-size:13px;color:#555;">
-            Code : <strong>${escapeHtml(data.redeemCode)}</strong><br/>
-            <span style="font-size:12px;color:#888;">(en cas de problème, communique-le manuellement)</span>
+          <p style="margin:0 0 8px;text-align:center;font-size:22px;font-weight:700;letter-spacing:2px;color:#111;">
+            ${escapeHtml(data.shortCode)}
+          </p>
+          <p style="margin:0 0 24px;text-align:center;font-size:13px;color:#555;">
+            En cas de problème de scan, donnez ce code au comptoir.
           </p>
         </td></tr>
         <tr><td style="padding:16px 28px 28px;border-top:1px solid #eee;font-size:12px;color:#777;line-height:1.5;">
@@ -77,7 +80,7 @@ export function buildPrizeEmail(data: PrizeEmailData): {
     '',
     `Lien pour utiliser ton lot : ${data.redeemUrl}`,
     '',
-    `Code : ${data.redeemCode}`,
+    `Code comptoir : ${data.shortCode}`,
     '',
     `Ne plus recevoir d'e-mails : ${data.unsubscribeUrl}`,
   ].join('\n');

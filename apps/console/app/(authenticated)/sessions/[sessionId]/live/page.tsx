@@ -16,6 +16,7 @@ import { EndedView } from '@/components/live-console/ended-view';
 import { AbortedView } from '@/components/live-console/aborted-view';
 import { ConfirmAbortModal } from '@/components/confirm-abort-modal';
 import { LiveConnectionBanner } from '@/components/live-console/connection-banner';
+import { SessionPrizesReminder } from '@/components/live-console/session-prizes-reminder';
 
 export default function LiveSessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -114,6 +115,10 @@ export default function LiveSessionPage() {
       </div>
 
       <LiveConnectionBanner />
+
+      <div className="mt-4">
+        <SessionPrizesReminder />
+      </div>
 
       {socketError && (
         <div className="mt-3 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">

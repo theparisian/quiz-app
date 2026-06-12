@@ -2,6 +2,7 @@ import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
+import { drawSuperPrizeForSession } from '../prizes/prize-catalog.service.js';
 import { generateUniqueSessionCode } from './session-code.service.js';
 import { assertTransition, isActive } from './session-state.service.js';
 import type { CreateSessionInput, ListSessionsQuery } from './sessions.schemas.js';
@@ -79,6 +80,8 @@ export const sessionsService = {
         slugShort,
       },
     });
+
+    await drawSuperPrizeForSession(session.id, session.screen.cinema.id);
 
     return session;
   },

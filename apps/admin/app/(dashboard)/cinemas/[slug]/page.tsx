@@ -174,10 +174,16 @@ export default function CinemaDetailPage() {
             Archiver
           </button>
           <Link
-            href={`/cinemas/${slug}/prizes`}
+            href={`/cinemas/${slug}/prize-templates`}
             className="rounded border border-blue-200 px-3 py-1.5 text-sm text-blue-700 hover:bg-blue-50"
           >
-            Configurer les lots
+            Catalogue de lots
+          </Link>
+          <Link
+            href={`/cinemas/${slug}/prizes`}
+            className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Configurer les lots (legacy)
           </Link>
         </div>
       </div>

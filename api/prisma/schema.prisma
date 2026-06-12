@@ -130,16 +130,19 @@ model Cinema {
   status        CinemaStatus @default(trial)
   backgroundMusicUrl String? @map("background_music_url") @db.VarChar(500)
   logoUrl       String?      @map("logo_url") @db.VarChar(500)
-  prizesConfig  Json?        @map("prizes_config")
-  notes         String?      @db.Text
+  prizesConfig     Json?        @map("prizes_config")
+  superPrizeConfig Json?        @map("super_prize_config")
+  staffPinHash     String?       @map("staff_pin_hash") @db.VarChar(255)
+  notes            String?      @db.Text
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
   deletedAt     DateTime?    @map("deleted_at")
 
-  screens     Screen[]
-  users       User[]
-  invitations Invitation[]
-  events      EventLog[]
+  screens        Screen[]
+  users          User[]
+  invitations    Invitation[]
+  events         EventLog[]
+  prizeTemplates PrizeTemplate[]
 
   @@map("cinemas")
 }
@@ -244,6 +247,7 @@ model Quiz {
   backgroundMediaType        QuizBackgroundMediaType? @map("background_media_type")
   backgroundOverlayOpacity   Int                      @default(0) @map("background_overlay_opacity")
   brandingJson               Json?                    @map("branding_json")
+  prizesConfig               Json?                    @map("prizes_config")
   status                 QuizStatus @default(draft)
   createdByUserId        BigInt     @map("created_by_user_id")
   aiGenerated            Boolean    @default(false) @map("ai_generated")
@@ -309,10 +313,12 @@ model Session {
   currentQuestionStartedAt DateTime?   @map("current_question_started_at")
   currentQuestionPausedAt  DateTime?   @map("current_question_paused_at")
   audioMuted               Boolean     @default(false) @map("audio_muted")
+  superPrizeTemplateId     BigInt?      @map("super_prize_template_id")
   createdAt               DateTime     @default(now()) @map("created_at")
   updatedAt               DateTime     @updatedAt @map("updated_at")
 
   quiz          Quiz      @relation(fields: [quizId], references: [id])
+  superPrizeTemplate PrizeTemplate? @relation(fields: [superPrizeTemplateId], references: [id])
   screen        Screen    @relation(fields: [screenId], references: [id])
   projectionist User?     @relation("ProjectionistSessions", fields: [projectionistUserId], references: [id])
   players       Player[]
@@ -322,6 +328,7 @@ model Session {
   @@index([quizId])
   @@index([screenId])
   @@index([projectionistUserId])
+  @@index([superPrizeTemplateId])
   @@map("sessions")
 }
 
@@ -337,6 +344,7 @@ model Player {
   scoreTotal             Int          @default(0) @map("score_total")
   rankFinal              Int?         @map("rank_final")
   emailForPrize          String?      @map("email_for_prize") @db.VarChar(255)
+  emailConsentAt         DateTime?    @map("email_consent_at")
   joinedQuestionPosition Int?         @map("joined_question_position")
   pseudoSource           PseudoSource @default(CUSTOM) @map("pseudo_source")
 
@@ -384,7 +392,8 @@ model Sponsor {
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  quizzes Quiz[]
+  quizzes        Quiz[]
+  prizeTemplates PrizeTemplate[]
 
   @@map("sponsors")
 }
@@ -396,20 +405,52 @@ model Prize {
   redeemCode  String    @unique @map("redeem_code") @db.VarChar(32)
   signature   String    @map("signature") @db.VarChar(128)
   rank        Int
+  isConsolation Boolean @default(false) @map("is_consolation")
   label       String    @db.VarChar(255)
   type        PrizeType
   payloadJson Json?     @map("payload_json")
-  emailSentAt DateTime? @map("email_sent_at")
-  redeemedAt  DateTime? @map("redeemed_at")
+  emailSentAt     DateTime? @map("email_sent_at")
+  redeemedAt      DateTime? @map("redeemed_at")
+  prizeTemplateId BigInt?   @map("prize_template_id")
+  shortCode       String    @unique @map("short_code") @db.VarChar(8)
+  expiresAt       DateTime? @map("expires_at")
+  redeemedVia     String?   @map("redeemed_via") @db.VarChar(10)
 
-  session Session @relation(fields: [sessionId], references: [id])
-  player  Player  @relation(fields: [playerId], references: [id])
+  session       Session        @relation(fields: [sessionId], references: [id])
+  player        Player         @relation(fields: [playerId], references: [id])
+  prizeTemplate PrizeTemplate? @relation(fields: [prizeTemplateId], references: [id])
 
   @@unique([playerId, sessionId])
   @@index([sessionId])
   @@index([playerId])
   @@index([redeemCode])
+  @@index([prizeTemplateId])
+  @@index([shortCode])
   @@map("prizes")
+}
+
+model PrizeTemplate {
+  id           BigInt    @id @default(autoincrement())
+  cinemaId     BigInt?   @map("cinema_id")
+  sponsorId    BigInt?   @map("sponsor_id")
+  label        String    @db.VarChar(255)
+  type         PrizeType
+  payloadJson  Json?     @map("payload_json")
+  validityDays Int?      @map("validity_days")
+  stock        Int?
+  stockInitial Int?      @map("stock_initial")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  cinema    Cinema?   @relation(fields: [cinemaId], references: [id])
+  sponsor   Sponsor?  @relation(fields: [sponsorId], references: [id])
+  prizes    Prize[]
+  sessions  Session[]
+
+  @@index([cinemaId])
+  @@index([sponsorId])
+  @@map("prize_templates")
 }
 
 model EventLog {

@@ -6,6 +6,11 @@ import {
   getResultsDisplayMs,
   type RunningSessionState,
 } from './session-orchestrator.service.js';
+import {
+  resolvePrizeConfig,
+  resolveEligiblePrizeForPlayer,
+} from '../prizes/prize-config.service.js';
+import { resolvePrizesPayload } from '../prizes/prize-display.service.js';
 
 function resultsPhaseRemainingMs(mem: RunningSessionState): number {
   const start = mem.resultsPhaseStartedAt;
@@ -199,7 +204,8 @@ export async function buildMobilePlayerStateSnapshot(
   };
 
   if (session.state === 'lobby') {
-    return { ...base };
+    const prizes = await resolvePrizesPayload(sessionId);
+    return prizes ? { ...base, prizes } : { ...base };
   }
 
   if (session.state === 'aborted') {
@@ -214,13 +220,22 @@ export async function buildMobilePlayerStateSnapshot(
       scoreTotal: p.scoreTotal,
       rank: i + 1,
     }));
+    const prizeAvailabilityByRank: Record<string, boolean> = {};
+    for (const rank of [1, 2, 3] as const) {
+      const cfg = await resolvePrizeConfig(sessionId, rank);
+      prizeAvailabilityByRank[`rank${rank}`] = cfg !== null;
+    }
+    const eligible = await resolveEligiblePrizeForPlayer(sessionId, r ?? rankIdx + 1);
+    const prizes = await resolvePrizesPayload(sessionId);
     return {
       ...base,
       finalResults: {
         rank: r ?? rankIdx + 1,
         finalScoreboard: board,
-        eligibleForPrize: (r ?? rankIdx + 1) <= 3,
+        eligibleForPrize: eligible !== null,
       },
+      prizeAvailabilityByRank,
+      ...(prizes ? { prizes } : {}),
     };
   }
 
@@ -417,7 +432,8 @@ export async function buildNucStateSnapshot(params: {
   };
 
   if (session.state === 'lobby') {
-    return out;
+    const prizes = await resolvePrizesPayload(session.id);
+    return prizes ? { ...out, prizes } : out;
   }
 
   if (session.state === 'ended') {
@@ -428,6 +444,8 @@ export async function buildNucStateSnapshot(params: {
       pseudo: e.pseudo,
       scoreTotal: e.scoreTotal,
     }));
+    const prizes = await resolvePrizesPayload(session.id);
+    if (prizes) out.prizes = prizes;
     return out;
   }
 
@@ -604,6 +622,9 @@ export async function buildConsoleStateSnapshot(
       rank: i + 1,
     }));
   }
+
+  const prizes = await resolvePrizesPayload(sessionId);
+  if (prizes) base.prizes = prizes;
 
   return base;
 }

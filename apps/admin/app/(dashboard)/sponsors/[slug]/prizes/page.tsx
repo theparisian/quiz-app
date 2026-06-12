@@ -19,6 +19,7 @@ const schema = z.object({
   rank1: rankFields,
   rank2: rankFields,
   rank3: rankFields,
+  all: rankFields,
 });
 
 type FormVals = z.infer<typeof schema>;
@@ -34,6 +35,7 @@ interface ConfigResponse {
     rank1?: { type: string; label: string; value?: string };
     rank2?: { type: string; label: string; value?: string };
     rank3?: { type: string; label: string; value?: string };
+    all?: { type: string; label: string; value?: string };
   };
 }
 
@@ -65,6 +67,7 @@ export default function SponsorPrizesConfigPage() {
       rank1: emptyRank(),
       rank2: emptyRank(),
       rank3: emptyRank(),
+      all: emptyRank(),
     },
   });
 
@@ -75,6 +78,7 @@ export default function SponsorPrizesConfigPage() {
       rank1: rankFromApi(d.config.rank1),
       rank2: rankFromApi(d.config.rank2),
       rank3: rankFromApi(d.config.rank3),
+      all: rankFromApi(d.config.all),
     });
   }, [q.data, form]);
 
@@ -86,7 +90,7 @@ export default function SponsorPrizesConfigPage() {
 
   const onSubmit = form.handleSubmit((vals) => {
     const config: Record<string, { type: string; label: string; value?: string }> = {};
-    (['rank1', 'rank2', 'rank3'] as const).forEach((key) => {
+    (['rank1', 'rank2', 'rank3', 'all'] as const).forEach((key) => {
       const r = vals[key];
       if (!r.label.trim()) return;
       const entry: { type: string; label: string; value?: string } = {
@@ -116,10 +120,16 @@ export default function SponsorPrizesConfigPage() {
       </p>
 
       <form onSubmit={onSubmit} className="space-y-6">
-        {(['rank1', 'rank2', 'rank3'] as const).map((key, i) => (
+        {(['rank1', 'rank2', 'rank3', 'all'] as const).map((key, i) => (
           <div key={key} className="rounded-lg border bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-sm font-semibold text-gray-900">
-              {i === 0 ? '🥇 1ère place' : i === 1 ? '🥈 2ème place' : '🥉 3ème place'}
+              {i === 0
+                ? '🥇 1ère place'
+                : i === 1
+                  ? '🥈 2ème place'
+                  : i === 2
+                    ? '🥉 3ème place'
+                    : '🎁 Tous les joueurs'}
             </h2>
             <div className="grid gap-3">
               <label className="block text-sm font-medium">
@@ -162,6 +172,7 @@ export default function SponsorPrizesConfigPage() {
                 rank1: rankFromApi(q.data.config.rank1),
                 rank2: rankFromApi(q.data.config.rank2),
                 rank3: rankFromApi(q.data.config.rank3),
+                all: rankFromApi(q.data.config.all),
               })
             }
             className="rounded border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"

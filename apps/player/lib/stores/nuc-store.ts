@@ -4,6 +4,7 @@ import {
   readLateJoinQrEnabled,
   type AnswerDisplayStyle,
 } from '@quiz-app/design-tokens';
+import type { SessionPrizesDisplay } from '@quiz-app/validation';
 
 export type NucUiState =
   | 'idle'
@@ -93,6 +94,7 @@ interface NucState {
 
   finalScoreboard: FinalEntry[] | null;
   winnerPlayerId: string | null;
+  prizes: SessionPrizesDisplay | null;
   abortReason: string | null;
 
   connectionStatus: NucConnectionStatus;
@@ -125,6 +127,10 @@ const emptyQuizBackground: QuizBackgroundState = {
   quizAnswerDisplayStyle: 'multicolor',
   lateJoinQrEnabled: false,
 };
+
+function readPrizes(snap: Record<string, unknown>): SessionPrizesDisplay | null {
+  return (snap.prizes as SessionPrizesDisplay | undefined) ?? null;
+}
 
 function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundState {
   const quiz = payload.quiz as
@@ -179,6 +185,7 @@ const initialState = {
 
   finalScoreboard: null as FinalEntry[] | null,
   winnerPlayerId: null as string | null,
+  prizes: null as SessionPrizesDisplay | null,
   abortReason: null as string | null,
   connectionStatus: 'disconnected' as NucConnectionStatus,
 
@@ -260,6 +267,7 @@ export const useNucStore = create<NucState>((set, get) => ({
         currentQuestion: null,
         finalScoreboard: null,
         lastResults: null,
+        prizes: null,
         ...emptyQuizBackground,
       });
       return;
@@ -289,6 +297,7 @@ export const useNucStore = create<NucState>((set, get) => ({
         lastResults: null,
         finalScoreboard: null,
         winnerPlayerId: null,
+        prizes: readPrizes(snap),
       });
       return;
     }
@@ -312,6 +321,7 @@ export const useNucStore = create<NucState>((set, get) => ({
         finalScoreboard: (snap.finalScoreboard as FinalEntry[]) ?? null,
         winnerPlayerId: null,
         scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
+        prizes: readPrizes(snap),
       });
       return;
     }
@@ -510,6 +520,7 @@ export const useNucStore = create<NucState>((set, get) => ({
           uiState: 'final_results',
           finalScoreboard,
           winnerPlayerId: (payload.winnerPlayerId as string | null) ?? null,
+          prizes: (payload.prizes as SessionPrizesDisplay | undefined) ?? null,
           isPaused: false,
         });
         break;

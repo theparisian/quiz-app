@@ -13,6 +13,7 @@ import type {
   PlayerJoinedPayload,
   PlayerLeftPayload,
 } from '@quiz-app/validation/socket-events';
+import type { SessionPrizesDisplay } from '@quiz-app/validation';
 
 export interface QuestionFull {
   id: string;
@@ -87,6 +88,9 @@ export interface LiveSessionState {
   cinemaName: string | null;
   backgroundMusicUrl: string | null;
 
+  prizes: SessionPrizesDisplay | null;
+  consolationPrizesClaimed: number;
+
   connectionStatus: LiveConnectionStatus;
 
   hydrateFromSession: (session: SessionFullResponse) => void;
@@ -107,6 +111,7 @@ export interface SessionFullResponse {
   screenName: string;
   cinemaName: string;
   backgroundMusicUrl: string | null;
+  consolationPrizesClaimed?: number;
   quiz: QuizFull;
   players: { id: string; pseudo: string; scoreTotal: number; status: string; joinedAt: string }[];
 }
@@ -139,6 +144,8 @@ const INITIAL: Omit<
   screenName: null,
   cinemaName: null,
   backgroundMusicUrl: null,
+  prizes: null,
+  consolationPrizesClaimed: 0,
   connectionStatus: 'disconnected',
 };
 
@@ -157,6 +164,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
       screenName: session.screenName,
       cinemaName: session.cinemaName,
       backgroundMusicUrl: session.backgroundMusicUrl,
+      consolationPrizesClaimed: session.consolationPrizesClaimed ?? 0,
       players: session.players.map((p) => ({
         playerId: p.id,
         pseudo: p.pseudo,
@@ -194,6 +202,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
       totalPlayers: sess.totalPlayers,
       audioMuted: sess.audioMuted,
       quiz,
+      prizes: (p.prizes as SessionPrizesDisplay | undefined) ?? null,
       players:
         playersRaw?.map((pl) => ({
           playerId: pl.playerId,
@@ -374,6 +383,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
             status: 'active',
           })),
           winnerPlayerId: p.winnerPlayerId,
+          prizes: p.prizes ?? get().prizes,
           showingResults: false,
         });
         break;

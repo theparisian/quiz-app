@@ -19,6 +19,7 @@ export const joinSessionSchema = z.object({
 
 export const updateEmailSchema = z.object({
   email: z.string().email(),
+  consent: z.boolean(),
 });
 
 export type JoinSessionInput = z.infer<typeof joinSessionSchema>;

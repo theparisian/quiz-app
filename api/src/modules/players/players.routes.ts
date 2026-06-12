@@ -105,10 +105,13 @@ router.patch('/:id/email', async (req, res, next) => {
     }
 
     const data = validate(updateEmailSchema, req.body);
+    if (data.consent !== true) {
+      throw new AppError('Consent required', 400, 'CONSENT_REQUIRED');
+    }
 
     const result = await prizesService.createForPlayer(playerId, data.email);
 
-    res.json({ ok: true, emailSent: result.emailSent, prizeId: result.prizeId });
+    res.json({ ok: true, emailQueued: result.emailQueued, prizeId: result.prizeId });
   } catch (error) {
     next(error);
   }

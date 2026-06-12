@@ -33,6 +33,7 @@ export async function truncateQuizRelatedTables() {
   await prisma.aiGeneration.deleteMany({});
   await prisma.playerAnswer.deleteMany({});
   await prisma.prize.deleteMany({});
+  await prisma.prizeTemplate.deleteMany({});
   await prisma.player.deleteMany({});
   await prisma.session.deleteMany({});
   await prisma.answer.deleteMany({});

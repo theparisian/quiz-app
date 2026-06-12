@@ -143,10 +143,16 @@ export default function SponsorDetailPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">{s.name}</h1>
         <Link
-          href={`/sponsors/${slug}/prizes`}
+          href={`/sponsors/${slug}/prize-templates`}
           className="rounded border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
         >
-          Configurer les lots
+          Catalogue de lots
+        </Link>
+        <Link
+          href={`/sponsors/${slug}/prizes`}
+          className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Config lots (legacy)
         </Link>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold ${

@@ -165,6 +165,7 @@ describe('dashboard.service', () => {
         playerId: pA.id,
         redeemCode: `rc${Date.now()}`.slice(0, 16),
         signature: 'a'.repeat(64),
+        shortCode: 'DSH-234',
         rank: 1,
         label: 'L',
         type: 'discount_qr',

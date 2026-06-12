@@ -1,47 +1,24 @@
 import { nanoid } from 'nanoid';
-import QRCode from 'qrcode';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import { sendEmail } from '../../shared/email/index.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import type { AuthUser } from '../../shared/auth/middleware.js';
-import { resolvePrizeConfig } from './prize-config.service.js';
+import { resolveEligiblePrizeForPlayer } from './prize-config.service.js';
 import { signPrize, verifyPrizeSignature } from './prize-signature.service.js';
+import { generateUniqueShortCode } from './short-code.service.js';
 import { prizesConfigSchema, type PrizesConfig, type ListPrizesQuery } from './prizes.schemas.js';
-import { buildPrizeEmail } from '../../shared/email/templates/prize-email.js';
+import {
+  enqueuePrizeEmail,
+  sendPrizeEmailNow,
+} from '../../shared/email/prize-email-queue.service.js';
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function sendWithRetry(opts: {
-  to: string;
-  subject: string;
-  html: string;
-  text: string;
-}): Promise<'ok' | 'retry_ok'> {
-  try {
-    await sendEmail(opts);
-    return 'ok';
-  } catch (firstErr) {
-    logger.warn({ err: firstErr }, 'Email send failed, retrying once');
-    await sleep(2000);
-    await sendEmail(opts);
-    return 'retry_ok';
+function prizeNotConfiguredMessage(isConsolationAttempt: boolean): string {
+  if (isConsolationAttempt) {
+    return "Le lot n'est plus disponible.";
   }
-}
-
-function redeemBaseUrl(): string {
-  return (process.env.PRIZE_REDEEM_BASE_URL ?? 'http://localhost:3000/redeem').replace(/\/$/, '');
-}
-
-function unsubscribeBaseUrl(): string {
-  return (process.env.PRIZE_UNSUBSCRIBE_BASE_URL ?? 'http://localhost:3000/unsubscribe').replace(
-    /\/$/,
-    '',
-  );
+  return "Le cinéma n'a pas encore configuré de lot pour cette position. Contacte l'équipe.";
 }
 
 async function assertCinemaStaffCanAccessSlug(user: AuthUser, cinemaSlug: string) {
@@ -64,6 +41,22 @@ function parseStoredConfig(raw: unknown): PrizesConfig {
   return parsed.success ? parsed.data : {};
 }
 
+function redeemBaseUrl(): string {
+  return (process.env.PRIZE_REDEEM_BASE_URL ?? 'http://localhost:3000/redeem').replace(/\/$/, '');
+}
+
+async function computeExpiresAt(templateId: bigint | null): Promise<Date | null> {
+  if (!templateId) return null;
+  const template = await prisma.prizeTemplate.findUnique({
+    where: { id: templateId },
+    select: { validityDays: true },
+  });
+  if (!template?.validityDays) return null;
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + template.validityDays);
+  return expiresAt;
+}
+
 export const prizesService = {
   async createForPlayer(playerId: bigint, requestEmail: string) {
     const player = await prisma.player.findUnique({
@@ -83,9 +76,10 @@ export const prizesService = {
       throw new AppError('Session is not ended', 409, 'SESSION_NOT_ENDED');
     }
 
-    if (!player.rankFinal || player.rankFinal > 3) {
-      throw new AppError('Player not in top 3', 403, 'PLAYER_NOT_ELIGIBLE');
+    if (!player.rankFinal) {
+      throw new AppError('Player has no final rank', 403, 'PLAYER_NOT_ELIGIBLE');
     }
+    const rankFinal = player.rankFinal;
 
     const existing = await prisma.prize.findUnique({
       where: {
@@ -100,169 +94,147 @@ export const prizesService = {
       );
     }
 
-    const config = await resolvePrizeConfig(player.sessionId, player.rankFinal);
-    if (!config) {
-      throw new AppError(
-        "Le cinéma n'a pas encore configuré de lot pour cette position. Contacte l'équipe.",
-        404,
-        'PRIZE_NOT_CONFIGURED',
-      );
+    let eligible = await resolveEligiblePrizeForPlayer(player.sessionId, rankFinal);
+    if (!eligible) {
+      throw new AppError(prizeNotConfiguredMessage(true), 404, 'PRIZE_NOT_CONFIGURED');
     }
 
     await prisma.player.update({
       where: { id: playerId },
-      data: { emailForPrize: requestEmail },
+      data: { emailForPrize: requestEmail, emailConsentAt: new Date() },
     });
 
-    const redeemCode = nanoid(16);
-    const signature = signPrize(redeemCode);
+    const excludedTemplateIds: bigint[] = [];
+    let prize: Awaited<ReturnType<typeof prisma.prize.create>> | null = null;
+    let isConsolation = eligible.isConsolation;
 
-    const prize = await prisma.prize.create({
-      data: {
-        sessionId: player.sessionId,
-        playerId,
-        redeemCode,
-        signature,
-        rank: player.rankFinal,
-        label: config.label,
-        type: config.type,
-        payloadJson: { value: config.value, configEntry: config },
-      },
-    });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      eligible = await resolveEligiblePrizeForPlayer(player.sessionId, rankFinal, {
+        excludeTemplateIds: excludedTemplateIds,
+      });
+      if (!eligible) {
+        throw new AppError(prizeNotConfiguredMessage(isConsolation), 404, 'PRIZE_NOT_CONFIGURED');
+      }
+
+      const config = eligible.config;
+      isConsolation = eligible.isConsolation;
+      const templateId = config.templateId ? BigInt(config.templateId) : null;
+      const redeemCode = nanoid(16);
+      const signature = signPrize(redeemCode);
+      const shortCode = await generateUniqueShortCode();
+      const expiresAt = await computeExpiresAt(templateId);
+
+      try {
+        prize = await prisma.$transaction(async (tx) => {
+          if (templateId) {
+            const template = await tx.prizeTemplate.findUnique({ where: { id: templateId } });
+            if (template && template.stock !== null) {
+              const dec = await tx.prizeTemplate.updateMany({
+                where: { id: templateId, stock: { gt: 0 } },
+                data: { stock: { decrement: 1 } },
+              });
+              if (dec.count === 0) {
+                throw new Error('STOCK_EXHAUSTED');
+              }
+            }
+          }
+
+          return tx.prize.create({
+            data: {
+              sessionId: player.sessionId,
+              playerId,
+              redeemCode,
+              signature,
+              shortCode,
+              expiresAt,
+              rank: rankFinal,
+              isConsolation,
+              label: config.label,
+              type: config.type,
+              prizeTemplateId: templateId,
+              payloadJson: { value: config.value, configEntry: config },
+            },
+          });
+        });
+        break;
+      } catch (err) {
+        if (err instanceof Error && err.message === 'STOCK_EXHAUSTED' && templateId) {
+          excludedTemplateIds.push(templateId);
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!prize) {
+      throw new AppError(prizeNotConfiguredMessage(isConsolation), 404, 'PRIZE_NOT_CONFIGURED');
+    }
 
     logger.info(
       {
         sessionId: player.sessionId.toString(),
         playerId: playerId.toString(),
-        rank: player.rankFinal,
-        redeemCode,
+        rank: rankFinal,
+        isConsolation,
+        redeemCode: prize.redeemCode,
+        shortCode: prize.shortCode,
       },
       'Prize created',
     );
 
-    const sigEnc = encodeURIComponent(signature);
-    const redeemUrl = `${redeemBaseUrl()}/${encodeURIComponent(redeemCode)}?sig=${sigEnc}`;
-    const unsubscribeUrl = `${unsubscribeBaseUrl()}?code=${encodeURIComponent(redeemCode)}&sig=${sigEnc}`;
+    enqueuePrizeEmail(prize.id);
 
-    const qrCodeDataUrl = await QRCode.toDataURL(redeemUrl, { width: 400, margin: 2 });
-
-    const cinema = player.session.screen.cinema;
-    const { subject, html, text } = buildPrizeEmail({
-      pseudo: player.pseudo,
-      rank: player.rankFinal,
-      quizTitle: player.session.quiz.title,
-      cinemaName: cinema.name,
-      cinemaLogoUrl: cinema.logoUrl,
-      prizeLabel: config.label,
-      redeemUrl,
-      redeemCode,
-      unsubscribeUrl,
-      qrCodeDataUrl,
-    });
-
-    try {
-      const outcome = await sendWithRetry({ to: requestEmail, subject, html, text });
-      await prisma.prize.update({
-        where: { id: prize.id },
-        data: { emailSentAt: new Date() },
-      });
-
-      logger.info({ redeemCode, prizeId: prize.id.toString() }, 'Prize email sent');
-
-      const cinemaId = player.session.screen.cinema.id;
-      logEvent({
-        level: 'info',
-        eventType: 'prize.email_sent',
-        sessionId: player.sessionId,
-        cinemaId,
-        payload: { prizeId: prize.id.toString(), rank: player.rankFinal ?? 0 },
-      });
-      if (outcome === 'retry_ok') {
-        logEvent({
-          level: 'warn',
-          eventType: 'prize.email_send_retry',
-          sessionId: player.sessionId,
-          cinemaId,
-          payload: { prizeId: prize.id.toString() },
-        });
-      }
-
-      return { prizeId: prize.id.toString(), emailSent: true };
-    } catch (err) {
-      logger.error(
-        { err, redeemCode, prizeId: prize.id.toString() },
-        'Prize email failed after retry',
-      );
-
-      const cinemaId = player.session.screen.cinema.id;
-      logEvent({
-        level: 'error',
-        eventType: 'prize.email_send_failed',
-        sessionId: player.sessionId,
-        cinemaId,
-        payload: {
-          prizeId: prize.id.toString(),
-          errorMessage: err instanceof Error ? err.message : String(err),
-        },
-      });
-
-      throw new AppError(
-        "L'email n'a pas pu être envoyé. Le cinéma sera prévenu et te recontactera.",
-        500,
-        'PRIZE_EMAIL_SEND_FAILED',
-      );
-    }
+    return { prizeId: prize.id.toString(), emailQueued: true };
   },
 
-  async redeem(redeemCode: string, signature: string, clientIp?: string | null) {
-    if (!verifyPrizeSignature(redeemCode, signature.toLowerCase())) {
-      const truncated = redeemCode.length > 6 ? `${redeemCode.slice(0, 6)}…` : redeemCode;
-      logEvent({
-        level: 'critical',
-        eventType: 'prize.redemption_signature_invalid',
-        payload: { redeemCode: truncated, ip: clientIp ?? null },
-      });
-      throw new AppError('Invalid signature', 401, 'INVALID_SIGNATURE');
-    }
-
+  async resendEmail(prizeId: bigint, user: AuthUser) {
     const prize = await prisma.prize.findUnique({
-      where: { redeemCode },
+      where: { id: prizeId },
+      include: {
+        player: true,
+        session: {
+          include: {
+            screen: { include: { cinema: true } },
+            quiz: true,
+          },
+        },
+      },
     });
     if (!prize) throw new AppError('Prize not found', 404, 'PRIZE_NOT_FOUND');
-
-    if (prize.redeemedAt) {
-      throw new AppError('Ce lot a déjà été utilisé.', 409, 'ALREADY_REDEEMED', true, {
-        redeemedAt: prize.redeemedAt.toISOString(),
-      });
+    if (!prize.player.emailForPrize) {
+      throw new AppError('No email on file for this player', 400, 'NO_PLAYER_EMAIL');
     }
 
-    const sessionRow = await prisma.session.findUnique({
-      where: { id: prize.sessionId },
-      select: { screen: { select: { cinemaId: true } } },
-    });
+    const cinema = prize.session.screen.cinema;
+    await assertCinemaStaffCanAccessSlug(user, cinema.slug);
 
-    const updated = await prisma.prize.update({
+    const resentEvents = await prisma.eventLog.findMany({
+      where: { eventType: 'prize.email_resent' },
+      select: { payloadJson: true },
+    });
+    const resentCount = resentEvents.filter(
+      (e) => (e.payloadJson as { prizeId?: string } | null)?.prizeId === prize.id.toString(),
+    ).length;
+    if (resentCount >= 3) {
+      throw new AppError('Limite de renvois atteinte pour ce lot.', 429, 'RESEND_LIMIT_REACHED');
+    }
+
+    const outcome = await sendPrizeEmailNow(prize.id);
+
+    await prisma.prize.update({
       where: { id: prize.id },
-      data: { redeemedAt: new Date() },
+      data: { emailSentAt: new Date() },
     });
-
-    logger.info({ redeemCode, redeemedAt: updated.redeemedAt?.toISOString() }, 'Prize redeemed');
 
     logEvent({
       level: 'info',
-      eventType: 'prize.redeemed',
+      eventType: 'prize.email_resent',
       sessionId: prize.sessionId,
-      ...(sessionRow?.screen.cinemaId !== undefined
-        ? { cinemaId: sessionRow.screen.cinemaId }
-        : {}),
+      cinemaId: cinema.id,
       payload: { prizeId: prize.id.toString() },
     });
 
-    return {
-      prizeId: prize.id.toString(),
-      label: prize.label,
-      redeemedAt: updated.redeemedAt!.toISOString(),
-    };
+    return { prizeId: prize.id.toString(), emailSent: true, retried: outcome === 'retry_ok' };
   },
 
   async unsubscribe(redeemCode: string, signature: string) {
@@ -278,7 +250,7 @@ export const prizesService = {
 
     await prisma.player.update({
       where: { id: prize.playerId },
-      data: { emailForPrize: null },
+      data: { emailForPrize: null, emailConsentAt: null },
     });
 
     logger.info({ redeemCode }, 'Player unsubscribed from prize emails');
@@ -308,6 +280,12 @@ export const prizesService = {
     const where: Prisma.PrizeWhereInput = {
       session: sessionWhere,
     };
+
+    if (query.kind === 'podium') {
+      where.isConsolation = false;
+    } else if (query.kind === 'consolation') {
+      where.isConsolation = true;
+    }
 
     if (query.status === 'sent') {
       where.emailSentAt = { not: null };
@@ -349,7 +327,9 @@ export const prizesService = {
         return {
           id: p.id.toString(),
           redeemCode: p.redeemCode,
+          shortCode: p.shortCode,
           rank: p.rank,
+          isConsolation: p.isConsolation,
           label: p.label,
           emailSentAt: p.emailSentAt?.toISOString() ?? null,
           redeemedAt: p.redeemedAt?.toISOString() ?? null,

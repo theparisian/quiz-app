@@ -10,6 +10,7 @@ interface PrizeRow {
   id: string;
   redeemCode: string;
   rank: number;
+  isConsolation: boolean;
   label: string;
   emailSentAt: string | null;
   redeemedAt: string | null;
@@ -38,15 +39,17 @@ export default function CinemaPrizesHistoryPage() {
   const params = useParams();
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const [status, setStatus] = useState('');
+  const [kind, setKind] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<PrizeRow | null>(null);
 
   const q = useQuery<ListResponse>({
-    queryKey: ['cinema-prizes-list', slug, status, search, page],
+    queryKey: ['cinema-prizes-list', slug, status, kind, search, page],
     queryFn: () => {
       const sp = new URLSearchParams({ page: String(page), limit: '20' });
       if (status) sp.set('status', status);
+      if (kind) sp.set('kind', kind);
       if (search.trim()) sp.set('search', search.trim());
       return api.get<ListResponse>(`/api/cinemas/${slug}/prizes?${sp.toString()}`);
     },
@@ -55,7 +58,7 @@ export default function CinemaPrizesHistoryPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, search]);
+  }, [status, kind, search]);
 
   if (q.isLoading) return <p className="text-gray-500">Chargement…</p>;
   if (q.error || !q.data)
@@ -73,6 +76,18 @@ export default function CinemaPrizesHistoryPage() {
       </div>
 
       <div className="flex flex-wrap gap-3 rounded-lg border bg-white p-4 shadow-sm">
+        <label className="text-sm">
+          Type
+          <select
+            className="ml-2 rounded border px-2 py-1 text-sm"
+            value={kind}
+            onChange={(e) => setKind(e.target.value)}
+          >
+            <option value="">Tous</option>
+            <option value="podium">Podium</option>
+            <option value="consolation">Consolation</option>
+          </select>
+        </label>
         <label className="text-sm">
           Statut
           <select
@@ -104,6 +119,7 @@ export default function CinemaPrizesHistoryPage() {
               <th className="px-3 py-2">Fin session</th>
               <th className="px-3 py-2">Joueur</th>
               <th className="px-3 py-2">Rang</th>
+              <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Lot</th>
               <th className="px-3 py-2">Statut</th>
             </tr>
@@ -124,6 +140,7 @@ export default function CinemaPrizesHistoryPage() {
                   </td>
                   <td className="px-3 py-2">{row.playerPseudo}</td>
                   <td className="px-3 py-2">#{row.rank}</td>
+                  <td className="px-3 py-2">{row.isConsolation ? 'Consolation' : 'Podium'}</td>
                   <td className="max-w-[200px] truncate px-3 py-2">{row.label}</td>
                   <td className={`px-3 py-2 font-medium ${st.className}`}>{st.text}</td>
                 </tr>

@@ -8,6 +8,7 @@ import {
   truncateQuizRelatedTables,
   minimalCinemaAndScreen,
 } from './helpers/integration.js';
+import { flushPrizeEmailQueueForTests } from '../src/shared/email/prize-email-queue.service.js';
 
 describe('players email collection (integration)', () => {
   let app: ReturnType<typeof getIntegrationApp>;
@@ -95,14 +96,17 @@ describe('players email collection (integration)', () => {
     const res = await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
-      .send({ email: 'winner@test.com' })
+      .send({ email: 'winner@test.com', consent: true })
       .expect(200);
 
-    expect(res.body).toMatchObject({ ok: true, emailSent: true });
+    expect(res.body).toMatchObject({ ok: true, emailQueued: true });
     expect(typeof res.body.prizeId).toBe('string');
+
+    await flushPrizeEmailQueueForTests();
 
     const player = await prisma.player.findUnique({ where: { id: playerId } });
     expect(player?.emailForPrize).toBe('winner@test.com');
+    expect(player?.emailConsentAt).not.toBeNull();
 
     const prize = await prisma.prize.findUnique({
       where: { playerId_sessionId: { playerId, sessionId } },
@@ -111,7 +115,42 @@ describe('players email collection (integration)', () => {
     expect(prize?.rank).toBe(1);
   });
 
-  it('PATCH /api/players/:id/email — not top 3 → 403', async () => {
+  it('PATCH /api/players/:id/email — rang 5 avec consolation OK', async () => {
+    const screen = await prisma.screen.findUnique({
+      where: { id: (await prisma.session.findUnique({ where: { id: sessionId } }))!.screenId },
+      select: { cinemaId: true },
+    });
+    if (!screen) throw new Error('screen missing');
+    await prisma.cinema.update({
+      where: { id: screen.cinemaId },
+      data: {
+        prizesConfig: {
+          all: { type: 'discount_qr', label: '−10 % confiserie', value: 'ALL10' },
+        },
+      },
+    });
+
+    await prisma.player.update({
+      where: { id: playerId },
+      data: { rankFinal: 5 },
+    });
+
+    const res = await request(app)
+      .patch(`/api/players/${playerId}/email`)
+      .set('X-Player-Token', resumeToken)
+      .send({ email: 'consolation@test.com', consent: true })
+      .expect(200);
+
+    expect(res.body.emailQueued).toBe(true);
+    await flushPrizeEmailQueueForTests();
+
+    const prize = await prisma.prize.findUnique({
+      where: { playerId_sessionId: { playerId, sessionId } },
+    });
+    expect(prize?.isConsolation).toBe(true);
+  });
+
+  it('PATCH /api/players/:id/email — sans lot configuré → 404', async () => {
     await prisma.player.update({
       where: { id: playerId },
       data: { rankFinal: 5 },
@@ -120,8 +159,8 @@ describe('players email collection (integration)', () => {
     await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
-      .send({ email: 'loser@test.com' })
-      .expect(403);
+      .send({ email: 'loser@test.com', consent: true })
+      .expect(404);
   });
 
   it('PATCH /api/players/:id/email — wrong token → 403', async () => {
@@ -130,6 +169,16 @@ describe('players email collection (integration)', () => {
       .set('X-Player-Token', 'bad-token')
       .send({ email: 'hacker@test.com' })
       .expect(404);
+  });
+
+  it('PATCH /api/players/:id/email — consent requis → CONSENT_REQUIRED', async () => {
+    const res = await request(app)
+      .patch(`/api/players/${playerId}/email`)
+      .set('X-Player-Token', resumeToken)
+      .send({ email: 'winner@test.com', consent: false })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('CONSENT_REQUIRED');
   });
 
   it('PATCH /api/players/:id/email — session not ended → 409', async () => {

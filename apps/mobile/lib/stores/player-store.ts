@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { SessionPrizesDisplay } from '@quiz-app/validation';
 
 export type PlayerUiState =
   | 'lobby'
@@ -47,6 +48,8 @@ interface PlayerState {
 
   finalRank: number | null;
   finalScoreboard: { playerId: string; pseudo: string; scoreTotal: number; rank: number }[] | null;
+  prizeAvailabilityByRank: { rank1?: boolean; rank2?: boolean; rank3?: boolean } | null;
+  prizes: SessionPrizesDisplay | null;
   joinedQuestionPosition: number | null;
   lateWaitTimerMs: number | null;
 
@@ -105,6 +108,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   finalRank: null,
   finalScoreboard: null,
+  prizeAvailabilityByRank: null,
+  prizes: null,
   joinedQuestionPosition: null,
   lateWaitTimerMs: null,
 
@@ -223,6 +228,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({
         ...base,
         uiState: 'lobby',
+        prizes: (snap.prizes as SessionPrizesDisplay | undefined) ?? null,
         currentQuestionPosition: null,
         currentQuestionId: null,
         questionStartedAt: null,
@@ -245,6 +251,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         uiState: 'final_results',
         finalRank: finalResults.rank,
         finalScoreboard: finalResults.finalScoreboard,
+        prizeAvailabilityByRank:
+          (snap.prizeAvailabilityByRank as PlayerState['prizeAvailabilityByRank']) ?? null,
+        prizes: (snap.prizes as SessionPrizesDisplay | undefined) ?? null,
       });
       return;
     }
@@ -461,11 +470,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           rank: number;
         }[];
         const myFinal = finalScoreboard.find((e) => e.playerId === state.playerId);
+        const prizeAvailabilityByRank = (payload.prizeAvailabilityByRank ?? null) as {
+          rank1?: boolean;
+          rank2?: boolean;
+          rank3?: boolean;
+        } | null;
         set({
           uiState: 'final_results',
           finalScoreboard,
           finalRank: myFinal?.rank ?? null,
           scoreTotal: myFinal?.scoreTotal ?? state.scoreTotal,
+          prizeAvailabilityByRank,
+          prizes: (payload.prizes as SessionPrizesDisplay | undefined) ?? null,
         });
         break;
       }
@@ -502,6 +518,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lastQuestionResult: null,
       finalRank: null,
       finalScoreboard: null,
+      prizeAvailabilityByRank: null,
+      prizes: null,
       joinedQuestionPosition: null,
       lateWaitTimerMs: null,
       players: [],

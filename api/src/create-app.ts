@@ -17,6 +17,8 @@ import { sessionsRouter, sessionsNestedRouter } from './modules/sessions/session
 import { playersRouter, playersPublicRouter } from './modules/players/players.routes.js';
 
 import { prizesPublicRouter } from './modules/prizes/prizes.routes.js';
+import { prizesAdminRouter } from './modules/prizes/prizes-admin.routes.js';
+import { prizeTemplatesRouter } from './modules/prizes/prize-templates.routes.js';
 import { unsubscribeRouter } from './routes/unsubscribe.js';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
 
@@ -58,6 +60,8 @@ export function buildApp(): Express {
   app.use('/api/players', playersRouter);
   app.use('/api', playersPublicRouter);
   app.use('/api/prizes', prizesPublicRouter);
+  app.use('/api/prizes', prizesAdminRouter);
+  app.use('/api/prize-templates', prizeTemplatesRouter);
   app.use('/', unsubscribeRouter);
 
   app.use(errorHandler);

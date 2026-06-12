@@ -20,6 +20,16 @@ interface SessionDetail {
   endedAt: string | null;
   winnerPlayerId: string | null;
   projectionistUserId: string | null;
+  top3Prizes?: {
+    prizeId: string;
+    playerId: string;
+    rank: number;
+    label: string;
+    shortCode: string;
+    emailSentAt: string | null;
+    redeemedAt: string | null;
+    hasPlayerEmail: boolean;
+  }[];
   players: {
     id: string;
     pseudo: string;
@@ -130,6 +140,36 @@ export default function PastSessionPage() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {data.top3Prizes && data.top3Prizes.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold text-gray-800">Lots podium</h2>
+          <div className="mt-3 space-y-2">
+            {data.top3Prizes.map((p) => {
+              const player = sortedPlayers.find((pl) => pl.id === p.playerId);
+              const status = p.redeemedAt
+                ? `Utilisé ✓ (${formatDate(p.redeemedAt)})`
+                : !p.hasPlayerEmail
+                  ? 'Email non saisi'
+                  : p.emailSentAt
+                    ? 'Email envoyé ✓'
+                    : "Échec d'envoi ⚠";
+              return (
+                <div key={p.prizeId} className="rounded-lg border bg-white px-4 py-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-medium">
+                      #{p.rank} {player?.pseudo ?? '—'}
+                    </span>
+                    <span className="font-mono text-xs text-gray-500">{p.shortCode}</span>
+                  </div>
+                  <p className="mt-1 text-gray-600">{p.label}</p>
+                  <p className="text-xs text-gray-500">{status}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -102,9 +102,29 @@ router.get('/:id', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
 router.get('/:id/full', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const session = await sessionsService.getById(BigInt(param(req, 'id')));
+    const prizes = await prisma.prize.findMany({
+      where: { sessionId: session.id },
+      include: { player: { select: { id: true, emailForPrize: true } } },
+      orderBy: { rank: 'asc' },
+    });
+    const top3Prizes = prizes
+      .filter((p) => !p.isConsolation && p.rank <= 3)
+      .map((p) => ({
+        prizeId: p.id.toString(),
+        playerId: p.playerId.toString(),
+        rank: p.rank,
+        label: p.label,
+        shortCode: p.shortCode,
+        emailSentAt: p.emailSentAt?.toISOString() ?? null,
+        redeemedAt: p.redeemedAt?.toISOString() ?? null,
+        hasPlayerEmail: !!p.player.emailForPrize,
+      }));
+    const consolationPrizesClaimed = prizes.filter((p) => p.isConsolation).length;
     res.json({
       ...shapeSessionDetail(session),
       projectionistUserId: session.projectionistUserId?.toString() ?? null,
+      top3Prizes,
+      consolationPrizesClaimed,
       quiz: {
         id: session.quiz.id.toString(),
         slug: session.quiz.slug,

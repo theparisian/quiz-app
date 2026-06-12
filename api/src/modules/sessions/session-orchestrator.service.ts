@@ -7,6 +7,8 @@ import { logger } from '../../shared/logger/index.js';
 import { computeScore } from '../../shared/scoring/scoring.service.js';
 import { shapeQuizBackgroundPayload } from '../quizzes/quiz-background.js';
 import { assertTransition } from './session-state.service.js';
+import { resolvePrizeConfig } from '../prizes/prize-config.service.js';
+import { resolvePrizesPayload } from '../prizes/prize-display.service.js';
 
 export function getResultsDisplayMs(): number {
   return parseInt(process.env.RESULTS_DISPLAY_MS ?? '8000', 10);
@@ -435,9 +437,19 @@ async function endSessionInternal(sessionId: bigint) {
     rank: i + 1,
   }));
 
+  const prizeAvailabilityByRank: Record<string, boolean> = {};
+  for (const rank of [1, 2, 3] as const) {
+    const cfg = await resolvePrizeConfig(sessionId, rank);
+    prizeAvailabilityByRank[`rank${rank}`] = cfg !== null;
+  }
+
+  const prizes = await resolvePrizesPayload(sessionId);
+
   broadcastToSession(sessionId, 'session:ended', {
     finalScoreboard,
     winnerPlayerId: winnerId?.toString() ?? null,
+    prizeAvailabilityByRank,
+    ...(prizes ? { prizes } : {}),
   });
 
   broadcastToSession(sessionId, 'session:state_changed', {

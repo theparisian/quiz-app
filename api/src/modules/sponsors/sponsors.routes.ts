@@ -13,7 +13,11 @@ import {
 } from './sponsors.schemas.js';
 import { sponsorsService } from './sponsors.service.js';
 import { prizesService } from '../prizes/prizes.service.js';
-import { updatePrizesConfigBodySchema } from '../prizes/prizes.schemas.js';
+import {
+  updatePrizesConfigBodySchema,
+  createPrizeTemplateBodySchema,
+} from '../prizes/prizes.schemas.js';
+import { prizeTemplateService } from '../prizes/prize-template.service.js';
 
 const router = Router();
 
@@ -90,6 +94,25 @@ router.patch('/:slug/prizes-config', requireAuth(['super_admin']), async (req, r
     const body = validate(updatePrizesConfigBodySchema, req.body);
     const result = await prizesService.updateSponsorConfig(param(req, 'slug'), body.config);
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:slug/prize-templates', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const result = await prizeTemplateService.listBySponsorSlug(param(req, 'slug'));
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:slug/prize-templates', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const body = validate(createPrizeTemplateBodySchema, req.body);
+    const result = await prizeTemplateService.createForSponsor(param(req, 'slug'), body);
+    res.status(201).json(result);
   } catch (error) {
     next(error);
   }

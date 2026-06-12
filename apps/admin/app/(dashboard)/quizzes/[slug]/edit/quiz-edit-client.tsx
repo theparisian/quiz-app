@@ -39,6 +39,7 @@ import { QuizAnswerStylePicker } from '../../../../components/quiz-answer-style-
 import type { AnswerPos, QuizApiDetail } from '../../../../../lib/quiz-editor-store';
 import { resolveMediaUrl } from '../../../../../lib/media-url';
 import { buildQuizSavePayload, useQuizEditorStore } from '../../../../../lib/quiz-editor-store';
+import { QuizPrizesTab } from './quiz-prizes-tab';
 
 function SortableQRow(props: {
   id: string;
@@ -88,13 +89,14 @@ function SortableQRow(props: {
   );
 }
 
-type EditTab = 'settings' | 'questions' | 'design' | 'music';
+type EditTab = 'settings' | 'questions' | 'design' | 'music' | 'prizes';
 
 const EDIT_TABS: { id: EditTab; label: string }[] = [
   { id: 'settings', label: 'Paramètres' },
   { id: 'questions', label: 'Questions' },
   { id: 'design', label: 'Design' },
   { id: 'music', label: 'Musique' },
+  { id: 'prizes', label: 'Lots' },
 ];
 
 export function QuizEditClient({ slug }: { slug: string }) {
@@ -734,6 +736,8 @@ export function QuizEditClient({ slug }: { slug: string }) {
           </p>
         </div>
       )}
+
+      {activeTab === 'prizes' && <QuizPrizesTab slug={slug} sponsorId={sponsorId} />}
 
       {activeTab === 'questions' && (
         <div className="rounded-lg border bg-white p-4 shadow-sm">

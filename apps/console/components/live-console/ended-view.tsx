@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useLiveSessionStore } from '@/lib/stores/live-session-store';
+import { SessionTop3Prizes } from './session-top3-prizes';
 
 interface EndedViewProps {
   sessionId: string;
@@ -11,6 +12,7 @@ interface EndedViewProps {
 export function EndedView({ sessionId, screenId }: EndedViewProps) {
   const finalScoreboard = useLiveSessionStore((s) => s.finalScoreboard);
   const winnerPlayerId = useLiveSessionStore((s) => s.winnerPlayerId);
+  const consolationPrizesClaimed = useLiveSessionStore((s) => s.consolationPrizesClaimed);
 
   const winner = finalScoreboard?.find((p) => p.playerId === winnerPlayerId);
   const top10 = finalScoreboard?.slice(0, 10) ?? [];
@@ -45,6 +47,15 @@ export function EndedView({ sessionId, screenId }: EndedViewProps) {
             ))}
           </div>
         </div>
+      )}
+
+      <SessionTop3Prizes sessionId={sessionId} />
+
+      {consolationPrizesClaimed > 0 && (
+        <p className="text-sm text-gray-600">
+          Lots de consolation réclamés :{' '}
+          <span className="font-semibold text-gray-900">{consolationPrizesClaimed}</span>
+        </p>
       )}
 
       <div className="flex gap-4">

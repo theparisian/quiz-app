@@ -14,6 +14,8 @@ import {
   listQuizzesQuerySchema,
 } from './quizzes.schemas.js';
 import { quizzesService } from './quizzes.service.js';
+import { quizPrizesConfigService } from '../prizes/prize-catalog.service.js';
+import { updateQuizPrizesConfigBodySchema } from '../prizes/prizes.schemas.js';
 
 const router = Router();
 
@@ -415,6 +417,25 @@ router.get('/:slug', requireAuth(['super_admin']), async (req, res, next) => {
   try {
     const quiz = await quizzesService.getBySlug(param(req, 'slug'));
     res.json(shapeQuizDetail(quiz));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:slug/prizes-config', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const result = await quizPrizesConfigService.get(param(req, 'slug'));
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:slug/prizes-config', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const body = validate(updateQuizPrizesConfigBodySchema, req.body);
+    const result = await quizPrizesConfigService.update(param(req, 'slug'), body.config);
+    res.json(result);
   } catch (error) {
     next(error);
   }

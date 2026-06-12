@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { describe, beforeEach, expect, it, vi } from 'vitest';
+import bcrypt from 'bcrypt';
 import { prisma } from '../src/shared/db/index.js';
 import { signPrize } from '../src/modules/prizes/prize-signature.service.js';
 import {
@@ -10,6 +11,7 @@ import {
   minimalCinemaAndScreen,
 } from './helpers/integration.js';
 import * as emailNs from '../src/shared/email/index.js';
+import { flushPrizeEmailQueueForTests } from '../src/shared/email/prize-email-queue.service.js';
 
 function uniqueSlugShort(): string {
   return `s${Date.now()}`.slice(-10).padStart(4, '0');
@@ -26,6 +28,11 @@ async function seedCinemaPrizesConfig(cinemaId: bigint) {
       },
     },
   });
+}
+
+async function seedStaffPin(cinemaId: bigint, pin = '1234') {
+  const hash = await bcrypt.hash(pin, 10);
+  await prisma.cinema.update({ where: { id: cinemaId }, data: { staffPinHash: hash } });
 }
 
 describe('PR7 prizes (integration)', () => {
@@ -45,6 +52,7 @@ describe('PR7 prizes (integration)', () => {
     });
     if (!screen) throw new Error('screen');
     await seedCinemaPrizesConfig(screen.cinemaId);
+    await seedStaffPin(screen.cinemaId);
 
     const quiz = await prisma.quiz.create({
       data: {
@@ -97,6 +105,7 @@ describe('PR7 prizes (integration)', () => {
         playerId: player.id,
         redeemCode,
         signature,
+        shortCode: 'TST-234',
         rank: 1,
         label: 'Lot cinéma #1',
         type: 'discount_qr',
@@ -106,14 +115,14 @@ describe('PR7 prizes (integration)', () => {
 
     const ok = await request(app)
       .post(`/api/prizes/redeem/${redeemCode}`)
-      .send({ signature })
+      .send({ sig: signature, staffPin: '1234' })
       .expect(200);
     expect(ok.body.label).toBe('Lot cinéma #1');
     expect(ok.body.redeemedAt).toBeTruthy();
 
     const again = await request(app)
       .post(`/api/prizes/redeem/${redeemCode}`)
-      .send({ signature })
+      .send({ sig: signature, staffPin: '1234' })
       .expect(409);
     expect(again.body.error.code).toBe('ALREADY_REDEEMED');
     expect(again.body.error.details.redeemedAt).toBeTruthy();
@@ -172,6 +181,7 @@ describe('PR7 prizes (integration)', () => {
         status: 'active',
         rankFinal: 1,
         emailForPrize: 'keep@test.com',
+        emailConsentAt: new Date(),
       },
     });
     const redeemCode = 'unsubcode1234567';
@@ -182,6 +192,7 @@ describe('PR7 prizes (integration)', () => {
         playerId: player.id,
         redeemCode,
         signature,
+        shortCode: 'UNS-567',
         rank: 1,
         label: 'L',
         type: 'discount_qr',
@@ -195,6 +206,7 @@ describe('PR7 prizes (integration)', () => {
 
     const p = await prisma.player.findUnique({ where: { id: player.id } });
     expect(p?.emailForPrize).toBeNull();
+    expect(p?.emailConsentAt).toBeNull();
   });
 
   it('createForPlayer — double validation → 409', async () => {
@@ -259,13 +271,13 @@ describe('PR7 prizes (integration)', () => {
     await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
-      .send({ email: 'd@test.com' })
+      .send({ email: 'd@test.com', consent: true })
       .expect(200);
 
     const dup = await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
-      .send({ email: 'd@test.com' })
+      .send({ email: 'd@test.com', consent: true })
       .expect(409);
     expect(dup.body.error.code).toBe('PRIZE_ALREADY_EXISTS');
   });
@@ -320,7 +332,7 @@ describe('PR7 prizes (integration)', () => {
     const res = await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
-      .send({ email: 'n@test.com' })
+      .send({ email: 'n@test.com', consent: true })
       .expect(404);
     expect(res.body.error.code).toBe('PRIZE_NOT_CONFIGURED');
   });
@@ -466,11 +478,14 @@ describe('PR7 prize email retry', () => {
       data: { rankFinal: 1 },
     });
 
-    await request(app)
+    const patchRes = await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
-      .send({ email: 'e@test.com' })
+      .send({ email: 'e@test.com', consent: true })
       .expect(200);
+    expect(patchRes.body.emailQueued).toBe(true);
+
+    await flushPrizeEmailQueueForTests();
 
     expect(sendEmail).toHaveBeenCalledTimes(2);
     const prize = await prisma.prize.findUnique({
@@ -479,7 +494,7 @@ describe('PR7 prize email retry', () => {
     expect(prize?.emailSentAt).not.toBeNull();
   });
 
-  it('double échec envoi → 500 et emailSentAt null', async () => {
+  it('double échec envoi → prize créé, emailSentAt null après file', async () => {
     const sendEmail = vi.spyOn(emailNs, 'sendEmail');
     sendEmail.mockRejectedValue(new Error('smtp dead'));
 
@@ -537,9 +552,11 @@ describe('PR7 prize email retry', () => {
     const res = await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
-      .send({ email: 'f@test.com' })
-      .expect(500);
-    expect(res.body.error.code).toBe('PRIZE_EMAIL_SEND_FAILED');
+      .send({ email: 'f@test.com', consent: true })
+      .expect(200);
+    expect(res.body.emailQueued).toBe(true);
+
+    await flushPrizeEmailQueueForTests();
 
     const prize = await prisma.prize.findUnique({
       where: { playerId_sessionId: { playerId, sessionId } },
