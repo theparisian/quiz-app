@@ -19,6 +19,7 @@ router.post('/join', async (req, res, next) => {
     const result = await playersService.join({
       sessionSlugShort: data.sessionSlugShort,
       pseudo: data.pseudo,
+      pseudoSource: data.pseudoSource,
     });
 
     const io = req.app.get('io') as import('socket.io').Server | undefined;

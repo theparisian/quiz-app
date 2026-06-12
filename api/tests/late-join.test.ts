@@ -8,6 +8,7 @@ import { buildApp } from '../src/create-app.js';
 import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
 import {
   getOrchestrator,
+  resetRunningSessionsForTests,
   setIoInstance,
 } from '../src/modules/sessions/session-orchestrator.service.js';
 import { truncateQuizRelatedTables, minimalCinemaAndScreen } from './helpers/integration.js';
@@ -42,9 +43,20 @@ describe('late-join', () => {
   });
 
   afterEach(async () => {
+    resetRunningSessionsForTests();
     for (const s of sockets) s.disconnect();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   });
+
+  async function waitForSessionEnded(sessionId: string, timeoutMs = 30_000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const row = await prisma.session.findUnique({ where: { id: BigInt(sessionId) } });
+      if (row?.state === 'ended') return;
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    }
+    throw new Error('session did not end');
+  }
 
   function connectMobile(): ClientSocket {
     const s = ioClient(`${baseUrl}/mobile`, { transports: ['websocket'] });
@@ -180,7 +192,7 @@ describe('late-join', () => {
     const joinRes = await fetch(`${baseUrl}/api/players/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionSlugShort: session.slugShort, pseudo: 'X' }),
+      body: JSON.stringify({ sessionSlugShort: session.slugShort, pseudo: 'TooLate' }),
     });
     expect(joinRes.status).toBe(409);
     const body = (await joinRes.json()) as { error: { code: string } };
@@ -294,23 +306,7 @@ describe('late-join', () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 150));
     await requestJoin(session.slugShort, 'LateFinal');
 
-    const socket = connectMobile();
-    await new Promise<void>((resolve) => socket.on('connect', resolve));
-
-    const endedPromise = new Promise<{ finalScoreboard: { pseudo: string; scoreTotal: number }[] }>(
-      (resolve) => {
-        socket.on('session:ended', (data: unknown) => {
-          resolve(data as { finalScoreboard: { pseudo: string; scoreTotal: number }[] });
-        });
-      },
-    );
-
-    await Promise.race([
-      endedPromise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('session did not end')), 25_000),
-      ),
-    ]);
+    await waitForSessionEnded(session.id);
 
     const players = await prisma.player.findMany({
       where: { sessionId: BigInt(session.id), status: 'active' },

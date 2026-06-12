@@ -1018,4 +1018,13 @@ export function getOrchestrator() {
   };
 }
 
+/** Arrête les timers orchestrator entre tests d'intégration (évite P2025 après truncate). */
+export function resetRunningSessionsForTests(): void {
+  if (process.env.NODE_ENV !== 'test') return;
+  for (const state of runningSessions.values()) {
+    clearTimers(state);
+  }
+  runningSessions.clear();
+}
+
 export type Orchestrator = ReturnType<typeof getOrchestrator>;
