@@ -190,7 +190,7 @@ describe('players email collection (integration)', () => {
     await request(app)
       .patch(`/api/players/${playerId}/email`)
       .set('X-Player-Token', resumeToken)
-      .send({ email: 'early@test.com' })
+      .send({ email: 'early@test.com', consent: true })
       .expect(409);
   });
 });

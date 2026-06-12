@@ -131,7 +131,7 @@ describe('PR7 prizes (integration)', () => {
   it('POST redeem — mauvaise signature → 401', async () => {
     const res = await request(app)
       .post('/api/prizes/redeem/abcdefghijklmnop')
-      .send({ signature: 'a'.repeat(64) })
+      .send({ sig: 'a'.repeat(64), staffPin: '1234' })
       .expect(401);
     expect(res.body.error.code).toBe('INVALID_SIGNATURE');
   });
@@ -140,7 +140,7 @@ describe('PR7 prizes (integration)', () => {
     const code = 'zzzzzzzzzzzzzzzz';
     const res = await request(app)
       .post(`/api/prizes/redeem/${code}`)
-      .send({ signature: signPrize(code) })
+      .send({ sig: signPrize(code), staffPin: '1234' })
       .expect(404);
     expect(res.body.error.code).toBe('PRIZE_NOT_FOUND');
   });

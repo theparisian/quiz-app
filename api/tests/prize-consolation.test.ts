@@ -352,8 +352,11 @@ describe('Phase D — file email', () => {
     await prizesService.createForPlayer(p1.id, 'a@test.com');
     await prizesService.createForPlayer(p2.id, 'b@test.com');
 
-    expect(vi.mocked(sendEmail).mock.calls.length).toBe(0);
+    const prizesBeforeFlush = await prisma.prize.findMany({ where: { sessionId: session.id } });
+    expect(prizesBeforeFlush).toHaveLength(2);
+    expect(prizesBeforeFlush.every((p) => p.emailSentAt === null)).toBe(true);
 
+    vi.mocked(sendEmail).mockClear();
     const start = Date.now();
     await flushPrizeEmailQueueForTests();
     const elapsed = Date.now() - start;
