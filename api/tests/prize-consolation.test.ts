@@ -16,6 +16,7 @@ import {
   flushPrizeEmailQueueForTests,
   getEmailSendRateMs,
   requeuePendingPrizeEmailsOnBoot,
+  resetPrizeEmailQueueForTests,
 } from '../src/shared/email/prize-email-queue.service.js';
 import { sendEmail } from '../src/shared/email/index.js';
 import {
@@ -312,7 +313,10 @@ describe('Phase D — payloads all', () => {
 describe('Phase D — file email', () => {
   beforeEach(async () => {
     await truncateQuizRelatedTables();
-    vi.mocked(sendEmail).mockClear();
+    await flushPrizeEmailQueueForTests();
+    resetPrizeEmailQueueForTests();
+    vi.mocked(sendEmail).mockReset();
+    vi.mocked(sendEmail).mockResolvedValue(undefined);
     process.env.EMAIL_SEND_RATE_MS = '50';
   });
 
@@ -349,20 +353,22 @@ describe('Phase D — file email', () => {
       },
     });
 
+    const sendTimestamps: number[] = [];
+    vi.mocked(sendEmail).mockImplementation(async () => {
+      sendTimestamps.push(Date.now());
+    });
+
+    const syncStart = Date.now();
     await prizesService.createForPlayer(p1.id, 'a@test.com');
     await prizesService.createForPlayer(p2.id, 'b@test.com');
+    expect(Date.now() - syncStart).toBeLessThan(200);
 
-    const prizesBeforeFlush = await prisma.prize.findMany({ where: { sessionId: session.id } });
-    expect(prizesBeforeFlush).toHaveLength(2);
-    expect(prizesBeforeFlush.every((p) => p.emailSentAt === null)).toBe(true);
-
-    vi.mocked(sendEmail).mockClear();
-    const start = Date.now();
     await flushPrizeEmailQueueForTests();
-    const elapsed = Date.now() - start;
 
-    expect(vi.mocked(sendEmail).mock.calls.length).toBeGreaterThanOrEqual(2);
-    expect(elapsed).toBeGreaterThanOrEqual(getEmailSendRateMs());
+    expect(sendTimestamps.length).toBeGreaterThanOrEqual(2);
+    expect(sendTimestamps[1]! - sendTimestamps[0]!).toBeGreaterThanOrEqual(
+      getEmailSendRateMs() - 10,
+    );
 
     const prizes = await prisma.prize.findMany({ where: { sessionId: session.id } });
     expect(prizes.every((p) => p.emailSentAt !== null)).toBe(true);

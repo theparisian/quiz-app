@@ -153,6 +153,12 @@ export async function flushPrizeEmailQueueForTests(): Promise<void> {
   await chain;
 }
 
+export function resetPrizeEmailQueueForTests(): void {
+  if (process.env.NODE_ENV !== 'test') return;
+  chain = Promise.resolve();
+  queuedIds.clear();
+}
+
 export async function requeuePendingPrizeEmailsOnBoot(): Promise<void> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const pending = await prisma.prize.findMany({
