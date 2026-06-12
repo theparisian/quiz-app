@@ -1,12 +1,13 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { PinModal, PrizeStatusCard, useRedeemFlow } from '@/components/redeem/redeem-shared';
 
-export default function RedeemCodePage({ params }: { params: { code: string } }) {
+export default function RedeemCodePage() {
+  const params = useParams();
   const searchParams = useSearchParams();
   const sig = searchParams.get('sig') ?? '';
-  const redeemCode = params.code;
+  const redeemCode = typeof params.code === 'string' ? params.code : '';
 
   const flow = useRedeemFlow({ redeemCode, sig, redeemedVia: 'qr' });
 
