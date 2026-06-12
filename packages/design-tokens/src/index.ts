@@ -5,3 +5,4 @@ export {
   readAnswerDisplayStyle,
   type AnswerDisplayStyle,
 } from './answer-display-style';
+export { readLateJoinQrEnabled } from './late-join-qr';

@@ -1,5 +1,9 @@
 import { create } from 'zustand';
-import { readAnswerDisplayStyle, type AnswerDisplayStyle } from '@quiz-app/design-tokens';
+import {
+  readAnswerDisplayStyle,
+  readLateJoinQrEnabled,
+  type AnswerDisplayStyle,
+} from '@quiz-app/design-tokens';
 
 export type NucUiState =
   | 'idle'
@@ -44,6 +48,7 @@ interface QuizBackgroundState {
   quizBackgroundMediaType: QuizBackgroundMediaType | null;
   quizBackgroundOverlayOpacity: number;
   quizAnswerDisplayStyle: AnswerDisplayStyle;
+  lateJoinQrEnabled: boolean;
 }
 
 interface NucState {
@@ -96,6 +101,7 @@ interface NucState {
   quizBackgroundMediaType: QuizBackgroundMediaType | null;
   quizBackgroundOverlayOpacity: number;
   quizAnswerDisplayStyle: AnswerDisplayStyle;
+  lateJoinQrEnabled: boolean;
 
   setNucContext: (ctx: {
     nucId: string;
@@ -117,6 +123,7 @@ const emptyQuizBackground: QuizBackgroundState = {
   quizBackgroundMediaType: null,
   quizBackgroundOverlayOpacity: 0,
   quizAnswerDisplayStyle: 'multicolor',
+  lateJoinQrEnabled: false,
 };
 
 function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundState {
@@ -135,6 +142,7 @@ function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundSta
     quizBackgroundMediaType: type === 'image' || type === 'video' ? type : null,
     quizBackgroundOverlayOpacity: quiz.backgroundOverlayOpacity ?? 0,
     quizAnswerDisplayStyle: readAnswerDisplayStyle(quiz.brandingJson),
+    lateJoinQrEnabled: readLateJoinQrEnabled(quiz.brandingJson),
   };
 }
 

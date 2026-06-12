@@ -115,6 +115,7 @@ export function QuizEditClient({ slug }: { slug: string }) {
   const brandingPrimary = useQuizEditorStore((s) => s.brandingPrimary);
   const brandingSecondary = useQuizEditorStore((s) => s.brandingSecondary);
   const answerDisplayStyle = useQuizEditorStore((s) => s.answerDisplayStyle);
+  const lateJoinQrEnabled = useQuizEditorStore((s) => s.lateJoinQrEnabled);
   const coverImageUrl = useQuizEditorStore((s) => s.coverImageUrl);
   const backgroundMediaUrl = useQuizEditorStore((s) => s.backgroundMediaUrl);
   const backgroundMediaType = useQuizEditorStore((s) => s.backgroundMediaType);
@@ -543,6 +544,24 @@ export function QuizEditClient({ slug }: { slug: string }) {
                   })
                 }
               />
+            </label>
+            <label className="flex items-start gap-3 text-sm md:col-span-2">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-gray-300"
+                disabled={readOnly}
+                checked={lateJoinQrEnabled}
+                onChange={(e) => updateMetadata({ lateJoinQrEnabled: e.target.checked })}
+              />
+              <span>
+                <span className="font-medium text-gray-800">
+                  QR code late-join pendant la partie
+                </span>
+                <span className="mt-1 block text-gray-500">
+                  Affiche un petit QR en bas à droite de l&apos;écran NUC pendant les questions,
+                  pour rejoindre en cours de séance.
+                </span>
+              </span>
             </label>
           </div>
         </div>
