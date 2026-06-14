@@ -26,7 +26,7 @@ export default function LobbyState() {
   const superPrize = prizes?.rank1?.isSuperPrize ? prizes.rank1 : null;
 
   return (
-    <div className="flex h-full flex-col px-16 py-12">
+    <div className="relative z-10 flex h-full flex-col px-16 py-12">
       {prizes?.all && (
         <div className="animate-cascade-in mb-6 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-8 py-3 text-center opacity-0">
           <div className="text-base font-semibold text-emerald-200">

@@ -259,6 +259,7 @@ export const quizzesService = {
       'brandingJson',
       'coverImageUrl',
       'backgroundOverlayOpacity',
+      'lobbyBackgroundOverlayOpacity',
       'language',
     ]);
 
@@ -290,6 +291,9 @@ export const quizzesService = {
     if (input.coverImageUrl !== undefined) data.coverImageUrl = input.coverImageUrl ?? null;
     if (input.backgroundOverlayOpacity !== undefined) {
       data.backgroundOverlayOpacity = input.backgroundOverlayOpacity;
+    }
+    if (input.lobbyBackgroundOverlayOpacity !== undefined) {
+      data.lobbyBackgroundOverlayOpacity = input.lobbyBackgroundOverlayOpacity;
     }
 
     return prisma.quiz.update({
@@ -337,6 +341,9 @@ export const quizzesService = {
       }
       if (payload.backgroundOverlayOpacity !== undefined) {
         quizUpdate.backgroundOverlayOpacity = payload.backgroundOverlayOpacity;
+      }
+      if (payload.lobbyBackgroundOverlayOpacity !== undefined) {
+        quizUpdate.lobbyBackgroundOverlayOpacity = payload.lobbyBackgroundOverlayOpacity;
       }
       if (quizRow.status !== 'published') {
         quizUpdate.type = payload.type;
@@ -577,6 +584,9 @@ export const quizzesService = {
           backgroundMediaUrl: quiz.backgroundMediaUrl,
           backgroundMediaType: quiz.backgroundMediaType,
           backgroundOverlayOpacity: quiz.backgroundOverlayOpacity,
+          lobbyBackgroundMediaUrl: quiz.lobbyBackgroundMediaUrl,
+          lobbyBackgroundMediaType: quiz.lobbyBackgroundMediaType,
+          lobbyBackgroundOverlayOpacity: quiz.lobbyBackgroundOverlayOpacity,
           brandingJson:
             quiz.brandingJson == null
               ? Prisma.JsonNull
@@ -675,6 +685,37 @@ export const quizzesService = {
       data: {
         backgroundMediaUrl: null,
         backgroundMediaType: null,
+      },
+    });
+  },
+
+  async setLobbyBackgroundMedia(slug: string, _key: string, url: string, mime: string) {
+    const quiz = await prisma.quiz.findUnique({ where: { slug } });
+    if (!quiz) throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    if (quiz.status === 'archived')
+      throw new AppError('Quiz is archived', 403, 'QUIZ_ARCHIVED_READONLY');
+    return prisma.quiz.update({
+      where: { id: quiz.id },
+      data: {
+        lobbyBackgroundMediaUrl: url,
+        lobbyBackgroundMediaType: backgroundMediaTypeFromMime(mime),
+      },
+    });
+  },
+
+  async removeLobbyBackgroundMedia(slug: string, storage: StorageProvider) {
+    const quiz = await prisma.quiz.findUnique({ where: { slug } });
+    if (!quiz) throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    if (quiz.status === 'archived')
+      throw new AppError('Quiz is archived', 403, 'QUIZ_ARCHIVED_READONLY');
+    const base = storagePublicBase();
+    const key = extractKeyFromPublicUrl(quiz.lobbyBackgroundMediaUrl, base);
+    if (key) await storage.delete(key);
+    return prisma.quiz.update({
+      where: { id: quiz.id },
+      data: {
+        lobbyBackgroundMediaUrl: null,
+        lobbyBackgroundMediaType: null,
       },
     });
   },

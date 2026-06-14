@@ -34,6 +34,11 @@ const quizBackgroundUpload = createUploadMiddleware({
   allowedMimes: BACKGROUND_TYPES,
 });
 
+const quizLobbyBackgroundUpload = createUploadMiddleware({
+  kind: 'quiz-lobby-background',
+  allowedMimes: BACKGROUND_TYPES,
+});
+
 const questionImageUpload = createUploadMiddleware({
   kind: 'question-image',
   maxSize: UPLOAD_MAX,
@@ -142,6 +147,9 @@ function shapeQuizDetail(quiz: Awaited<ReturnType<typeof quizzesService.getBySlu
     backgroundMediaUrl: quiz.backgroundMediaUrl,
     backgroundMediaType: quiz.backgroundMediaType,
     backgroundOverlayOpacity: quiz.backgroundOverlayOpacity,
+    lobbyBackgroundMediaUrl: quiz.lobbyBackgroundMediaUrl,
+    lobbyBackgroundMediaType: quiz.lobbyBackgroundMediaType,
+    lobbyBackgroundOverlayOpacity: quiz.lobbyBackgroundOverlayOpacity,
     brandingJson: quiz.brandingJson,
     status: quiz.status,
     aiGenerated: quiz.aiGenerated,
@@ -344,6 +352,52 @@ router.delete('/:slug/background', requireAuth(['super_admin']), async (req, res
   try {
     const storage = getStorage();
     await quizzesService.removeBackgroundMedia(param(req, 'slug'), storage);
+    res.json(shapeQuizDetail(await quizzesService.getBySlug(param(req, 'slug'))));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post(
+  '/:slug/lobby-background',
+  requireAuth(['super_admin']),
+  quizLobbyBackgroundUpload,
+  async (req, res, next) => {
+    try {
+      const slug = param(req, 'slug');
+      if (!req.file) throw new AppError('No file uploaded', 400, 'UPLOAD_MISSING');
+      const storage = getStorage();
+      const result = await uploadFile({
+        kind: 'quiz-lobby-background',
+        id: slug,
+        file: {
+          buffer: req.file.buffer,
+          mimetype: req.file.mimetype,
+          originalname: req.file.originalname,
+        },
+        storage,
+      });
+      logger.info(
+        {
+          kind: 'quiz-lobby-background',
+          id: slug,
+          size: req.file.size,
+          mime: req.file.mimetype,
+        },
+        'File uploaded',
+      );
+      await quizzesService.setLobbyBackgroundMedia(slug, result.key, result.url, req.file.mimetype);
+      res.json(shapeQuizDetail(await quizzesService.getBySlug(slug)));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.delete('/:slug/lobby-background', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const storage = getStorage();
+    await quizzesService.removeLobbyBackgroundMedia(param(req, 'slug'), storage);
     res.json(shapeQuizDetail(await quizzesService.getBySlug(param(req, 'slug'))));
   } catch (error) {
     next(error);

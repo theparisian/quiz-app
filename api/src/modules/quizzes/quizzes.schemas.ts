@@ -42,6 +42,7 @@ export const saveFullEditSchema = z.object({
   brandingJson: z.record(z.unknown()).nullable().optional(),
   coverImageUrl: z.string().url().nullable().optional(),
   backgroundOverlayOpacity: z.number().int().min(0).max(100).optional(),
+  lobbyBackgroundOverlayOpacity: z.number().int().min(0).max(100).optional(),
   questions: z.array(questionSaveSchema),
 });
 
@@ -61,6 +62,7 @@ export const updateQuizSchema = createQuizSchema.partial().merge(
   z.object({
     coverImageUrl: z.string().url().nullable().optional(),
     backgroundOverlayOpacity: z.number().int().min(0).max(100).optional(),
+    lobbyBackgroundOverlayOpacity: z.number().int().min(0).max(100).optional(),
   }),
 );
 

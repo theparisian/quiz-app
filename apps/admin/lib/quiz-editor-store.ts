@@ -58,6 +58,9 @@ export interface QuizApiDetail {
   backgroundMediaUrl: string | null;
   backgroundMediaType: 'image' | 'video' | null;
   backgroundOverlayOpacity: number;
+  lobbyBackgroundMediaUrl: string | null;
+  lobbyBackgroundMediaType: 'image' | 'video' | null;
+  lobbyBackgroundOverlayOpacity: number;
   questions: {
     id: string;
     position: number;
@@ -121,6 +124,9 @@ export interface QuizEditorState {
   backgroundMediaUrl: string | null;
   backgroundMediaType: 'image' | 'video' | null;
   backgroundOverlayOpacity: number;
+  lobbyBackgroundMediaUrl: string | null;
+  lobbyBackgroundMediaType: 'image' | 'video' | null;
+  lobbyBackgroundOverlayOpacity: number;
   questions: EditorQuestion[];
   expandedTempId: string | null;
   isDirty: boolean;
@@ -143,6 +149,9 @@ export interface QuizEditorState {
     backgroundMediaUrl?: string | null;
     backgroundMediaType?: 'image' | 'video' | null;
     backgroundOverlayOpacity?: number;
+    lobbyBackgroundMediaUrl?: string | null;
+    lobbyBackgroundMediaType?: 'image' | 'video' | null;
+    lobbyBackgroundOverlayOpacity?: number;
   }) => void;
   addQuestion: () => void;
   updateQuestion: (
@@ -240,6 +249,9 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
   backgroundMediaUrl: null,
   backgroundMediaType: null,
   backgroundOverlayOpacity: 0,
+  lobbyBackgroundMediaUrl: null,
+  lobbyBackgroundMediaType: null,
+  lobbyBackgroundOverlayOpacity: 0,
   questions: [],
   expandedTempId: null,
   isDirty: false,
@@ -263,6 +275,9 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       backgroundMediaUrl: api.backgroundMediaUrl,
       backgroundMediaType: api.backgroundMediaType,
       backgroundOverlayOpacity: api.backgroundOverlayOpacity,
+      lobbyBackgroundMediaUrl: api.lobbyBackgroundMediaUrl,
+      lobbyBackgroundMediaType: api.lobbyBackgroundMediaType,
+      lobbyBackgroundOverlayOpacity: api.lobbyBackgroundOverlayOpacity,
       questions: mapQuestionsFromApi(api),
       expandedTempId: null,
       isDirty: false,
@@ -426,6 +441,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       ),
       coverImageUrl: s.coverImageUrl,
       backgroundOverlayOpacity: s.backgroundOverlayOpacity,
+      lobbyBackgroundOverlayOpacity: s.lobbyBackgroundOverlayOpacity,
       questions: ordered.map((q, idx) => ({
         id: q.id,
         position: idx,

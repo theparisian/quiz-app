@@ -122,6 +122,9 @@ export function QuizEditClient({ slug }: { slug: string }) {
   const backgroundMediaUrl = useQuizEditorStore((s) => s.backgroundMediaUrl);
   const backgroundMediaType = useQuizEditorStore((s) => s.backgroundMediaType);
   const backgroundOverlayOpacity = useQuizEditorStore((s) => s.backgroundOverlayOpacity);
+  const lobbyBackgroundMediaUrl = useQuizEditorStore((s) => s.lobbyBackgroundMediaUrl);
+  const lobbyBackgroundMediaType = useQuizEditorStore((s) => s.lobbyBackgroundMediaType);
+  const lobbyBackgroundOverlayOpacity = useQuizEditorStore((s) => s.lobbyBackgroundOverlayOpacity);
   const questions = useQuizEditorStore((s) => s.questions);
   const expandedTempId = useQuizEditorStore((s) => s.expandedTempId);
   const hydrate = useQuizEditorStore((s) => s.hydrate);
@@ -637,6 +640,94 @@ export function QuizEditClient({ slug }: { slug: string }) {
                   </button>
                 )}
               </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium">Fond du lobby (écran cinéma)</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Photo ou vidéo plein écran pendant l&apos;attente avant le début du quiz (lots,
+                infos sponsor, etc.).
+              </p>
+              {lobbyBackgroundMediaUrl && (
+                <div className="relative mt-2 max-h-40 overflow-hidden rounded border">
+                  {lobbyBackgroundMediaType === 'video' ? (
+                    <video
+                      src={resolveMediaUrl(lobbyBackgroundMediaUrl) ?? lobbyBackgroundMediaUrl}
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
+                      className="h-40 w-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={resolveMediaUrl(lobbyBackgroundMediaUrl) ?? lobbyBackgroundMediaUrl}
+                      alt=""
+                      className="h-40 w-full object-cover"
+                    />
+                  )}
+                  {lobbyBackgroundOverlayOpacity > 0 && (
+                    <div
+                      className="pointer-events-none absolute inset-0 bg-black"
+                      style={{ opacity: lobbyBackgroundOverlayOpacity / 100 }}
+                    />
+                  )}
+                </div>
+              )}
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm"
+                  disabled={readOnly}
+                  className="text-sm"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const q = await apiUploadFile<QuizApiDetail>(
+                      `/api/quizzes/${slug}/lobby-background`,
+                      f,
+                    );
+                    markSaved(q);
+                  }}
+                />
+                {lobbyBackgroundMediaUrl && !readOnly && (
+                  <button
+                    type="button"
+                    className="rounded border px-2 py-1 text-sm"
+                    onClick={async () => {
+                      const q = await api.delete<QuizApiDetail>(
+                        `/api/quizzes/${slug}/lobby-background`,
+                      );
+                      if (q) markSaved(q);
+                    }}
+                  >
+                    Supprimer fond lobby
+                  </button>
+                )}
+              </div>
+              <label className="mt-4 block text-sm">
+                <span>Assombrissement ({lobbyBackgroundOverlayOpacity} %)</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  disabled={readOnly || !lobbyBackgroundMediaUrl}
+                  className="mt-2 w-full max-w-md disabled:opacity-50"
+                  value={lobbyBackgroundOverlayOpacity}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    updateMetadata({ lobbyBackgroundOverlayOpacity: value });
+                  }}
+                  onPointerUp={async (e) => {
+                    if (readOnly) return;
+                    const value = Number((e.target as HTMLInputElement).value);
+                    const q = await api.patch<QuizApiDetail>(`/api/quizzes/${slug}`, {
+                      lobbyBackgroundOverlayOpacity: value,
+                    });
+                    if (q) markSaved(q);
+                  }}
+                />
+              </label>
             </div>
 
             <div>

@@ -48,6 +48,9 @@ interface QuizBackgroundState {
   quizBackgroundMediaUrl: string | null;
   quizBackgroundMediaType: QuizBackgroundMediaType | null;
   quizBackgroundOverlayOpacity: number;
+  lobbyBackgroundMediaUrl: string | null;
+  lobbyBackgroundMediaType: QuizBackgroundMediaType | null;
+  lobbyBackgroundOverlayOpacity: number;
   quizAnswerDisplayStyle: AnswerDisplayStyle;
   lateJoinQrEnabled: boolean;
 }
@@ -102,6 +105,9 @@ interface NucState {
   quizBackgroundMediaUrl: string | null;
   quizBackgroundMediaType: QuizBackgroundMediaType | null;
   quizBackgroundOverlayOpacity: number;
+  lobbyBackgroundMediaUrl: string | null;
+  lobbyBackgroundMediaType: QuizBackgroundMediaType | null;
+  lobbyBackgroundOverlayOpacity: number;
   quizAnswerDisplayStyle: AnswerDisplayStyle;
   lateJoinQrEnabled: boolean;
 
@@ -124,6 +130,9 @@ const emptyQuizBackground: QuizBackgroundState = {
   quizBackgroundMediaUrl: null,
   quizBackgroundMediaType: null,
   quizBackgroundOverlayOpacity: 0,
+  lobbyBackgroundMediaUrl: null,
+  lobbyBackgroundMediaType: null,
+  lobbyBackgroundOverlayOpacity: 0,
   quizAnswerDisplayStyle: 'multicolor',
   lateJoinQrEnabled: false,
 };
@@ -138,15 +147,22 @@ function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundSta
         backgroundMediaUrl?: string | null;
         backgroundMediaType?: QuizBackgroundMediaType | null;
         backgroundOverlayOpacity?: number;
+        lobbyBackgroundMediaUrl?: string | null;
+        lobbyBackgroundMediaType?: QuizBackgroundMediaType | null;
+        lobbyBackgroundOverlayOpacity?: number;
         brandingJson?: unknown;
       }
     | undefined;
   if (!quiz) return emptyQuizBackground;
   const type = quiz.backgroundMediaType;
+  const lobbyType = quiz.lobbyBackgroundMediaType;
   return {
     quizBackgroundMediaUrl: quiz.backgroundMediaUrl ?? null,
     quizBackgroundMediaType: type === 'image' || type === 'video' ? type : null,
     quizBackgroundOverlayOpacity: quiz.backgroundOverlayOpacity ?? 0,
+    lobbyBackgroundMediaUrl: quiz.lobbyBackgroundMediaUrl ?? null,
+    lobbyBackgroundMediaType: lobbyType === 'image' || lobbyType === 'video' ? lobbyType : null,
+    lobbyBackgroundOverlayOpacity: quiz.lobbyBackgroundOverlayOpacity ?? 0,
     quizAnswerDisplayStyle: readAnswerDisplayStyle(quiz.brandingJson),
     lateJoinQrEnabled: readLateJoinQrEnabled(quiz.brandingJson),
   };

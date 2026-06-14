@@ -10,6 +10,7 @@ import FinalResultsState from '@/components/states/final-results-state';
 import AbortedState from '@/components/states/aborted-state';
 import PausedOverlay from '@/components/states/paused-overlay';
 import { NucConnectionBanner } from '@/components/shared/nuc-connection-banner';
+import LobbyBackground from '@/components/shared/lobby-background';
 import LateJoinQrBadge from '@/components/shared/late-join-qr-badge';
 
 export default function ScreenPage() {
@@ -27,6 +28,7 @@ export default function ScreenPage() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-gray-950 text-white">
       <NucConnectionBanner />
+      {uiState === 'lobby' && <LobbyBackground />}
       {uiState === 'idle' && <IdleState />}
       {uiState === 'lobby' && <LobbyState />}
       {uiState === 'question' && <QuestionState />}
