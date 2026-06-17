@@ -1,16 +1,20 @@
 html {
-  font-family: Biennale, system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 body {
   font-weight: 400;
 }
 
+.font-black {
+  font-weight: 800;
+}
+
 h1,
 h2,
 h3,
 .font-title {
-  font-weight: 900;
+  font-weight: 800;
 }
 
 h4,
@@ -30,7 +34,7 @@ h6,
 .text-7xl.font-bold,
 .text-8xl.font-bold,
 .text-9xl.font-bold {
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .text-lg.font-semibold,

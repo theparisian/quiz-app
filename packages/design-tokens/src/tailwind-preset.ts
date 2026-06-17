@@ -22,8 +22,8 @@ export const tailwindPreset: Partial<Config> = {
         warning: '#f59e0b',
       },
       fontFamily: {
-        sans: ['Biennale', 'system-ui', 'sans-serif'],
-        display: ['Biennale', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         none: '0',
