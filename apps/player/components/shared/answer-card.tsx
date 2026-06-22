@@ -18,7 +18,7 @@ export default function AnswerCard({
   text,
   index,
   displayStyle = 'multicolor',
-  staggerDelayMs = 2000,
+  staggerDelayMs = 1000,
 }: AnswerCardProps) {
   const color = ANSWER_COLORS[position];
   const isGlass = displayStyle === 'glass';

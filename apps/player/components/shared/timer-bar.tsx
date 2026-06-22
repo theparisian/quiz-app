@@ -7,8 +7,8 @@ interface TimerBarProps {
   totalMs: number;
 }
 
-const SIZE = 128;
-const STROKE = 8;
+const SIZE = 104;
+const STROKE = 7;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -78,25 +78,18 @@ export default function TimerBar({ startedAt, totalMs }: TimerBarProps) {
         />
       </svg>
 
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <div className="absolute inset-0 flex items-center justify-center">
         <span
           key={remainingSec}
           className={`font-black tabular-nums leading-none transition-colors duration-300 ${
             isCritical
-              ? 'animate-timer-digit text-5xl text-red-400'
+              ? 'animate-timer-digit text-4xl text-red-400'
               : isUrgent
-                ? 'animate-timer-digit text-5xl text-amber-400'
-                : 'text-5xl text-white'
+                ? 'animate-timer-digit text-4xl text-amber-400'
+                : 'text-4xl text-white'
           }`}
         >
           {remainingSec}
-        </span>
-        <span
-          className={`mt-1 text-xs font-semibold uppercase tracking-widest transition-colors duration-300 ${
-            isCritical ? 'text-red-400/80' : isUrgent ? 'text-amber-400/80' : 'text-white/50'
-          }`}
-        >
-          sec
         </span>
       </div>
     </div>
