@@ -33,6 +33,10 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'answer-reveal': {
+          '0%': { opacity: '0', transform: 'translateY(24px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'glow-pulse': 'glow-pulse 1.5s ease-in-out infinite',
@@ -40,6 +44,7 @@ const config: Config = {
         'slide-in-left': 'slide-in-left 0.6s ease-out forwards',
         'scale-up': 'scale-up 0.6s ease-out forwards',
         'cascade-in': 'cascade-in 0.3s ease-out forwards',
+        'answer-reveal': 'answer-reveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards',
       },
     },
   },

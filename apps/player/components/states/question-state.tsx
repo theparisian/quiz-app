@@ -33,7 +33,7 @@ export default function QuestionState() {
         </div>
 
         <div className="flex flex-1 flex-col items-center justify-center gap-8 px-16">
-          <h2 className="max-w-[80vw] text-center text-[clamp(32px,4vw,72px)] font-bold leading-tight">
+          <h2 className="max-w-[80vw] text-center text-[clamp(28px,3.2vw,56px)] font-bold leading-tight">
             {currentQuestion.text}
           </h2>
 
@@ -45,7 +45,7 @@ export default function QuestionState() {
             />
           )}
 
-          <div className="grid w-full max-w-[90vw] grid-cols-2 gap-6">
+          <div key={currentQuestion.id} className="grid w-full max-w-[90vw] grid-cols-2 gap-6">
             {currentQuestion.answers.map((answer, i) => (
               <AnswerCard
                 key={answer.id}
