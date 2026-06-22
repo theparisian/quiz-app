@@ -2,6 +2,8 @@
 
 import { ANSWER_COLORS, type AnswerDisplayStyle } from '@quiz-app/design-tokens';
 
+const ANSWER_POSITIONS = ['A', 'B', 'C', 'D'] as const;
+
 interface AnswerCardProps {
   position: 'A' | 'B' | 'C' | 'D';
   text: string;
@@ -16,10 +18,12 @@ export default function AnswerCard({
   text,
   index,
   displayStyle = 'multicolor',
-  staggerDelayMs = 1500,
+  staggerDelayMs = 2000,
 }: AnswerCardProps) {
   const color = ANSWER_COLORS[position];
   const isGlass = displayStyle === 'glass';
+  const staggerIndex = ANSWER_POSITIONS.indexOf(position);
+  const revealDelayMs = (staggerIndex >= 0 ? staggerIndex : index) * staggerDelayMs;
 
   return (
     <div
@@ -30,7 +34,7 @@ export default function AnswerCard({
       }`}
       style={{
         backgroundColor: isGlass ? undefined : color.bg,
-        animationDelay: `${index * staggerDelayMs}ms`,
+        animationDelay: `${revealDelayMs}ms`,
       }}
     >
       <span className="text-4xl font-black" style={isGlass ? { color: color.bg } : undefined}>

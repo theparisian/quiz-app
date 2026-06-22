@@ -28,8 +28,11 @@ export default function QuestionState() {
     <div className="relative flex h-full flex-col">
       <QuizBackground />
       <div className="relative z-10 flex h-full flex-col">
-        <div className="fixed right-16 top-4 z-20 text-xl font-medium text-gray-300">
-          Question {currentQuestionPosition} / {totalQuestions}
+        <div className="fixed right-16 top-4 z-20 flex flex-col items-end gap-3">
+          <TimerBar startedAt={questionStartedAt ?? Date.now()} totalMs={questionTimeLimitMs} />
+          <div className="text-xl font-medium text-gray-300">
+            Question {currentQuestionPosition} / {totalQuestions}
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col items-center justify-center gap-8 px-16">
@@ -46,21 +49,26 @@ export default function QuestionState() {
           )}
 
           <div key={currentQuestion.id} className="grid w-full max-w-[90vw] grid-cols-2 gap-6">
-            {currentQuestion.answers.map((answer, i) => (
-              <AnswerCard
-                key={answer.id}
-                position={answer.position as 'A' | 'B' | 'C' | 'D'}
-                text={answer.text}
-                index={i}
-                displayStyle={quizAnswerDisplayStyle}
-              />
-            ))}
+            {[...currentQuestion.answers]
+              .sort(
+                (a, b) =>
+                  ['A', 'B', 'C', 'D'].indexOf(a.position) -
+                  ['A', 'B', 'C', 'D'].indexOf(b.position),
+              )
+              .map((answer, i) => (
+                <AnswerCard
+                  key={answer.id}
+                  position={answer.position as 'A' | 'B' | 'C' | 'D'}
+                  text={answer.text}
+                  index={i}
+                  displayStyle={quizAnswerDisplayStyle}
+                />
+              ))}
           </div>
         </div>
 
         <div className="px-16 pb-8">
-          <TimerBar startedAt={questionStartedAt ?? Date.now()} totalMs={questionTimeLimitMs} />
-          <div className="mt-4 text-center text-lg text-gray-400">
+          <div className="text-center text-lg text-gray-400">
             {answersSubmittedCount} / {answersTotal} réponses
           </div>
         </div>

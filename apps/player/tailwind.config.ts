@@ -37,6 +37,19 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(24px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'timer-urgent': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.05)' },
+        },
+        'timer-critical': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.08)' },
+        },
+        'timer-digit': {
+          '0%': { transform: 'scale(1)' },
+          '35%': { transform: 'scale(1.12)' },
+          '100%': { transform: 'scale(1)' },
+        },
       },
       animation: {
         'glow-pulse': 'glow-pulse 1.5s ease-in-out infinite',
@@ -45,6 +58,9 @@ const config: Config = {
         'scale-up': 'scale-up 0.6s ease-out forwards',
         'cascade-in': 'cascade-in 0.3s ease-out forwards',
         'answer-reveal': 'answer-reveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'timer-urgent': 'timer-urgent 1s ease-in-out infinite',
+        'timer-critical': 'timer-critical 0.55s ease-in-out infinite',
+        'timer-digit': 'timer-digit 0.35s ease-out',
       },
     },
   },
