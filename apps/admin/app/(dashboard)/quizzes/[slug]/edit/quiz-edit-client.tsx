@@ -119,6 +119,7 @@ export function QuizEditClient({ slug }: { slug: string }) {
   const brandingSecondary = useQuizEditorStore((s) => s.brandingSecondary);
   const answerDisplayStyle = useQuizEditorStore((s) => s.answerDisplayStyle);
   const lateJoinQrEnabled = useQuizEditorStore((s) => s.lateJoinQrEnabled);
+  const lobbyPrizesEnabled = useQuizEditorStore((s) => s.lobbyPrizesEnabled);
   const coverImageUrl = useQuizEditorStore((s) => s.coverImageUrl);
   const backgroundMediaUrl = useQuizEditorStore((s) => s.backgroundMediaUrl);
   const backgroundMediaType = useQuizEditorStore((s) => s.backgroundMediaType);
@@ -729,6 +730,24 @@ export function QuizEditClient({ slug }: { slug: string }) {
                     if (q) markSaved(q);
                   }}
                 />
+              </label>
+              <label className="mt-4 flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-gray-300"
+                  disabled={readOnly}
+                  checked={lobbyPrizesEnabled}
+                  onChange={(e) => updateMetadata({ lobbyPrizesEnabled: e.target.checked })}
+                />
+                <span>
+                  <span className="font-medium text-gray-800">
+                    Afficher les lots dans le panneau lobby
+                  </span>
+                  <span className="mt-1 block text-gray-500">
+                    Désactivé par défaut. La plupart des cinémas intègrent les lots directement dans
+                    l&apos;image de fond.
+                  </span>
+                </span>
               </label>
             </div>
 

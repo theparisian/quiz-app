@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   readAnswerDisplayStyle,
   readLateJoinQrEnabled,
+  readLobbyPrizesEnabled,
   type AnswerDisplayStyle,
 } from '@quiz-app/design-tokens';
 import type { SessionPrizesDisplay } from '@quiz-app/validation';
@@ -53,6 +54,7 @@ interface QuizBackgroundState {
   lobbyBackgroundOverlayOpacity: number;
   quizAnswerDisplayStyle: AnswerDisplayStyle;
   lateJoinQrEnabled: boolean;
+  lobbyPrizesEnabled: boolean;
 }
 
 interface NucState {
@@ -111,6 +113,7 @@ interface NucState {
   lobbyBackgroundOverlayOpacity: number;
   quizAnswerDisplayStyle: AnswerDisplayStyle;
   lateJoinQrEnabled: boolean;
+  lobbyPrizesEnabled: boolean;
 
   setNucContext: (ctx: {
     nucId: string;
@@ -136,6 +139,7 @@ const emptyQuizBackground: QuizBackgroundState = {
   lobbyBackgroundOverlayOpacity: 0,
   quizAnswerDisplayStyle: 'multicolor',
   lateJoinQrEnabled: false,
+  lobbyPrizesEnabled: false,
 };
 
 function readPrizes(snap: Record<string, unknown>): SessionPrizesDisplay | null {
@@ -166,6 +170,7 @@ function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundSta
     lobbyBackgroundOverlayOpacity: quiz.lobbyBackgroundOverlayOpacity ?? 0,
     quizAnswerDisplayStyle: readAnswerDisplayStyle(quiz.brandingJson),
     lateJoinQrEnabled: readLateJoinQrEnabled(quiz.brandingJson),
+    lobbyPrizesEnabled: readLobbyPrizesEnabled(quiz.brandingJson),
   };
 }
 

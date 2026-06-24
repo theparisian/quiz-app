@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   readAnswerDisplayStyle,
   readLateJoinQrEnabled,
+  readLobbyPrizesEnabled,
   type AnswerDisplayStyle,
 } from '@quiz-app/design-tokens';
 import {
@@ -99,9 +100,17 @@ function buildBrandingJson(
   secondary: string,
   answerDisplayStyle: AnswerDisplayStyle,
   lateJoinQrEnabled: boolean,
+  lobbyPrizesEnabled: boolean,
   lobbyTimer: LobbyTimerConfig,
 ): Record<string, unknown> {
-  return { primary, secondary, answerDisplayStyle, lateJoinQrEnabled, lobbyTimer };
+  return {
+    primary,
+    secondary,
+    answerDisplayStyle,
+    lateJoinQrEnabled,
+    lobbyPrizesEnabled,
+    lobbyTimer,
+  };
 }
 
 function defaultAnswers(): EditorAnswer[] {
@@ -126,6 +135,7 @@ export interface QuizEditorState {
   brandingSecondary: string;
   answerDisplayStyle: AnswerDisplayStyle;
   lateJoinQrEnabled: boolean;
+  lobbyPrizesEnabled: boolean;
   lobbyTimer: LobbyTimerConfig;
   coverImageUrl: string | null;
   backgroundMediaUrl: string | null;
@@ -152,6 +162,7 @@ export interface QuizEditorState {
     brandingSecondary?: string;
     answerDisplayStyle?: AnswerDisplayStyle;
     lateJoinQrEnabled?: boolean;
+    lobbyPrizesEnabled?: boolean;
     lobbyTimer?: LobbyTimerConfig;
     coverImageUrl?: string | null;
     backgroundMediaUrl?: string | null;
@@ -253,6 +264,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
   brandingSecondary: '#64748b',
   answerDisplayStyle: 'multicolor',
   lateJoinQrEnabled: false,
+  lobbyPrizesEnabled: false,
   lobbyTimer: { ...LOBBY_TIMER_DEFAULTS },
   coverImageUrl: null,
   backgroundMediaUrl: null,
@@ -280,6 +292,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       brandingSecondary: colors.secondary,
       answerDisplayStyle: readAnswerDisplayStyle(api.brandingJson),
       lateJoinQrEnabled: readLateJoinQrEnabled(api.brandingJson),
+      lobbyPrizesEnabled: readLobbyPrizesEnabled(api.brandingJson),
       lobbyTimer: readLobbyTimerConfig(api.brandingJson),
       coverImageUrl: api.coverImageUrl,
       backgroundMediaUrl: api.backgroundMediaUrl,
@@ -448,6 +461,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
         s.brandingSecondary,
         s.answerDisplayStyle,
         s.lateJoinQrEnabled,
+        s.lobbyPrizesEnabled,
         s.lobbyTimer,
       ),
       coverImageUrl: s.coverImageUrl,

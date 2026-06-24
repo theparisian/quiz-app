@@ -32,6 +32,7 @@ export default function LobbyState() {
   const cinemaName = useNucStore((s) => s.cinemaName);
   const prizes = useNucStore((s) => s.prizes);
   const lobbyRemainingMs = useNucStore((s) => s.lobbyRemainingMs);
+  const lobbyPrizesEnabled = useNucStore((s) => s.lobbyPrizesEnabled);
 
   const hasPrizes = !!(prizes?.rank1 || prizes?.rank2 || prizes?.rank3);
   const superPrize = prizes?.rank1?.isSuperPrize ? prizes.rank1 : null;
@@ -89,7 +90,7 @@ export default function LobbyState() {
           <span className="text-base text-white/60">Scannez le QR pour rejoindre</span>
         </div>
 
-        {superPrize && (
+        {lobbyPrizesEnabled && superPrize && (
           <div className="w-full rounded-2xl border border-yellow-400/40 bg-gradient-to-r from-yellow-500/20 to-amber-600/10 px-6 py-3">
             <div className="text-lg font-bold tracking-wide text-yellow-300">
               🎰 Super lot ce soir : {superPrize.label}
@@ -97,13 +98,13 @@ export default function LobbyState() {
           </div>
         )}
 
-        {prizes?.all && (
+        {lobbyPrizesEnabled && prizes?.all && (
           <div className="w-full rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-6 py-3 text-base font-semibold text-emerald-200">
             🎁 Tous les joueurs gagnent : {prizes.all.label}
           </div>
         )}
 
-        {!superPrize && hasPrizes && (
+        {lobbyPrizesEnabled && !superPrize && hasPrizes && (
           <div className="w-full rounded-2xl bg-white/5 px-6 py-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
               À gagner ce soir

@@ -6,3 +6,4 @@ export {
   type AnswerDisplayStyle,
 } from './answer-display-style';
 export { readLateJoinQrEnabled } from './late-join-qr';
+export { readLobbyPrizesEnabled } from './lobby-prizes';
