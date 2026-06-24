@@ -58,16 +58,28 @@ export function StyledQrCode({ value, size = 320, className }: StyledQrCodeProps
 
 interface QrCodeProps extends StyledQrCodeProps {
   caption?: string;
+  captionClassName?: string;
 }
 
 /** QR code dans un encart blanc, avec légende optionnelle (lobby). */
-export default function QrCode({ value, size = 320, className, caption }: QrCodeProps) {
+export default function QrCode({
+  value,
+  size = 320,
+  className,
+  caption,
+  captionClassName,
+}: QrCodeProps) {
   return (
     <div
       className={`flex w-full flex-col items-center gap-3 rounded-2xl bg-white px-4 py-4 ${className ?? ''}`}
     >
       {caption && (
-        <p className="max-w-[14rem] text-center text-xs font-medium leading-snug text-gray-800">
+        <p
+          className={
+            captionClassName ??
+            'max-w-[14rem] text-center text-xs font-medium leading-snug text-gray-800'
+          }
+        >
           {caption}
         </p>
       )}

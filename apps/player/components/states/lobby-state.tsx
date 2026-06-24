@@ -91,13 +91,13 @@ export default function LobbyState() {
           <div className="relative flex flex-col items-center gap-4">
             <div className="flex items-center gap-4">
               <PhoneIcon className="h-12 w-9 shrink-0 text-white/80" />
-              <div className="text-left leading-snug">
+              <div className="text-left leading-tight">
                 <p className="text-base text-white/80">Connectez-vous sur</p>
                 <p className="text-lg font-bold text-white">{mobileHost}</p>
               </div>
             </div>
 
-            <div className="absolute -bottom-2.5 text-[clamp(36px,5vw,64px)] font-black tabular-nums leading-none tracking-[0.1em]">
+            <div className="text-[clamp(28px,3.5vw,48px)] font-black tabular-nums leading-none tracking-[0.1em]">
               {slugShort}
             </div>
           </div>
@@ -106,6 +106,7 @@ export default function LobbyState() {
             value={`${MOBILE_URL}/?s=${slugShort}`}
             size={160}
             caption="Scannez le QR Code et rejoignez la partie"
+            captionClassName="max-w-[14rem] text-center text-sm font-bold leading-tight text-gray-800"
           />
 
           {lobbyPrizesEnabled && superPrize && (
@@ -143,7 +144,7 @@ export default function LobbyState() {
         </div>
 
         {lobbyRemainingMs !== null && (
-          <div className="mt-8 rounded-full bg-black px-8 py-2.5">
+          <div className="absolute -bottom-3 rounded-full bg-black px-8 py-2.5">
             <div className="text-[10px] uppercase tracking-wide text-white/55">Début partie</div>
             <div className="text-xl font-black tabular-nums leading-tight">
               {formatCountdown(lobbyRemainingMs)}
