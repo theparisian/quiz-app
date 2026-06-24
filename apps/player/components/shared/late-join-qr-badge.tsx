@@ -1,6 +1,6 @@
 'use client';
 
-import { QRCodeSVG } from 'qrcode.react';
+import { StyledQrCode } from '@/components/shared/qr-code';
 
 const MOBILE_URL =
   process.env.NEXT_PUBLIC_MOBILE_URL || process.env.NEXT_PUBLIC_PLAY_URL || 'http://localhost:3002';
@@ -46,7 +46,7 @@ export default function LateJoinQrBadge({ slugShort }: LateJoinQrBadgeProps) {
 
       <div className="absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2">
         <div className="rounded-full bg-white p-2 shadow-lg shadow-black/40">
-          <QRCodeSVG value={joinUrl} size={QR_SIZE} level="M" bgColor="#ffffff" fgColor="#000000" />
+          <StyledQrCode value={joinUrl} size={QR_SIZE} />
         </div>
       </div>
     </div>

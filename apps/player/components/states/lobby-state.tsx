@@ -36,7 +36,6 @@ function PhoneIcon({ className }: { className?: string }) {
 export default function LobbyState() {
   const slugShort = useNucStore((s) => s.slugShort);
   const players = useNucStore((s) => s.players);
-  const totalPlayers = useNucStore((s) => s.totalPlayers);
   const cinemaLogoUrl = useNucStore((s) => s.cinemaLogoUrl);
   const cinemaName = useNucStore((s) => s.cinemaName);
   const prizes = useNucStore((s) => s.prizes);
@@ -81,7 +80,7 @@ export default function LobbyState() {
       </div>
 
       {/* Partie droite : panneau verre dépoli, neutre, qui s'adapte à n'importe quel fond. */}
-      <aside className="m-10 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-8 py-10 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-14">
+      <aside className="m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-8 py-10 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
         <div className="flex w-full flex-col items-center gap-7">
           <div>
             <h1 className="text-[clamp(28px,2.6vw,48px)] font-black leading-none tracking-tight drop-shadow">
@@ -141,11 +140,6 @@ export default function LobbyState() {
               </ul>
             </div>
           )}
-
-          <div className="flex w-full items-center justify-between text-white/70">
-            <span className="text-sm">Joueurs connectés</span>
-            <span className="text-xl font-bold tabular-nums text-white">{totalPlayers}</span>
-          </div>
         </div>
 
         {lobbyRemainingMs !== null && (
