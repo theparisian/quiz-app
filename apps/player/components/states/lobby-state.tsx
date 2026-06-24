@@ -24,6 +24,15 @@ function formatCountdown(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 32" fill="none" className={className} aria-hidden>
+      <rect x="4" y="1" width="16" height="30" rx="3" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="26" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 export default function LobbyState() {
   const slugShort = useNucStore((s) => s.slugShort);
   const players = useNucStore((s) => s.players);
@@ -72,69 +81,77 @@ export default function LobbyState() {
       </div>
 
       {/* Partie droite : panneau verre dépoli, neutre, qui s'adapte à n'importe quel fond. */}
-      <aside className="m-10 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center justify-center gap-5 rounded-[2rem] border border-white/20 bg-white/[0.07] px-8 py-8 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-14">
-        <div>
-          <h1 className="text-[clamp(28px,2.6vw,48px)] font-black leading-none tracking-tight drop-shadow">
-            C&apos;est l&apos;heure du quiz !
-          </h1>
-          <p className="mt-3 text-lg text-white/80">
-            Connectez-vous sur <span className="font-semibold text-white">{mobileHost}</span>
-          </p>
-        </div>
+      <aside className="m-10 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-8 py-10 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-14">
+        <div className="flex w-full flex-col items-center gap-7">
+          <div>
+            <h1 className="text-[clamp(28px,2.6vw,48px)] font-black leading-none tracking-tight drop-shadow">
+              C&apos;est l&apos;heure du quiz !
+            </h1>
+          </div>
 
-        <div className="text-[clamp(28px,3.5vw,52px)] font-black tabular-nums leading-none tracking-[0.12em]">
-          {slugShort}
-        </div>
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex items-center gap-4">
+              <PhoneIcon className="h-12 w-9 shrink-0 text-white/80" />
+              <div className="text-left leading-snug">
+                <p className="text-base text-white/80">Connectez-vous sur</p>
+                <p className="text-lg font-bold text-white">{mobileHost}</p>
+              </div>
+            </div>
 
-        <div className="flex flex-col items-center gap-2">
-          <QrCode value={`${MOBILE_URL}/?s=${slugShort}`} size={180} />
-          <span className="text-sm text-white/60">Scannez le QR pour rejoindre</span>
-        </div>
-
-        {lobbyPrizesEnabled && superPrize && (
-          <div className="w-full rounded-xl border border-yellow-400/40 bg-gradient-to-r from-yellow-500/20 to-amber-600/10 px-4 py-2.5">
-            <div className="text-sm font-bold tracking-wide text-yellow-300">
-              🎰 Super lot ce soir : {superPrize.label}
+            <div className="text-[clamp(36px,5vw,64px)] font-black tabular-nums leading-none tracking-[0.1em]">
+              {slugShort}
             </div>
           </div>
-        )}
 
-        {lobbyPrizesEnabled && prizes?.all && (
-          <div className="w-full rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200">
-            🎁 Tous les joueurs gagnent : {prizes.all.label}
-          </div>
-        )}
+          <QrCode
+            value={`${MOBILE_URL}/?s=${slugShort}`}
+            size={160}
+            caption="Scannez le QR Code et rejoignez la partie"
+          />
 
-        {lobbyPrizesEnabled && !superPrize && hasPrizes && (
-          <div className="w-full rounded-xl bg-white/5 px-4 py-3">
-            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/50">
-              À gagner ce soir
+          {lobbyPrizesEnabled && superPrize && (
+            <div className="w-full rounded-xl border border-yellow-400/40 bg-gradient-to-r from-yellow-500/20 to-amber-600/10 px-4 py-2.5">
+              <div className="text-sm font-bold tracking-wide text-yellow-300">
+                🎰 Super lot ce soir : {superPrize.label}
+              </div>
             </div>
-            <ul className="space-y-0.5 text-sm text-white/85">
-              {RANK_META.map(({ key, medal }) => {
-                const prize = prizes?.[key];
-                if (!prize) return null;
-                return (
-                  <li key={key}>
-                    {medal} {prize.label}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
+          )}
 
-        <div className="flex w-full items-center justify-between text-white/70">
-          <span className="text-sm">Joueurs connectés</span>
-          <span className="text-xl font-bold tabular-nums text-white">{totalPlayers}</span>
+          {lobbyPrizesEnabled && prizes?.all && (
+            <div className="w-full rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200">
+              🎁 Tous les joueurs gagnent : {prizes.all.label}
+            </div>
+          )}
+
+          {lobbyPrizesEnabled && !superPrize && hasPrizes && (
+            <div className="w-full rounded-xl bg-white/5 px-4 py-3">
+              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/50">
+                À gagner ce soir
+              </div>
+              <ul className="space-y-0.5 text-sm text-white/85">
+                {RANK_META.map(({ key, medal }) => {
+                  const prize = prizes?.[key];
+                  if (!prize) return null;
+                  return (
+                    <li key={key}>
+                      {medal} {prize.label}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex w-full items-center justify-between text-white/70">
+            <span className="text-sm">Joueurs connectés</span>
+            <span className="text-xl font-bold tabular-nums text-white">{totalPlayers}</span>
+          </div>
         </div>
 
         {lobbyRemainingMs !== null && (
-          <div className="w-fit bg-black px-4 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-white/55">
-              Début de la partie
-            </div>
-            <div className="text-2xl font-black tabular-nums leading-tight">
+          <div className="mt-8 rounded-full bg-black px-8 py-2.5">
+            <div className="text-[10px] uppercase tracking-wide text-white/55">Début partie</div>
+            <div className="text-xl font-black tabular-nums leading-tight">
               {formatCountdown(lobbyRemainingMs)}
             </div>
           </div>
