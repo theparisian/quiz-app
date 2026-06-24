@@ -33,6 +33,7 @@ import {
   Sparkle,
   Trash,
 } from '@phosphor-icons/react';
+import { LOBBY_TIMER_LIMITS } from '@quiz-app/validation';
 import { api, apiUploadFile } from '../../../../../lib/api';
 import { AiGenerateModal } from '../../../../components/ai-generate-modal';
 import { QuizAnswerStylePicker } from '../../../../components/quiz-answer-style-picker';
@@ -125,6 +126,7 @@ export function QuizEditClient({ slug }: { slug: string }) {
   const lobbyBackgroundMediaUrl = useQuizEditorStore((s) => s.lobbyBackgroundMediaUrl);
   const lobbyBackgroundMediaType = useQuizEditorStore((s) => s.lobbyBackgroundMediaType);
   const lobbyBackgroundOverlayOpacity = useQuizEditorStore((s) => s.lobbyBackgroundOverlayOpacity);
+  const lobbyTimer = useQuizEditorStore((s) => s.lobbyTimer);
   const questions = useQuizEditorStore((s) => s.questions);
   const expandedTempId = useQuizEditorStore((s) => s.expandedTempId);
   const hydrate = useQuizEditorStore((s) => s.hydrate);
@@ -728,6 +730,91 @@ export function QuizEditClient({ slug }: { slug: string }) {
                   }}
                 />
               </label>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium">Compte à rebours du lobby</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Si activé, le quiz se lance automatiquement à la fin du compte à rebours. Sinon,
+                c&apos;est le projectionniste qui lance manuellement.
+              </p>
+              <label className="mt-3 flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-gray-300"
+                  disabled={readOnly}
+                  checked={lobbyTimer.enabled}
+                  onChange={(e) =>
+                    updateMetadata({ lobbyTimer: { ...lobbyTimer, enabled: e.target.checked } })
+                  }
+                />
+                <span className="font-medium text-gray-800">
+                  Activer le compte à rebours automatique
+                </span>
+              </label>
+
+              {lobbyTimer.enabled && (
+                <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                  <label className="block text-sm">
+                    <span>Durée d&apos;attente (minutes)</span>
+                    <input
+                      type="number"
+                      min={LOBBY_TIMER_LIMITS.durationMinutes.min}
+                      max={LOBBY_TIMER_LIMITS.durationMinutes.max}
+                      className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                      disabled={readOnly}
+                      value={lobbyTimer.durationMinutes}
+                      onChange={(e) =>
+                        updateMetadata({
+                          lobbyTimer: { ...lobbyTimer, durationMinutes: Number(e.target.value) },
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span>Lancement auto dès (joueurs)</span>
+                    <input
+                      type="number"
+                      min={LOBBY_TIMER_LIMITS.autoStartPlayerThreshold.min}
+                      max={LOBBY_TIMER_LIMITS.autoStartPlayerThreshold.max}
+                      className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                      disabled={readOnly}
+                      value={lobbyTimer.autoStartPlayerThreshold}
+                      onChange={(e) =>
+                        updateMetadata({
+                          lobbyTimer: {
+                            ...lobbyTimer,
+                            autoStartPlayerThreshold: Number(e.target.value),
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span>Attente réduite (minutes)</span>
+                    <input
+                      type="number"
+                      min={LOBBY_TIMER_LIMITS.reducedDurationMinutes.min}
+                      max={LOBBY_TIMER_LIMITS.reducedDurationMinutes.max}
+                      className="mt-1 w-full rounded border px-3 py-2 text-sm disabled:bg-gray-100"
+                      disabled={readOnly}
+                      value={lobbyTimer.reducedDurationMinutes}
+                      onChange={(e) =>
+                        updateMetadata({
+                          lobbyTimer: {
+                            ...lobbyTimer,
+                            reducedDurationMinutes: Number(e.target.value),
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <p className="text-xs text-gray-500 sm:col-span-3">
+                    Une fois le seuil de joueurs atteint, le temps restant descend à l&apos;attente
+                    réduite (jamais rallongé) pour ne pas faire patienter les joueurs déjà prêts.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>

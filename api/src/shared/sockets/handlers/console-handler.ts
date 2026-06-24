@@ -9,6 +9,7 @@ import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';
 import { authenticateJwtFromCookie, type SocketConsoleData } from '../socket-auth.js';
 import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.service.js';
+import { clearLobbyTimer } from '../../../modules/sessions/lobby-timer.service.js';
 import { buildConsoleStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 
 const CONSOLE_ROLES = new Set(['super_admin', 'cinema_admin', 'projectionist']);
@@ -85,6 +86,7 @@ export function setupConsoleHandlers(io: Server): void {
         return;
       }
       try {
+        clearLobbyTimer(cd.sessionId);
         await getOrchestrator().start(cd.sessionId);
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string };
@@ -209,6 +211,7 @@ export function setupConsoleHandlers(io: Server): void {
 
       const parsed = consoleAbortPayloadSchema.safeParse(data ?? {});
       try {
+        clearLobbyTimer(cd.sessionId);
         await getOrchestrator().abortSession(
           cd.sessionId,
           parsed.success ? parsed.data.reason : undefined,

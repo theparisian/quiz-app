@@ -4,6 +4,7 @@ import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { drawSuperPrizeForSession } from '../prizes/prize-catalog.service.js';
 import { generateUniqueSessionCode } from './session-code.service.js';
+import { startLobbyTimer } from './lobby-timer.service.js';
 import { assertTransition, isActive } from './session-state.service.js';
 import type { CreateSessionInput, ListSessionsQuery } from './sessions.schemas.js';
 
@@ -82,6 +83,13 @@ export const sessionsService = {
     });
 
     await drawSuperPrizeForSession(session.id, session.screen.cinema.id);
+
+    startLobbyTimer({
+      sessionId: session.id,
+      brandingJson: session.quiz.brandingJson,
+      createdAt: session.createdAt,
+      currentPlayers: 0,
+    });
 
     return session;
   },

@@ -18,6 +18,7 @@ import {
 } from './sessions.schemas.js';
 import { sessionsService } from './sessions.service.js';
 import { getOrchestrator } from './session-orchestrator.service.js';
+import { clearLobbyTimer } from './lobby-timer.service.js';
 
 const router = Router();
 
@@ -249,6 +250,7 @@ router.get('/by-code/:slugShort/pseudo-suggestions', async (req, res, next) => {
 router.post('/:id/start', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
+    clearLobbyTimer(sessionId);
     await getOrchestrator().start(sessionId);
     res.json({ message: 'Session started' });
   } catch (error) {
@@ -290,6 +292,7 @@ router.post('/:id/abort', requireAuth([...ADMIN_ROLES]), async (req, res, next) 
   try {
     const sessionId = BigInt(param(req, 'id'));
     const body = validate(abortSessionSchema, req.body);
+    clearLobbyTimer(sessionId);
     const orchestrator = getOrchestrator();
     if (orchestrator.isRunning(sessionId)) {
       await orchestrator.abortSession(sessionId, body.reason);

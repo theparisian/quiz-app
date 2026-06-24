@@ -112,6 +112,10 @@ export const sessionTimerUpdateSchema = z.object({
   remainingMs: z.number().int(),
 });
 
+export const sessionLobbyTimerUpdateSchema = z.object({
+  remainingMs: z.number().int(),
+});
+
 export const sessionAnswerSubmittedCountSchema = z.object({
   count: z.number().int(),
   total: z.number().int(),
@@ -250,6 +254,7 @@ export type SessionStateChangedPayload = z.infer<typeof sessionStateChangedSchem
 export type SessionStartedPayload = z.infer<typeof sessionStartedSchema>;
 export type SessionQuestionStartedPayload = z.infer<typeof sessionQuestionStartedSchema>;
 export type SessionTimerUpdatePayload = z.infer<typeof sessionTimerUpdateSchema>;
+export type SessionLobbyTimerUpdatePayload = z.infer<typeof sessionLobbyTimerUpdateSchema>;
 export type SessionAnswerSubmittedCountPayload = z.infer<typeof sessionAnswerSubmittedCountSchema>;
 export type SessionQuestionEndedPayload = z.infer<typeof sessionQuestionEndedSchema>;
 export type SessionNextQuestionInPayload = z.infer<typeof sessionNextQuestionInSchema>;

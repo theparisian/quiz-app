@@ -19,6 +19,7 @@ import {
   rehydrateRunningSessions,
   setIoInstance,
 } from './modules/sessions/session-orchestrator.service.js';
+import { rehydrateLobbyTimers, setLobbyTimerIo } from './modules/sessions/lobby-timer.service.js';
 import { requeuePendingPrizeEmailsOnBoot } from './shared/email/prize-email-queue.service.js';
 import { startNucOfflineMonitor } from './shared/nuc-monitor/index.js';
 
@@ -36,6 +37,7 @@ const io = setupSocketGateway(httpServer);
 app.set('io', io);
 
 setIoInstance(io);
+setLobbyTimerIo(io);
 
 let nucMonitorStop: (() => void) | undefined;
 
@@ -59,6 +61,7 @@ process.once('SIGINT', () => {
 
 void (async () => {
   await rehydrateRunningSessions();
+  await rehydrateLobbyTimers();
   await requeuePendingPrizeEmailsOnBoot();
   nucMonitorStop = startNucOfflineMonitor(io);
 

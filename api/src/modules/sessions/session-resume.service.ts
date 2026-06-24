@@ -6,6 +6,7 @@ import {
   getResultsDisplayMs,
   type RunningSessionState,
 } from './session-orchestrator.service.js';
+import { getLobbyTimerRemainingMs } from './lobby-timer.service.js';
 import {
   resolvePrizeConfig,
   resolveEligiblePrizeForPlayer,
@@ -432,6 +433,10 @@ export async function buildNucStateSnapshot(params: {
   };
 
   if (session.state === 'lobby') {
+    const lobbyTimerRemainingMs = getLobbyTimerRemainingMs(session.id);
+    if (lobbyTimerRemainingMs !== null) {
+      out.lobbyTimerRemainingMs = lobbyTimerRemainingMs;
+    }
     const prizes = await resolvePrizesPayload(session.id);
     return prizes ? { ...out, prizes } : out;
   }
@@ -555,6 +560,12 @@ export async function buildConsoleStateSnapshot(
       totalPlayers: players.length,
       audioMuted: session.audioMuted,
     },
+    ...(session.state === 'lobby'
+      ? (() => {
+          const remaining = getLobbyTimerRemainingMs(session.id);
+          return remaining !== null ? { lobbyTimerRemainingMs: remaining } : {};
+        })()
+      : {}),
     quiz,
     players: players.map((p) => ({
       playerId: p.id.toString(),

@@ -17,6 +17,7 @@ const SESSION_EVENTS = [
   'session:audio_muted',
   'session:ended',
   'session:aborted',
+  'session:lobby_timer_update',
   'player:joined',
   'player:left',
 ] as const;

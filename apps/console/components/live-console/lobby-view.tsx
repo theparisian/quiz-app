@@ -10,9 +10,17 @@ interface LobbyViewProps {
   starting?: boolean;
 }
 
+function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 export function LobbyView({ onStart, onAbort, starting }: LobbyViewProps) {
   const slugShort = useLiveSessionStore((s) => s.slugShort);
   const players = useLiveSessionStore((s) => s.players);
+  const lobbyRemainingMs = useLiveSessionStore((s) => s.lobbyRemainingMs);
 
   return (
     <div className="flex flex-col items-center gap-8 py-8">
@@ -22,6 +30,15 @@ export function LobbyView({ onStart, onAbort, starting }: LobbyViewProps) {
           {slugShort}
         </p>
       </div>
+
+      {lobbyRemainingMs !== null && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-5 py-3 text-center">
+          <span className="text-sm font-medium text-blue-700">Lancement automatique dans</span>
+          <span className="font-mono text-2xl font-bold tabular-nums text-blue-900">
+            {formatCountdown(lobbyRemainingMs)}
+          </span>
+        </div>
+      )}
 
       <div className="text-center text-sm text-gray-500">
         <p>Les joueurs peuvent rejoindre via :</p>

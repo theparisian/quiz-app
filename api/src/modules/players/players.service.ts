@@ -5,6 +5,7 @@ import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { containsBadWord } from '../../shared/moderation/bad-words.js';
 import { getOrchestrator } from '../sessions/session-orchestrator.service.js';
+import { notifyLobbyPlayerJoined } from '../sessions/lobby-timer.service.js';
 import { buildPlayerJoinSnapshot } from '../sessions/session-resume.service.js';
 import type { JoinSessionInput } from './players.schemas.js';
 
@@ -99,6 +100,11 @@ export const playersService = {
           joinedQuestionPosition,
         },
       });
+    } else {
+      const activePlayers = await prisma.player.count({
+        where: { sessionId: session.id, status: 'active' },
+      });
+      notifyLobbyPlayerJoined(session.id, activePlayers);
     }
 
     logger.info(

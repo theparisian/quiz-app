@@ -4,6 +4,7 @@ import type {
   SessionStartedPayload,
   SessionQuestionStartedPayload,
   SessionTimerUpdatePayload,
+  SessionLobbyTimerUpdatePayload,
   SessionAnswerSubmittedCountPayload,
   SessionQuestionEndedPayload,
   SessionNextQuestionInPayload,
@@ -58,6 +59,7 @@ export interface LiveSessionState {
   state: SessionState | null;
   totalQuestions: number;
   totalPlayers: number;
+  lobbyRemainingMs: number | null;
 
   quiz: QuizFull | null;
 
@@ -125,6 +127,7 @@ const INITIAL: Omit<
   state: null,
   totalQuestions: 0,
   totalPlayers: 0,
+  lobbyRemainingMs: null,
   quiz: null,
   currentQuestionPosition: null,
   currentQuestion: null,
@@ -200,6 +203,8 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
       state: sess.state as SessionState,
       totalQuestions: sess.totalQuestions,
       totalPlayers: sess.totalPlayers,
+      lobbyRemainingMs:
+        sess.state === 'lobby' ? ((p.lobbyTimerRemainingMs as number | undefined) ?? null) : null,
       audioMuted: sess.audioMuted,
       quiz,
       prizes: (p.prizes as SessionPrizesDisplay | undefined) ?? null,
@@ -305,7 +310,12 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
       }
       case 'session:started': {
         const p = payload as SessionStartedPayload;
-        set({ state: 'running', totalQuestions: p.totalQuestions });
+        set({ state: 'running', totalQuestions: p.totalQuestions, lobbyRemainingMs: null });
+        break;
+      }
+      case 'session:lobby_timer_update': {
+        const p = payload as SessionLobbyTimerUpdatePayload;
+        set({ lobbyRemainingMs: p.remainingMs });
         break;
       }
       case 'session:question_started': {
@@ -390,7 +400,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
       }
       case 'session:aborted': {
         const p = payload as SessionAbortedPayload;
-        set({ state: 'aborted', abortReason: p.reason });
+        set({ state: 'aborted', abortReason: p.reason, lobbyRemainingMs: null });
         break;
       }
       case 'player:joined': {

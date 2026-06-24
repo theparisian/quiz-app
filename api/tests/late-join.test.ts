@@ -11,6 +11,10 @@ import {
   resetRunningSessionsForTests,
   setIoInstance,
 } from '../src/modules/sessions/session-orchestrator.service.js';
+import {
+  resetLobbyTimersForTests,
+  setLobbyTimerIo,
+} from '../src/modules/sessions/lobby-timer.service.js';
 import { truncateQuizRelatedTables, minimalCinemaAndScreen } from './helpers/integration.js';
 
 describe('late-join', () => {
@@ -26,6 +30,7 @@ describe('late-join', () => {
     httpServer = createServer(app);
     const io = setupSocketGateway(httpServer);
     setIoInstance(io);
+    setLobbyTimerIo(io);
     app.set('io', io);
 
     process.env.RESULTS_DISPLAY_MS = '200';
@@ -44,6 +49,7 @@ describe('late-join', () => {
 
   afterEach(async () => {
     resetRunningSessionsForTests();
+    resetLobbyTimersForTests();
     for (const s of sockets) s.disconnect();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   });

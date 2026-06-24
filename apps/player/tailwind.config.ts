@@ -50,6 +50,15 @@ const config: Config = {
           '35%': { transform: 'scale(1.12)' },
           '100%': { transform: 'scale(1)' },
         },
+        'pseudo-pop': {
+          '0%': { opacity: '0', transform: 'translateY(140px) scale(0.85)' },
+          '60%': { opacity: '1' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'pseudo-float': {
+          '0%, 100%': { transform: 'translateY(0) rotate(var(--pseudo-rot, 0deg))' },
+          '50%': { transform: 'translateY(-12px) rotate(calc(var(--pseudo-rot, 0deg) * -1))' },
+        },
       },
       animation: {
         'glow-pulse': 'glow-pulse 1.5s ease-in-out infinite',
@@ -61,6 +70,8 @@ const config: Config = {
         'timer-urgent': 'timer-urgent 1s ease-in-out infinite',
         'timer-critical': 'timer-critical 0.55s ease-in-out infinite',
         'timer-digit': 'timer-digit 0.35s ease-out',
+        'pseudo-pop': 'pseudo-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards',
+        'pseudo-float': 'pseudo-float 4s ease-in-out infinite',
       },
     },
   },

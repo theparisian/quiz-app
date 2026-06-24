@@ -85,6 +85,7 @@ interface NucState {
 
   players: PlayerInfo[];
   totalPlayers: number;
+  lobbyRemainingMs: number | null;
   scoreboard: ScoreEntry[];
   previousScoreboard: ScoreEntry[];
 
@@ -193,6 +194,7 @@ const initialState = {
 
   players: [] as PlayerInfo[],
   totalPlayers: 0,
+  lobbyRemainingMs: null as number | null,
   scoreboard: [] as ScoreEntry[],
   previousScoreboard: [] as ScoreEntry[],
 
@@ -228,6 +230,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       uiState: 'lobby',
       players: [],
       totalPlayers: 0,
+      lobbyRemainingMs: null,
       isPaused: false,
     }),
 
@@ -278,6 +281,7 @@ export const useNucStore = create<NucState>((set, get) => ({
         audioMuted,
         totalQuestions: 0,
         totalPlayers: 0,
+        lobbyRemainingMs: null,
         players: [],
         scoreboard: [],
         currentQuestion: null,
@@ -298,6 +302,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       slugShort: session.slugShort,
       totalQuestions: session.totalQuestions,
       totalPlayers: session.totalPlayers,
+      lobbyRemainingMs: null as number | null,
       audioMuted,
       players,
       isPaused: session.state === 'paused',
@@ -308,6 +313,7 @@ export const useNucStore = create<NucState>((set, get) => ({
         ...base,
         ...quizBackground,
         uiState: 'lobby',
+        lobbyRemainingMs: (snap.lobbyTimerRemainingMs as number | undefined) ?? null,
         scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
         currentQuestion: null,
         lastResults: null,
@@ -436,8 +442,13 @@ export const useNucStore = create<NucState>((set, get) => ({
         set({
           uiState: 'lobby',
           totalQuestions: (payload.totalQuestions as number) ?? 0,
+          lobbyRemainingMs: null,
           ...readQuizBackground(payload),
         });
+        break;
+
+      case 'session:lobby_timer_update':
+        set({ lobbyRemainingMs: payload.remainingMs as number });
         break;
 
       case 'session:state_changed': {
