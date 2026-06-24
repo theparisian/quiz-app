@@ -13,6 +13,42 @@ function normalizePseudo(raw: string): string {
   return raw.trim().replace(/\s+/g, ' ');
 }
 
+/**
+ * Assigne un avatar au joueur si les avatars sont activés sur le quiz.
+ * Choix optionnel : si l'avatar demandé est invalide/absent, on tire un avatar
+ * aléatoire de la bibliothèque (les doublons sont autorisés).
+ */
+async function resolveAvatarForJoin(
+  avatarsEnabled: boolean,
+  avatarLibraryId: bigint | null,
+  requestedAvatarId: string | undefined,
+): Promise<{ avatarId: bigint | null; avatarUrl: string | null }> {
+  if (!avatarsEnabled || avatarLibraryId == null) {
+    return { avatarId: null, avatarUrl: null };
+  }
+
+  if (requestedAvatarId) {
+    try {
+      const reqId = BigInt(requestedAvatarId);
+      const requested = await prisma.avatar.findFirst({
+        where: { id: reqId, libraryId: avatarLibraryId },
+        select: { id: true, imageUrl: true },
+      });
+      if (requested) return { avatarId: requested.id, avatarUrl: requested.imageUrl };
+    } catch {
+      // id invalide → fallback aléatoire
+    }
+  }
+
+  const all = await prisma.avatar.findMany({
+    where: { libraryId: avatarLibraryId },
+    select: { id: true, imageUrl: true },
+  });
+  if (all.length === 0) return { avatarId: null, avatarUrl: null };
+  const picked = all[Math.floor(Math.random() * all.length)]!;
+  return { avatarId: picked.id, avatarUrl: picked.imageUrl };
+}
+
 function resolveJoinedQuestionPositionAtJoin(
   session: { currentQuestionPosition: number | null },
   sessionId: bigint,
@@ -32,7 +68,10 @@ export const playersService = {
     const session = await prisma.session.findFirst({
       where: { slugShort: input.sessionSlugShort },
       orderBy: { createdAt: 'desc' },
-      include: { screen: { select: { cinemaId: true } } },
+      include: {
+        screen: { select: { cinemaId: true } },
+        quiz: { select: { avatarsEnabled: true, avatarLibraryId: true } },
+      },
     });
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
 
@@ -70,11 +109,18 @@ export const playersService = {
       ? resolveJoinedQuestionPositionAtJoin(session, session.id)
       : null;
 
+    const { avatarId, avatarUrl } = await resolveAvatarForJoin(
+      session.quiz.avatarsEnabled,
+      session.quiz.avatarLibraryId,
+      input.avatarId,
+    );
+
     const player = await prisma.player.create({
       data: {
         sessionId: session.id,
         userId: input.userId ?? null,
         pseudo,
+        avatarId,
         resumeToken,
         status: 'active',
         scoreTotal: 0,
@@ -126,6 +172,8 @@ export const playersService = {
       playerId: player.id,
       resumeToken,
       pseudo: player.pseudo,
+      avatarId,
+      avatarUrl,
       sessionId: session.id,
       sessionState: session.state,
       scoreTotal: 0,
@@ -183,6 +231,7 @@ export const playersService = {
         scoreTotal: true,
         rankFinal: true,
         joinedAt: true,
+        avatar: { select: { imageUrl: true } },
       },
     });
   },

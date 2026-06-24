@@ -73,6 +73,7 @@ export default function QuestionResultsState() {
                 key={entry.playerId}
                 rank={i + 1}
                 pseudo={entry.pseudo}
+                avatarUrl={entry.avatarUrl}
                 scoreTotal={entry.scoreTotal}
                 scoreDiff={entry.scoreTotal - (prevMap.get(entry.playerId) ?? 0)}
                 index={i}

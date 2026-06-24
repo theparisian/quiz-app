@@ -167,13 +167,14 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
   const scoreboardEntries: {
     playerId: string;
     pseudo: string;
+    avatarUrl: string | null;
     scoreTotal: number;
     scoreThisQuestion: number;
   }[] = [];
 
   const players = await prisma.player.findMany({
     where: { id: { in: allPlayerIds.map(BigInt) }, status: 'active' },
-    select: { id: true, pseudo: true, scoreTotal: true },
+    select: { id: true, pseudo: true, scoreTotal: true, avatar: { select: { imageUrl: true } } },
   });
   const playerMap = new Map(players.map((p) => [p.id.toString(), p]));
 
@@ -232,6 +233,7 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
       scoreboardEntries.push({
         playerId: pid,
         pseudo: playerData.pseudo,
+        avatarUrl: playerData.avatar?.imageUrl ?? null,
         scoreTotal: playerData.scoreTotal + points,
         scoreThisQuestion: points,
       });
@@ -249,6 +251,7 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
       scoreboardEntries.push({
         playerId: pid,
         pseudo: playerData.pseudo,
+        avatarUrl: playerData.avatar?.imageUrl ?? null,
         scoreTotal: playerData.scoreTotal,
         scoreThisQuestion: 0,
       });
@@ -402,6 +405,7 @@ async function endSessionInternal(sessionId: bigint) {
   const players = await prisma.player.findMany({
     where: { sessionId, status: 'active' },
     orderBy: [{ scoreTotal: 'desc' }, { joinedAt: 'asc' }],
+    include: { avatar: { select: { imageUrl: true } } },
   });
 
   let rank = 1;
@@ -433,6 +437,7 @@ async function endSessionInternal(sessionId: bigint) {
   const finalScoreboard = players.map((p, i) => ({
     playerId: p.id.toString(),
     pseudo: p.pseudo,
+    avatarUrl: p.avatar?.imageUrl ?? null,
     scoreTotal: p.scoreTotal,
     rank: i + 1,
   }));

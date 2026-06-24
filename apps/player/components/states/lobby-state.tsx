@@ -69,7 +69,13 @@ export default function LobbyState() {
       <div className="pointer-events-none fixed bottom-10 left-10 z-20 max-w-[55vw]">
         <div className="flex flex-wrap content-end items-end gap-x-4 gap-y-3">
           {visiblePlayers.map((p, i) => (
-            <PlayerPill key={p.playerId} pseudo={p.pseudo} index={i} seed={p.playerId} />
+            <PlayerPill
+              key={p.playerId}
+              pseudo={p.pseudo}
+              index={i}
+              seed={p.playerId}
+              avatarUrl={p.avatarUrl}
+            />
           ))}
           {overflow > 0 && (
             <span className="inline-block rounded-full bg-white/15 px-5 py-2 text-xl font-semibold text-white shadow-lg ring-1 ring-white/20 backdrop-blur-sm">

@@ -1,17 +1,27 @@
 'use client';
 
 import { usePlayerStore } from '@/lib/stores/player-store';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 export default function LobbyWaiting() {
   const pseudo = usePlayerStore((s) => s.pseudo);
+  const avatarUrl = usePlayerStore((s) => s.avatarUrl);
   const players = usePlayerStore((s) => s.players);
   const totalPlayers = usePlayerStore((s) => s.totalPlayers);
   const prizes = usePlayerStore((s) => s.prizes);
   const rank1 = prizes?.rank1;
+  const myAvatar = resolveMediaUrl(avatarUrl);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-      <div className="mb-8 text-center">
+      <div className="mb-8 flex flex-col items-center text-center">
+        {myAvatar && (
+          <img
+            src={myAvatar}
+            alt=""
+            className="ring-brand-500/50 mb-3 h-24 w-24 rounded-full object-cover ring-4"
+          />
+        )}
         <div className="mb-2 text-lg text-gray-400">Tu participes en tant que :</div>
         <div className="bg-brand-600/20 text-brand-400 inline-block rounded-full px-6 py-2 text-xl font-bold">
           {pseudo}
@@ -42,11 +52,18 @@ export default function LobbyWaiting() {
           {totalPlayers} joueur{totalPlayers > 1 ? 's' : ''} connecté{totalPlayers > 1 ? 's' : ''}
         </div>
         <div className="flex flex-wrap gap-2">
-          {players.map((p) => (
-            <span key={p.playerId} className="rounded-full bg-white/10 px-3 py-1 text-sm">
-              {p.pseudo}
-            </span>
-          ))}
+          {players.map((p) => {
+            const av = resolveMediaUrl(p.avatarUrl);
+            return (
+              <span
+                key={p.playerId}
+                className="flex items-center gap-1.5 rounded-full bg-white/10 py-1 pl-1 pr-3 text-sm"
+              >
+                {av ? <img src={av} alt="" className="h-6 w-6 rounded-full object-cover" /> : null}
+                {p.pseudo}
+              </span>
+            );
+          })}
         </div>
       </div>
 

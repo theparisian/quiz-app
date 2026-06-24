@@ -46,6 +46,7 @@ export function setupMobileHandlers(io: Server): void {
           sessionSlugShort: parsed.data.sessionSlugShort,
           pseudo: parsed.data.pseudo,
           pseudoSource: parsed.data.pseudoSource,
+          avatarId: parsed.data.avatarId,
         });
 
         const socketData: SocketPlayerData = {
@@ -64,6 +65,8 @@ export function setupMobileHandlers(io: Server): void {
           playerId: result.playerId.toString(),
           resumeToken: result.resumeToken,
           pseudo: result.pseudo,
+          avatarId: result.avatarId?.toString() ?? null,
+          avatarUrl: result.avatarUrl,
           sessionId: result.sessionId.toString(),
           scoreTotal: result.scoreTotal,
           joinedQuestionPosition: result.joinedQuestionPosition,
@@ -79,6 +82,7 @@ export function setupMobileHandlers(io: Server): void {
         broadcastPlayerJoined(io, result.sessionId, {
           playerId: result.playerId.toString(),
           pseudo: result.pseudo,
+          avatarUrl: result.avatarUrl,
         });
 
         logger.info(

@@ -107,7 +107,10 @@ export const sessionsService = {
           },
         },
         screen: { include: { cinema: true } },
-        players: { orderBy: { joinedAt: 'asc' } },
+        players: {
+          orderBy: { joinedAt: 'asc' },
+          include: { avatar: { select: { imageUrl: true } } },
+        },
       },
     });
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');

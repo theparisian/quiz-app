@@ -1,11 +1,13 @@
 'use client';
 
 import type { CSSProperties } from 'react';
+import PlayerAvatar from './player-avatar';
 
 interface PlayerPillProps {
   pseudo: string;
   index: number;
   seed?: string;
+  avatarUrl?: string | null;
 }
 
 // Palette vive : couleur attribuée de façon déterministe (stable au re-render / reconnexion).
@@ -30,7 +32,7 @@ function hashSeed(seed: string): number {
   return Math.abs(h);
 }
 
-export default function PlayerPill({ pseudo, index, seed }: PlayerPillProps) {
+export default function PlayerPill({ pseudo, index, seed, avatarUrl }: PlayerPillProps) {
   const h = hashSeed(seed ?? pseudo);
   const color = PSEUDO_COLORS[h % PSEUDO_COLORS.length];
   const floatDuration = 3.4 + (h % 26) / 10; // 3.4s → 5.9s
@@ -43,7 +45,7 @@ export default function PlayerPill({ pseudo, index, seed }: PlayerPillProps) {
       style={{ animationDelay: `${Math.min(index, 40) * 0.06}s` }}
     >
       <span
-        className="animate-pseudo-float inline-block rounded-full px-6 py-2.5 text-2xl font-semibold text-white shadow-lg ring-1 ring-white/20"
+        className={`animate-pseudo-float inline-flex items-center gap-3 rounded-full py-2.5 text-2xl font-semibold text-white shadow-lg ring-1 ring-white/20 ${avatarUrl ? 'pl-2.5 pr-6' : 'px-6'}`}
         style={
           {
             backgroundColor: color,
@@ -53,6 +55,14 @@ export default function PlayerPill({ pseudo, index, seed }: PlayerPillProps) {
           } as CSSProperties
         }
       >
+        {avatarUrl ? (
+          <PlayerAvatar
+            avatarUrl={avatarUrl}
+            pseudo={pseudo}
+            size={40}
+            className="ring-2 ring-white/40"
+          />
+        ) : null}
         {pseudo}
       </span>
     </span>

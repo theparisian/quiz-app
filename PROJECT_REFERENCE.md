@@ -21,9 +21,11 @@ Tu vas aider à développer une application de quizz live joué en salle de cin�
 ## 1. VISION PRODUIT
 
 ### 1.1 En une phrase
+
 Une plateforme multi-cinéma de quizz interactifs joués en direct par le public d'une salle, sur l'écran principal pendant l'attente avant la séance, avec interaction live via les téléphones des spectateurs.
 
 ### 1.2 Le déroulé d'une session type
+
 1. Le public entre dans la salle, attend le début de la séance.
 2. Sur l'écran de cinéma : un **QR code** s'affiche, invitant à rejoindre le quizz.
 3. Les spectateurs scannent le QR avec leur téléphone, arrivent sur une web app, entrent un **pseudo**.
@@ -36,12 +38,14 @@ Une plateforme multi-cinéma de quizz interactifs joués en direct par le public
 10. Possibilité (rare) de finir sur un spot vidéo sponsorisé.
 
 ### 1.3 Acteurs et modèle économique
+
 - **Spectateurs** : utilisateurs finaux. Gratuit pour eux, anonyme par défaut.
 - **Cinéma exploitant** : héberge l'expérience. Modèle de facturation pas encore tranché.
 - **Sponsors / annonceurs** (futur) : paient pour qu'un quizz brandé soit diffusé sur un réseau de salles.
 - **Super-admin (le porteur du projet)** : gère les cinémas, débugge, crée les quizz sponsorisés, supervise la plateforme.
 
 ### 1.4 Périmètre du MVP pilote
+
 - **1 cinéma indépendant en pilote**, mais l'archi supporte le multi-cinéma + multi-salles dès le départ.
 - Fonctionnalités essentielles : sessions de quizz live + lots simples envoyés par email + reconnexion joueur + monitoring NUC + génération IA de quizz.
 - **Hors périmètre actuel** : self-service annonceurs, marketplace, multi-langues, app mobile native, paiement Stripe, analytics avancés.
@@ -51,9 +55,11 @@ Une plateforme multi-cinéma de quizz interactifs joués en direct par le public
 ## 2. PRINCIPES NON NÉGOCIABLES
 
 ### 2.1 Robustesse > tout le reste
+
 Le système ne doit jamais afficher une erreur visible au public en salle. Pas de page blanche, pas de spinner infini, pas de stack trace. En cas de panne : fallback gracieux. Toute erreur loggée et remontée, jamais laissée à l'utilisateur final.
 
 ### 2.2 Recovery automatique
+
 - Reconnexion WebSocket avec backoff exponentiel.
 - Reconnexion joueur après refresh / coupure : retrouve sa partie, son score, la question en cours.
 - Reconnexion écran (NUC) : retrouve l'état de la session et reprend l'affichage.
@@ -61,24 +67,31 @@ Le système ne doit jamais afficher une erreur visible au public en salle. Pas d
 - Source de vérité unique : le serveur. Les clients re-syncent au moindre doute.
 
 ### 2.3 Observabilité avant features
+
 Avant d'ajouter une feature, on doit pouvoir savoir si la précédente fonctionne en prod : logs structurés JSON, dashboard de santé super-admin, Sentry, heartbeat NUC.
 
 ### 2.4 Le projectionniste ne doit pas être interrompu
+
 Console boring par défaut, puissante en cas de besoin. Pas de notification pendant une session normale. Contrôles avancés accessibles mais discrets.
 
 ### 2.5 Cloud-only au stade actuel
+
 Tout passe par le serveur cloud. Pas de broker local sur le NUC. Le mode hybride n'est pas justifié sans données terrain qui le démandent.
 
 ### 2.6 Source de vérité = serveur
+
 Le scoring, l'état de la session, le timing : c'est le serveur qui décide. Les clients reçoivent et rendent.
 
 ### 2.7 Persistance complète des sessions live
+
 Toute session, tout joueur, toute réponse est persisté en DB en plus de la mémoire pour la performance live. En cas de crash serveur, l'état est reconstructible. Pas de perte, jamais.
 
 ### 2.8 Multi-tenant dès le départ
+
 Tout le code est écrit en partant du principe qu'il y a plusieurs cinémas, chacun avec plusieurs salles. **Aucun état global** au niveau serveur. Toute requête / event est scopé à un `cinemaId` + `screenId` ou `sessionId`. L'isolation entre cinémas est stricte.
 
 ### 2.9 RGPD by design
+
 Minimum de données collectées par défaut (pseudo seul). Email demandé uniquement si nécessaire. Politique de confidentialité accessible, opt-in explicite, suppression de compte fonctionnelle. Données hébergées dans l'UE.
 
 ---
@@ -109,12 +122,12 @@ Minimum de données collectées par défaut (pseudo seul). Email demandé unique
 
 ### 3.2 Les 4 interfaces
 
-| Code | Nom | Public | Device cible | Caractéristique clé |
-|------|-----|--------|--------------|---------------------|
-| **A** | Player cinéma | Spectateurs | NUC + grand écran | Affichage uniquement, plein écran, robuste à la perte de connexion |
-| **B** | Mobile joueur | Spectateurs | Téléphone (web responsive) | Input principal, reconnexion transparente |
-| **C** | Console projectionniste | Employé cinéma | Tablette / PC en cabine | Sobriété, scopée à un cinéma |
-| **D** | Super-admin | Porteur du projet | Desktop | Multi-cinémas, monitoring NUCs, IA génération |
+| Code  | Nom                     | Public            | Device cible               | Caractéristique clé                                                |
+| ----- | ----------------------- | ----------------- | -------------------------- | ------------------------------------------------------------------ |
+| **A** | Player cinéma           | Spectateurs       | NUC + grand écran          | Affichage uniquement, plein écran, robuste à la perte de connexion |
+| **B** | Mobile joueur           | Spectateurs       | Téléphone (web responsive) | Input principal, reconnexion transparente                          |
+| **C** | Console projectionniste | Employé cinéma    | Tablette / PC en cabine    | Sobriété, scopée à un cinéma                                       |
+| **D** | Super-admin             | Porteur du projet | Desktop                    | Multi-cinémas, monitoring NUCs, IA génération                      |
 
 ### 3.3 Multi-tenancy : modèle Cinéma → Salle → NUC
 
@@ -132,17 +145,20 @@ Un NUC est rattaché à exactement une salle. Une salle appartient à exactement
 ### 3.4 Reconnexion : comment ça marche
 
 Chaque connecté reçoit un **token de session** (`resume_token`) au moment où il rejoint, stocké :
+
 - Téléphone : `localStorage` (clé `quiz_player_token`).
 - NUC : filesystem local.
 - Console : `localStorage`.
 
 À la reconnexion :
+
 1. Le client se reconnecte au WebSocket.
 2. Il émet `resume` avec son token.
 3. Le serveur valide le token, retrouve l'état persisté.
 4. Le serveur émet `session:state_snapshot` avec tout pour reprendre l'affichage.
 
 Cas de la question en cours pendant la déconnexion :
+
 - Si le joueur n'avait pas encore répondu et que la question est encore active → il peut répondre.
 - Si la question s'est terminée pendant sa déco → il rate la question (0 point), reprend à la suivante.
 - Si la session est terminée → il voit l'écran de fin avec le classement final.
@@ -152,6 +168,7 @@ Cas de la question en cours pendant la déconnexion :
 ## 4. STACK TECHNIQUE
 
 ### 4.1 Backend
+
 - **Runtime :** Node.js (LTS 20+).
 - **Framework :** Express.js.
 - **Temps-réel :** Socket.io (auto-reconnect, namespaces, rooms).
@@ -165,6 +182,7 @@ Cas de la question en cours pendant la déconnexion :
 - **Validation :** Zod (schémas partagés backend/frontend).
 
 ### 4.2 Frontend
+
 - **Framework :** Next.js (App Router) pour les 4 interfaces.
 - **Monorepo :** Turborepo, 4 apps Next.js + packages partagés.
 - **Styling :** Tailwind CSS partout. shadcn/ui pour console (C) et super-admin (D). Design custom pour player (A) et mobile (B).
@@ -172,6 +190,7 @@ Cas de la question en cours pendant la déconnexion :
 - **Socket.io client :** hook `useSocket()` partagé dans `packages/socket-client`.
 
 ### 4.3 Hébergement et infrastructure
+
 - **VPS :** OVH (cohérent avec UNION) ou Hetzner, UE.
 - **Reverse proxy :** Nginx + Let's Encrypt.
 - **DNS :** Cloudflare.
@@ -181,6 +200,7 @@ Cas de la question en cours pendant la déconnexion :
 - **Backups DB :** dump MySQL quotidien, archivé hors VPS.
 
 ### 4.4 Le NUC (player)
+
 - **Hardware :** Intel NUC, Linux Ubuntu LTS minimal.
 - **Mode kiosque :** Chromium en `--kiosk` au démarrage.
 - **Identification :** chaque NUC a un `nuc_uid` unique généré côté serveur lors de la création dans le super-admin (`POST /screens/:screenId/nucs`). Valeur reflétée en cabine sous `/etc/quiz-app/nuc-id`.
@@ -191,6 +211,7 @@ Cas de la question en cours pendant la déconnexion :
 - **Mise à jour :** manuel SSH au début, balena.io plus tard.
 
 ### 4.5 Auth des joueurs (interface B)
+
 1. **Niveau 0 — Anonyme** (par défaut) : pseudo seul, aucun compte.
 2. **Niveau 1 — Compte optionnel** : icône "Se connecter" sur la home mobile, non intrusive.
 3. **Niveau 2 — Inscription en fin de partie** : magic link.
@@ -204,6 +225,7 @@ Un joueur anonyme doit pouvoir terminer une partie et recevoir son lot par email
 **Use case** : Anzio veut créer un quizz sur un film, une série, une marque. Il importe des assets → l'IA génère un quizz éditable.
 
 **Flow technique** :
+
 1. Popin "Générer avec IA" depuis l'écran de création de quizz (interface D).
 2. Anzio upload des assets (images, textes, synopsis) ou colle du texte.
 3. Il précise : nombre de questions, difficulté, ton, langue.
@@ -212,10 +234,24 @@ Un joueur anonyme doit pouvoir terminer une partie et recevoir son lot par email
 6. Anzio relit, modifie, valide. Le quizz est sauvegardé en DB comme un quizz manuel (champ `ai_generated` à true pour stats).
 
 **Considérations** :
+
 - Appel **côté backend** uniquement (clé API jamais exposée).
 - Coût loggé par génération.
 - Limites de longueur sur les uploads.
 - En cas d'échec, message clair, fallback création manuelle toujours possible.
+
+### 4.7 Avatars joueurs
+
+**Use case** : permettre aux spectateurs de s'identifier visuellement par un avatar, en plus de leur pseudo.
+
+**Principes** :
+
+- Le **super-admin** gère des **bibliothèques d'avatars** réutilisables (interface D). Chaque bibliothèque contient N avatars.
+- Format des avatars : **PNG transparent, carré, 512x512** (haute résolution, source unique réutilisée partout, affichée plus petite selon le contexte). Rendu **visuellement rond** (CSS), le fichier reste carré. Normalisation/redimensionnement en 512x512 **côté serveur** à l'upload.
+- À la création d'un quiz, dans l'onglet _Design_, le super-admin **coche ou non** "Autoriser les avatars". Si oui, il **choisit une bibliothèque** parmi celles existantes.
+- Côté **mobile (B)** : si les avatars sont activés, le joueur choisit un avatar à la jonction (grille). Un avatar **aléatoire est pré-sélectionné** ; la sélection reste **optionnelle** (un avatar par défaut est assigné s'il ne choisit pas). **Les doublons sont autorisés** (plusieurs joueurs peuvent avoir le même avatar).
+- Affichage de l'avatar **devant le pseudo** partout où un pseudo apparaît : écran cinéma (A : lobby, scores, résultats finaux), mobile (B), console projectionniste (C).
+- Si les avatars sont désactivés sur la partie : comportement actuel inchangé (pas d'avatar).
 
 ---
 
@@ -254,8 +290,18 @@ quizzes (gabarits réutilisables)
   sponsor_id (nullable), language, duration_estimate_seconds,
   cover_image_url, branding_json (couleurs custom, logo si sponsorisé),
   status (draft|published|archived),
+  avatars_enabled (bool, défaut false),
+  avatar_library_id (nullable, FK avatar_libraries),
   created_by_user_id, ai_generated (bool),
   created_at, updated_at
+
+avatar_libraries (bibliothèques d'avatars prédéfinies par le super-admin)
+  id, slug, name, description (nullable),
+  is_active (bool), created_at, updated_at
+
+avatars (avatars d'une bibliothèque, PNG transparent carré 512x512)
+  id, library_id (FK avatar_libraries), image_url, image_key (clé storage),
+  label (nullable), position (ordre d'affichage), created_at
 
 questions
   id, quiz_id, position (ordre), text, image_url (nullable),
@@ -276,6 +322,8 @@ sessions (instance d'un quizz lancée dans une salle)
 
 players (participant à une session, peut être anonyme)
   id, session_id, user_id (nullable si anonyme), pseudo,
+  avatar_id (nullable, FK avatars ; assigné aléatoirement si avatars activés
+             et que le joueur n'a pas choisi),
   resume_token (unique, pour reconnexion),
   joined_at, last_seen_at, status (active|disconnected|kicked),
   score_total, rank_final (nullable jusqu'à la fin),
@@ -307,6 +355,7 @@ ai_generations (audit des générations IA)
 ```
 
 ### 5.2 Conventions
+
 - Tables en `id` BIGINT auto-increment + `created_at`, `updated_at` quand pertinent.
 - IDs externes exposés frontend : **slugs ou nanoid**, pas les IDs auto-increment.
 - Soft delete uniquement sur `users` et `cinemas`. Ailleurs, statut explicite.
@@ -318,6 +367,7 @@ ai_generations (audit des générations IA)
 ## 6. CONVENTIONS DE CODE
 
 ### 6.1 Structure backend
+
 ```
 /api
   /src
@@ -343,6 +393,7 @@ ai_generations (audit des générations IA)
 **Règle d'or :** chaque module métier expose ses propres routes, services, et events Socket.io. Pas de fichier monolithique.
 
 ### 6.2 Structure frontend monorepo
+
 ```
 /apps
   /player    ← interface A
@@ -358,6 +409,7 @@ ai_generations (audit des générations IA)
 ```
 
 ### 6.3 Style de code
+
 - TypeScript strict partout.
 - ESLint + Prettier + Husky pre-commit.
 - Pas de `any` sauf justification commentée.
@@ -366,11 +418,13 @@ ai_generations (audit des générations IA)
 - Commentaires en français pour la doc projet, anglais OK pour code technique.
 
 ### 6.4 Gestion des erreurs
+
 - Backend : classe `AppError` custom + middleware Express centralisé.
 - Frontend : Error Boundaries React + Sentry.
 - Codes d'erreur stables (ex: `SESSION_NOT_FOUND`, `PLAYER_ALREADY_ANSWERED`).
 
 ### 6.5 Tests
+
 - Unitaires sur les services métier critiques (scoring, transitions de session, classement, reconnexion).
 - Intégration sur les flux Socket.io critiques.
 - Pas de course au coverage. Tester ce qui est risqué.
@@ -381,18 +435,22 @@ ai_generations (audit des générations IA)
 ## 7. CONVENTIONS SOCKET.IO
 
 ### 7.1 Namespaces
+
 - `/player` (NUCs, interface A)
 - `/mobile` (téléphones, interface B)
 - `/console` (projectionnistes, interface C)
 - `/admin` (super-admin, interface D)
 
 ### 7.2 Rooms
+
 - `session:{sessionId}` : tous les acteurs d'une session live.
 - `cinema:{cinemaId}` : projectionniste voit ses sessions, super-admin filtre.
 - `admin:global` : super-admin reçoit heartbeats et events critiques globaux.
 
 ### 7.3 Nommage des events
+
 Format `domain:action` snake_case :
+
 - `session:state_changed`
 - `session:player_joined`, `session:player_left`
 - `quiz:question_show`, `quiz:question_result`, `quiz:final_results`
@@ -402,6 +460,7 @@ Format `domain:action` snake_case :
 - `nuc:heartbeat`, `nuc:status_changed`
 
 ### 7.4 Schéma des payloads
+
 Tous les events sont validés via Zod. Schémas dans `/packages/validation/socket-events.ts`.
 
 ```ts
@@ -410,11 +469,15 @@ const QuestionShowPayload = z.object({
   position: z.number().int().min(1),
   text: z.string(),
   imageUrl: z.string().url().optional(),
-  answers: z.array(z.object({
-    id: z.string(),
-    position: z.enum(['A', 'B', 'C', 'D']),
-    text: z.string(),
-  })).length(4),
+  answers: z
+    .array(
+      z.object({
+        id: z.string(),
+        position: z.enum(['A', 'B', 'C', 'D']),
+        text: z.string(),
+      }),
+    )
+    .length(4),
   timeLimitSeconds: z.number().int().min(5).max(120),
   serverStartedAt: z.string().datetime(),
 });
@@ -438,6 +501,7 @@ const QuestionShowPayload = z.object({
 ## 9. RGPD
 
 ### 9.1 Données collectées et conservation
+
 - **Joueur anonyme** : pseudo, réponses, score. Conservation : 30 jours après fin de session.
 - **Joueur inscrit** : email, pseudo, historique. Conservation : tant que le compte existe.
 - **Joueur gagnant non inscrit** : email pour envoi du lot. Conservation : 90 jours.
@@ -445,12 +509,14 @@ const QuestionShowPayload = z.object({
 - **NUCs** : pas de donnée personnelle.
 
 ### 9.2 Obligations
+
 - Politique de confidentialité accessible.
 - Mentions légales du cinéma + de la plateforme.
 - Bouton "Supprimer mon compte" fonctionnel (B).
 - Registre des traitements à tenir.
 
 ### 9.3 Mineurs
+
 **Option A pour le pilote** : exclusion. Majeurs uniquement, mention claire avant saisie pseudo. À réévaluer après 3 mois.
 
 ---
@@ -472,7 +538,7 @@ const QuestionShowPayload = z.object({
   Serveur ajoute le player, génère resume_token, le renvoie
   Pousse player:joined à NUC, console, admin
   Le player stocke son resume_token en localStorage
-  
+
   Quand seuil atteint OU action manuelle de C :
     C envoie session:start
     Serveur passe state = 'running', position = 0
@@ -481,7 +547,7 @@ const QuestionShowPayload = z.object({
   Serveur sélectionne la prochaine question
   Pousse quiz:question_show à NUC + tous les mobiles de la session
   Démarre timer côté serveur (timeLimitSeconds)
-  
+
   Mobile envoie player:answer_submit { questionId, answerId }
   Serveur valide :
     - session running ?
@@ -494,7 +560,7 @@ const QuestionShowPayload = z.object({
     - Par défaut points_max = 1000, points_floor = 500
   Serveur ack : player:answer_ack avec score perso
   Serveur persiste en DB (player_answers)
-  
+
   Quand timer expire OU tous ont répondu :
     Serveur compile résultats
     Pousse quiz:question_result à NUC, mobiles, console
@@ -523,6 +589,7 @@ const QuestionShowPayload = z.object({
 ```
 
 **Invariants :**
+
 - `lobby` → `running` ou `aborted` uniquement.
 - `running` → `paused`, `ended` ou `aborted` uniquement.
 - `paused` → `running` ou `aborted`.
@@ -536,39 +603,50 @@ const QuestionShowPayload = z.object({
 ## 11. ROADMAP DE LA RÉÉCRITURE
 
 ### Phase 0 — Pré-requis (FAIT)
+
 - ✅ Backup du code existant.
 - ✅ Décisions stack et archi (ce document).
 - ✅ État des lieux (`CURRENT_STATE.md`).
 - ✅ Décision : **réécriture complète**.
 
 ### Phase 1 — Fondations (PR1)
+
 Init monorepo Turborepo (4 apps Next.js + packages), TypeScript strict, ESLint/Prettier/Husky, Prisma + schéma DB complet, bootstrap backend modulaire avec 1 module exemple, Socket.io avec namespaces et types partagés, CI minimale.
 
 ### Phase 2 — Auth et entités de base (PR2)
+
 Module users + auth (magic link, JWT, OAuth Google/Apple). Modules cinemas, screens, nucs avec CRUD super-admin. Interface D minimale : login + liste des cinémas/salles/NUCs.
 
 ### Phase 3 — Création et gestion de quizz (PR3)
+
 Modules quizzes, questions, answers. Interface D : éditeur de quizz complet (questions, options, timer, explication, branding sponsor). Validation Zod.
 
 ### Phase 4 — IA génération de quizz (PR4)
+
 Module IA backend (appel Claude API, schéma JSON strict). Popin "Générer avec IA" dans l'éditeur D. Audit DB des générations.
 
 ### Phase 5 — Sessions live cœur métier (PR5)
+
 Module sessions complet avec persistance. Modules players, player_answers. Logique de scoring serveur. Events Socket.io session multi-room multi-tenant. Interface C (console). Interface A (player NUC). Interface B (mobile).
 
 ### Phase 6 — Reconnexion et robustesse (PR6)
+
 Resume_tokens et state_snapshot. Tests d'intégration des cas de coupure. Watchdog Chromium NUC. Heartbeat + monitoring NUC dans interface D.
 
 ### Phase 7 — Lots et email (PR7)
+
 Module prizes. Envoi email via Nodemailer + SMTP OVH. QR code de réduction avec tracking. Template HTML email propre.
 
 ### Phase 8 — Observabilité (PR8)
+
 Logs Pino structurés partout. Sentry frontend et backend. Dashboard de santé interface D. Events_log peuplé.
 
 ### Phase 9 — Pilote terrain
+
 Provisioning d'un NUC réel. Installation chez le cinéma pilote. Runbook d'incident. Tests à blanc. Premier quizz live en conditions réelles.
 
 ### Phase 10 (futur, hors MVP)
+
 Self-service annonceurs, multi-langues, app native, analytics avancés, marketplace.
 
 ---
@@ -600,6 +678,7 @@ Self-service annonceurs, multi-langues, app native, analytics avancés, marketpl
 ## ANNEXE A — Comment utiliser ce document avec une IA
 
 **En début de session Cursor / Claude Code :**
+
 ```
 Lis intégralement les fichiers PROJECT_REFERENCE.md et CURRENT_STATE.md à la racine du projet.
 PROJECT_REFERENCE.md fait autorité sur l'architecture cible et les conventions.
@@ -609,6 +688,7 @@ Si tu vois un cas qu'ils ne couvrent pas, demande-moi avant d'inventer.
 ```
 
 **Pour une tâche spécifique :**
+
 ```
 Tâche : [description précise]
 Module concerné : [cinemas / quizzes / sessions / etc.]
@@ -618,4 +698,4 @@ Contraintes additionnelles : [s'il y en a]
 
 ---
 
-*Fin du document.*
+_Fin du document._

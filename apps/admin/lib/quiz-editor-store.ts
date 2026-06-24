@@ -67,6 +67,8 @@ export interface QuizApiDetail {
   lobbyBackgroundMediaUrl: string | null;
   lobbyBackgroundMediaType: 'image' | 'video' | null;
   lobbyBackgroundOverlayOpacity: number;
+  avatarsEnabled: boolean;
+  avatarLibraryId: string | null;
   questions: {
     id: string;
     position: number;
@@ -144,6 +146,8 @@ export interface QuizEditorState {
   lobbyBackgroundMediaUrl: string | null;
   lobbyBackgroundMediaType: 'image' | 'video' | null;
   lobbyBackgroundOverlayOpacity: number;
+  avatarsEnabled: boolean;
+  avatarLibraryId: string | null;
   questions: EditorQuestion[];
   expandedTempId: string | null;
   isDirty: boolean;
@@ -171,6 +175,8 @@ export interface QuizEditorState {
     lobbyBackgroundMediaUrl?: string | null;
     lobbyBackgroundMediaType?: 'image' | 'video' | null;
     lobbyBackgroundOverlayOpacity?: number;
+    avatarsEnabled?: boolean;
+    avatarLibraryId?: string | null;
   }) => void;
   addQuestion: () => void;
   updateQuestion: (
@@ -273,6 +279,8 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
   lobbyBackgroundMediaUrl: null,
   lobbyBackgroundMediaType: null,
   lobbyBackgroundOverlayOpacity: 0,
+  avatarsEnabled: false,
+  avatarLibraryId: null,
   questions: [],
   expandedTempId: null,
   isDirty: false,
@@ -301,6 +309,8 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       lobbyBackgroundMediaUrl: api.lobbyBackgroundMediaUrl,
       lobbyBackgroundMediaType: api.lobbyBackgroundMediaType,
       lobbyBackgroundOverlayOpacity: api.lobbyBackgroundOverlayOpacity,
+      avatarsEnabled: api.avatarsEnabled ?? false,
+      avatarLibraryId: api.avatarLibraryId ?? null,
       questions: mapQuestionsFromApi(api),
       expandedTempId: null,
       isDirty: false,
@@ -467,6 +477,8 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       coverImageUrl: s.coverImageUrl,
       backgroundOverlayOpacity: s.backgroundOverlayOpacity,
       lobbyBackgroundOverlayOpacity: s.lobbyBackgroundOverlayOpacity,
+      avatarsEnabled: s.avatarsEnabled,
+      avatarLibraryId: s.avatarLibraryId,
       questions: ordered.map((q, idx) => ({
         id: q.id,
         position: idx,

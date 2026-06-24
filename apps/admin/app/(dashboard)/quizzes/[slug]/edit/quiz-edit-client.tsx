@@ -128,6 +128,8 @@ export function QuizEditClient({ slug }: { slug: string }) {
   const lobbyBackgroundMediaType = useQuizEditorStore((s) => s.lobbyBackgroundMediaType);
   const lobbyBackgroundOverlayOpacity = useQuizEditorStore((s) => s.lobbyBackgroundOverlayOpacity);
   const lobbyTimer = useQuizEditorStore((s) => s.lobbyTimer);
+  const avatarsEnabled = useQuizEditorStore((s) => s.avatarsEnabled);
+  const avatarLibraryId = useQuizEditorStore((s) => s.avatarLibraryId);
   const questions = useQuizEditorStore((s) => s.questions);
   const expandedTempId = useQuizEditorStore((s) => s.expandedTempId);
   const hydrate = useQuizEditorStore((s) => s.hydrate);
@@ -153,6 +155,16 @@ export function QuizEditClient({ slug }: { slug: string }) {
     queryFn: () => api.get<QuizApiDetail>(`/api/quizzes/${slug}`),
     refetchOnWindowFocus: false,
   });
+
+  const { data: avatarLibrariesData } = useQuery({
+    queryKey: ['avatar-libraries'],
+    queryFn: () =>
+      api.get<{ items: { id: string; slug: string; name: string; avatarsCount?: number }[] }>(
+        '/api/avatar-libraries?active=true',
+      ),
+    refetchOnWindowFocus: false,
+  });
+  const avatarLibraries = avatarLibrariesData?.items ?? [];
 
   useEffect(() => {
     if (!data) return;
@@ -607,6 +619,53 @@ export function QuizEditClient({ slug }: { slug: string }) {
               disabled={readOnly}
               onChange={(style) => updateMetadata({ answerDisplayStyle: style })}
             />
+
+            <div className="rounded-lg border border-gray-200 p-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  disabled={readOnly}
+                  checked={avatarsEnabled}
+                  onChange={(e) => updateMetadata({ avatarsEnabled: e.target.checked })}
+                />
+                Autoriser les avatars joueurs
+              </label>
+              <p className="mt-1 text-xs text-gray-500">
+                Les joueurs choisissent (ou se voient attribuer) un avatar affiché sur l&apos;écran,
+                dans les scores et en fin de partie.
+              </p>
+              {avatarsEnabled && (
+                <div className="mt-3">
+                  <label className="text-sm">
+                    Bibliothèque d&apos;avatars
+                    <select
+                      disabled={readOnly}
+                      value={avatarLibraryId ?? ''}
+                      onChange={(e) => updateMetadata({ avatarLibraryId: e.target.value || null })}
+                      className="ml-2 rounded border px-2 py-1 text-sm disabled:opacity-50"
+                    >
+                      <option value="">— Sélectionner —</option>
+                      {avatarLibraries.map((lib) => (
+                        <option key={lib.id} value={lib.id}>
+                          {lib.name}
+                          {lib.avatarsCount !== undefined ? ` (${lib.avatarsCount})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {avatarLibraries.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Aucune bibliothèque active. Créez-en une dans l&apos;onglet Avatars.
+                    </p>
+                  )}
+                  {avatarsEnabled && !avatarLibraryId && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Choisissez une bibliothèque pour activer les avatars.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div>
               <p className="text-sm font-medium">Image de couverture</p>

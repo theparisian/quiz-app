@@ -45,6 +45,7 @@ export interface QuizFull {
 export interface PlayerLive {
   playerId: string;
   pseudo: string;
+  avatarUrl: string | null;
   scoreTotal: number;
   status: string;
 }
@@ -115,7 +116,14 @@ export interface SessionFullResponse {
   backgroundMusicUrl: string | null;
   consolationPrizesClaimed?: number;
   quiz: QuizFull;
-  players: { id: string; pseudo: string; scoreTotal: number; status: string; joinedAt: string }[];
+  players: {
+    id: string;
+    pseudo: string;
+    avatarUrl?: string | null;
+    scoreTotal: number;
+    status: string;
+    joinedAt: string;
+  }[];
 }
 
 const INITIAL: Omit<
@@ -171,6 +179,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
       players: session.players.map((p) => ({
         playerId: p.id,
         pseudo: p.pseudo,
+        avatarUrl: p.avatarUrl ?? null,
         scoreTotal: p.scoreTotal,
         status: p.status,
       })),
@@ -194,7 +203,13 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
     if (!sess || !quiz) return;
 
     const playersRaw = p.players as
-      | { playerId: string; pseudo: string; scoreTotal: number; joinedAt: string }[]
+      | {
+          playerId: string;
+          pseudo: string;
+          avatarUrl?: string | null;
+          scoreTotal: number;
+          joinedAt: string;
+        }[]
       | undefined;
 
     set({
@@ -212,6 +227,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
         playersRaw?.map((pl) => ({
           playerId: pl.playerId,
           pseudo: pl.pseudo,
+          avatarUrl: pl.avatarUrl ?? null,
           scoreTotal: pl.scoreTotal,
           status: 'active',
         })) ?? get().players,
@@ -245,7 +261,12 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
     const lr = p.lastResults as
       | {
           correctAnswerId: string;
-          scoreboard: { playerId: string; pseudo: string; scoreTotal: number }[];
+          scoreboard: {
+            playerId: string;
+            pseudo: string;
+            avatarUrl?: string | null;
+            scoreTotal: number;
+          }[];
           explanation: string | null;
           nextQuestionInMs: number;
         }
@@ -259,6 +280,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
           scoreboard: lr.scoreboard.map((s) => ({
             playerId: s.playerId,
             pseudo: s.pseudo,
+            avatarUrl: s.avatarUrl ?? null,
             scoreTotal: s.scoreTotal,
             status: 'active',
           })),
@@ -269,7 +291,13 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
     }
 
     const fs = p.finalScoreboard as
-      | { playerId: string; pseudo: string; scoreTotal: number; rank: number }[]
+      | {
+          playerId: string;
+          pseudo: string;
+          avatarUrl?: string | null;
+          scoreTotal: number;
+          rank: number;
+        }[]
       | undefined;
 
     if (fs) {
@@ -278,6 +306,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
         finalScoreboard: fs.map((s) => ({
           playerId: s.playerId,
           pseudo: s.pseudo,
+          avatarUrl: s.avatarUrl ?? null,
           scoreTotal: s.scoreTotal,
           status: 'active',
         })),
@@ -350,6 +379,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
         const scoreboard = p.scoreboard.map((s) => ({
           playerId: s.playerId,
           pseudo: s.pseudo,
+          avatarUrl: s.avatarUrl ?? null,
           scoreTotal: s.scoreTotal,
           status: 'active',
         }));
@@ -389,6 +419,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
           finalScoreboard: p.finalScoreboard.map((s) => ({
             playerId: s.playerId,
             pseudo: s.pseudo,
+            avatarUrl: s.avatarUrl ?? null,
             scoreTotal: s.scoreTotal,
             status: 'active',
           })),
@@ -408,7 +439,13 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
         set({
           players: [
             ...get().players,
-            { playerId: p.playerId, pseudo: p.pseudo, scoreTotal: 0, status: 'active' },
+            {
+              playerId: p.playerId,
+              pseudo: p.pseudo,
+              avatarUrl: p.avatarUrl ?? null,
+              scoreTotal: 0,
+              status: 'active',
+            },
           ],
           totalPlayers: get().totalPlayers + 1,
         });

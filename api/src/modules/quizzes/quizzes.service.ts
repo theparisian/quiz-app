@@ -58,6 +58,22 @@ async function ensureSponsorIfNeeded(id: bigint | null | undefined) {
   if (!s) throw new AppError('Sponsor not found', 404, 'SPONSOR_NOT_FOUND');
 }
 
+function parseAvatarLibraryId(val: string | null | undefined): bigint | null | undefined {
+  if (val === undefined) return undefined;
+  if (val === null || val === '') return null;
+  try {
+    return BigInt(val);
+  } catch {
+    throw new AppError('Invalid avatar library id', 400, 'INVALID_AVATAR_LIBRARY_ID');
+  }
+}
+
+async function ensureAvatarLibraryIfNeeded(id: bigint | null | undefined) {
+  if (id == null) return;
+  const lib = await prisma.avatarLibrary.findUnique({ where: { id } });
+  if (!lib) throw new AppError('Avatar library not found', 404, 'AVATAR_LIBRARY_NOT_FOUND');
+}
+
 function collectPublishErrors(quiz: {
   questions: {
     id: bigint;
@@ -229,6 +245,7 @@ export const quizzesService = {
       where: { slug },
       include: {
         sponsor: true,
+        avatarLibrary: { select: { id: true, slug: true, name: true } },
         createdBy: { select: { id: true, displayName: true, email: true } },
         questions: {
           include: { answers: true },
@@ -261,6 +278,8 @@ export const quizzesService = {
       'backgroundOverlayOpacity',
       'lobbyBackgroundOverlayOpacity',
       'language',
+      'avatarsEnabled',
+      'avatarLibraryId',
     ]);
 
     if (quiz.status === 'published') {
@@ -279,8 +298,13 @@ export const quizzesService = {
     const sponsorId = parseSponsorId(input.sponsorId);
     if (sponsorId !== undefined) await ensureSponsorIfNeeded(sponsorId);
 
+    const avatarLibraryId = parseAvatarLibraryId(input.avatarLibraryId);
+    if (avatarLibraryId !== undefined) await ensureAvatarLibraryIfNeeded(avatarLibraryId);
+
     const data: Record<string, unknown> = {};
     if (input.title !== undefined) data.title = input.title;
+    if (input.avatarsEnabled !== undefined) data.avatarsEnabled = input.avatarsEnabled;
+    if (avatarLibraryId !== undefined) data.avatarLibraryId = avatarLibraryId;
     if (input.description !== undefined) data.description = input.description ?? null;
     if (input.type !== undefined) data.type = input.type;
     if (input.sponsorId !== undefined) data.sponsorId = sponsorId ?? null;
@@ -319,6 +343,9 @@ export const quizzesService = {
     const sponsorId = parseSponsorId(payload.sponsorId);
     if (sponsorId !== undefined) await ensureSponsorIfNeeded(sponsorId);
 
+    const avatarLibraryId = parseAvatarLibraryId(payload.avatarLibraryId);
+    if (avatarLibraryId !== undefined) await ensureAvatarLibraryIfNeeded(avatarLibraryId);
+
     if (quizRow.status === 'published') {
       assertPublishedMetadataUnchanged(quizRow, payload);
       assertPublishedFullEditStructure(quizRow.questions, payload.questions);
@@ -344,6 +371,12 @@ export const quizzesService = {
       }
       if (payload.lobbyBackgroundOverlayOpacity !== undefined) {
         quizUpdate.lobbyBackgroundOverlayOpacity = payload.lobbyBackgroundOverlayOpacity;
+      }
+      if (payload.avatarsEnabled !== undefined) {
+        quizUpdate.avatarsEnabled = payload.avatarsEnabled;
+      }
+      if (avatarLibraryId !== undefined) {
+        quizUpdate.avatarLibraryId = avatarLibraryId;
       }
       if (quizRow.status !== 'published') {
         quizUpdate.type = payload.type;
@@ -587,6 +620,8 @@ export const quizzesService = {
           lobbyBackgroundMediaUrl: quiz.lobbyBackgroundMediaUrl,
           lobbyBackgroundMediaType: quiz.lobbyBackgroundMediaType,
           lobbyBackgroundOverlayOpacity: quiz.lobbyBackgroundOverlayOpacity,
+          avatarsEnabled: quiz.avatarsEnabled,
+          avatarLibraryId: quiz.avatarLibraryId,
           brandingJson:
             quiz.brandingJson == null
               ? Prisma.JsonNull

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { usePlayerStore } from '@/lib/stores/player-store';
+import { resolveMediaUrl } from '@/lib/media-url';
 import PrizeEmailForm from './prize-email-form';
 import type { SessionPrizesDisplay } from '@quiz-app/validation';
 
@@ -40,6 +41,7 @@ function resolvePlayerGain(
 
 export default function FinalScreen() {
   const finalRank = usePlayerStore((s) => s.finalRank);
+  const avatarUrl = usePlayerStore((s) => s.avatarUrl);
   const scoreTotal = usePlayerStore((s) => s.scoreTotal);
   const totalPlayers = usePlayerStore((s) => s.totalPlayers);
   const joinedQuestionPosition = usePlayerStore((s) => s.joinedQuestionPosition);
@@ -50,9 +52,17 @@ export default function FinalScreen() {
   const isTop3 = finalRank !== null && finalRank <= 3;
   const gain = resolvePlayerGain(finalRank, prizes, prizeAvailabilityByRank);
   const isLateJoiner = joinedQuestionPosition != null;
+  const myAvatar = resolveMediaUrl(avatarUrl);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
+      {myAvatar && (
+        <img
+          src={myAvatar}
+          alt=""
+          className="h-28 w-28 rounded-full object-cover ring-4 ring-yellow-400/50"
+        />
+      )}
       {isTop3 ? (
         <>
           <div className="text-4xl">🏆</div>

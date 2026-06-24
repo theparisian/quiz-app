@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useNucStore } from '@/lib/stores/nuc-store';
 import { playSound, playBackground } from '@/lib/audio';
+import PlayerAvatar from '@/components/shared/player-avatar';
 
 function rankPrizeLabel(
   rank: number,
@@ -56,6 +57,12 @@ export default function FinalResultsState() {
             style={{ animationDelay: '2.5s', minHeight: '180px' }}
           >
             <div className="text-2xl font-bold text-gray-400">#2</div>
+            <PlayerAvatar
+              avatarUrl={second.avatarUrl}
+              pseudo={second.pseudo}
+              size={72}
+              className="mt-2 ring-2 ring-white/30"
+            />
             <div className="mt-2 text-xl font-semibold">{second.pseudo}</div>
             <div className="mt-1 text-lg text-gray-400">{second.scoreTotal} pts</div>
             {prize2 && (
@@ -74,6 +81,12 @@ export default function FinalResultsState() {
             style={{ animationDelay: '3s', minHeight: '240px' }}
           >
             <div className="text-4xl font-black text-yellow-400">#1</div>
+            <PlayerAvatar
+              avatarUrl={first.avatarUrl}
+              pseudo={first.pseudo}
+              size={96}
+              className="mt-2 ring-4 ring-yellow-400/60"
+            />
             <div className="mt-2 text-2xl font-bold">{first.pseudo}</div>
             <div className="mt-1 text-xl text-yellow-300">{first.scoreTotal} pts</div>
             {prize1 && (
@@ -95,6 +108,12 @@ export default function FinalResultsState() {
             style={{ animationDelay: '2s', minHeight: '140px' }}
           >
             <div className="text-2xl font-bold text-gray-400">#3</div>
+            <PlayerAvatar
+              avatarUrl={third.avatarUrl}
+              pseudo={third.pseudo}
+              size={72}
+              className="mt-2 ring-2 ring-white/30"
+            />
             <div className="mt-2 text-xl font-semibold">{third.pseudo}</div>
             <div className="mt-1 text-lg text-gray-400">{third.scoreTotal} pts</div>
             {prize3 && (
@@ -116,6 +135,7 @@ export default function FinalResultsState() {
               >
                 <div className="flex items-center gap-4">
                   <span className="w-8 text-right text-gray-500">#{entry.rank}</span>
+                  <PlayerAvatar avatarUrl={entry.avatarUrl} pseudo={entry.pseudo} size={36} />
                   <span className="font-medium">{entry.pseudo}</span>
                 </div>
                 <span className="text-gray-400">{entry.scoreTotal} pts</span>

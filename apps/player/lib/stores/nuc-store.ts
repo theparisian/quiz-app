@@ -20,6 +20,7 @@ export type NucConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
 interface ScoreEntry {
   playerId: string;
   pseudo: string;
+  avatarUrl: string | null;
   scoreTotal: number;
   scoreThisQuestion: number;
 }
@@ -27,6 +28,7 @@ interface ScoreEntry {
 interface FinalEntry {
   playerId: string;
   pseudo: string;
+  avatarUrl: string | null;
   scoreTotal: number;
   rank: number;
 }
@@ -34,6 +36,7 @@ interface FinalEntry {
 interface PlayerInfo {
   playerId: string;
   pseudo: string;
+  avatarUrl: string | null;
   joinedAt: string;
 }
 
@@ -399,6 +402,7 @@ export const useNucStore = create<NucState>((set, get) => ({
           scoreboard: {
             playerId: string;
             pseudo: string;
+            avatarUrl?: string | null;
             scoreTotal: number;
             scoreThisQuestion: number;
           }[];
@@ -411,6 +415,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       const scoreboard: ScoreEntry[] = lr.scoreboard.map((r) => ({
         playerId: r.playerId,
         pseudo: r.pseudo,
+        avatarUrl: r.avatarUrl ?? null,
         scoreTotal: r.scoreTotal,
         scoreThisQuestion: r.scoreThisQuestion,
       }));
@@ -471,6 +476,7 @@ export const useNucStore = create<NucState>((set, get) => ({
             {
               playerId: payload.playerId as string,
               pseudo: payload.pseudo as string,
+              avatarUrl: (payload.avatarUrl as string | null) ?? null,
               joinedAt: payload.joinedAt as string,
             },
           ],

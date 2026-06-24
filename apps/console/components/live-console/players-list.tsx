@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useLiveSessionStore, type PlayerLive } from '@/lib/stores/live-session-store';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 export function PlayersList() {
   const players = useLiveSessionStore((s) => s.players);
@@ -52,10 +53,14 @@ export function PlayersList() {
 }
 
 function PlayerRow({ player, rank }: { player: PlayerLive; rank: number }) {
+  const avatar = resolveMediaUrl(player.avatarUrl);
   return (
     <div className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-gray-50">
-      <span className="text-gray-600">
+      <span className="flex items-center text-gray-600">
         <span className="mr-2 inline-block w-5 text-right text-xs text-gray-400">#{rank}</span>
+        {avatar && (
+          <img src={avatar} alt="" className="mr-2 h-6 w-6 shrink-0 rounded-full object-cover" />
+        )}
         {player.pseudo}
       </span>
       <span className="font-mono text-xs text-gray-500">{player.scoreTotal} pts</span>

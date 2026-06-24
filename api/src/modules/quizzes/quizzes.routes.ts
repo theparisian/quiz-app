@@ -150,6 +150,15 @@ function shapeQuizDetail(quiz: Awaited<ReturnType<typeof quizzesService.getBySlu
     lobbyBackgroundMediaUrl: quiz.lobbyBackgroundMediaUrl,
     lobbyBackgroundMediaType: quiz.lobbyBackgroundMediaType,
     lobbyBackgroundOverlayOpacity: quiz.lobbyBackgroundOverlayOpacity,
+    avatarsEnabled: quiz.avatarsEnabled,
+    avatarLibraryId: quiz.avatarLibraryId?.toString() ?? null,
+    avatarLibrary: quiz.avatarLibrary
+      ? {
+          id: quiz.avatarLibrary.id.toString(),
+          slug: quiz.avatarLibrary.slug,
+          name: quiz.avatarLibrary.name,
+        }
+      : null,
     brandingJson: quiz.brandingJson,
     status: quiz.status,
     aiGenerated: quiz.aiGenerated,

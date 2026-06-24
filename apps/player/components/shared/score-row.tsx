@@ -1,14 +1,24 @@
 'use client';
 
+import PlayerAvatar from './player-avatar';
+
 interface ScoreRowProps {
   rank: number;
   pseudo: string;
   scoreTotal: number;
   scoreDiff: number;
   index: number;
+  avatarUrl?: string | null;
 }
 
-export default function ScoreRow({ rank, pseudo, scoreTotal, scoreDiff, index }: ScoreRowProps) {
+export default function ScoreRow({
+  rank,
+  pseudo,
+  scoreTotal,
+  scoreDiff,
+  index,
+  avatarUrl,
+}: ScoreRowProps) {
   return (
     <div
       className="animate-cascade-in flex items-center justify-between rounded-xl bg-white/5 px-6 py-4 opacity-0"
@@ -16,6 +26,7 @@ export default function ScoreRow({ rank, pseudo, scoreTotal, scoreDiff, index }:
     >
       <div className="flex items-center gap-4">
         <span className="w-10 text-right text-xl font-bold text-gray-400">#{rank}</span>
+        <PlayerAvatar avatarUrl={avatarUrl} pseudo={pseudo} size={44} />
         <span className="text-xl font-semibold">{pseudo}</span>
       </div>
       <div className="flex items-center gap-4">

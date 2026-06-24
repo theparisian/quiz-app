@@ -37,6 +37,7 @@ async function activePlayersRanked(sessionId: bigint) {
   return prisma.player.findMany({
     where: { sessionId, status: 'active' },
     orderBy: [{ scoreTotal: 'desc' }, { joinedAt: 'asc' }],
+    include: { avatar: { select: { imageUrl: true } } },
   });
 }
 
@@ -169,7 +170,10 @@ export async function buildMobilePlayerStateSnapshot(
   sessionId: bigint,
 ): Promise<Record<string, unknown>> {
   const session = await loadSessionFull(sessionId);
-  const player = await prisma.player.findUnique({ where: { id: playerId } });
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    include: { avatar: { select: { imageUrl: true } } },
+  });
   if (!player || player.sessionId !== sessionId) {
     throw new AppError('Session mismatch', 403, 'SESSION_MISMATCH');
   }
@@ -190,6 +194,7 @@ export async function buildMobilePlayerStateSnapshot(
     player: {
       playerId: player.id.toString(),
       pseudo: player.pseudo,
+      avatarUrl: player.avatar?.imageUrl ?? null,
       scoreTotal: player.scoreTotal,
       currentRank: session.state === 'running' || session.state === 'paused' ? currentRank : null,
       joinedQuestionPosition: player.joinedQuestionPosition,
@@ -218,6 +223,7 @@ export async function buildMobilePlayerStateSnapshot(
     const board = ranked.map((p, i) => ({
       playerId: p.id.toString(),
       pseudo: p.pseudo,
+      avatarUrl: p.avatar?.imageUrl ?? null,
       scoreTotal: p.scoreTotal,
       rank: i + 1,
     }));
@@ -323,6 +329,7 @@ export async function buildMobilePlayerStateSnapshot(
       const board = ranked.map((p, i) => ({
         playerId: p.id.toString(),
         pseudo: p.pseudo,
+        avatarUrl: p.avatar?.imageUrl ?? null,
         scoreTotal: p.scoreTotal,
         rank: i + 1,
       }));
@@ -390,7 +397,13 @@ export async function buildNucStateSnapshot(params: {
   const players = await prisma.player.findMany({
     where: { sessionId: session.id, status: 'active' },
     orderBy: { joinedAt: 'asc' },
-    select: { id: true, pseudo: true, scoreTotal: true, joinedAt: true },
+    select: {
+      id: true,
+      pseudo: true,
+      scoreTotal: true,
+      joinedAt: true,
+      avatar: { select: { imageUrl: true } },
+    },
   });
 
   const ranked = await activePlayersRanked(session.id);
@@ -399,12 +412,14 @@ export async function buildNucStateSnapshot(params: {
   const scoreboard = ranked.slice(0, 5).map((p) => ({
     playerId: p.id.toString(),
     pseudo: p.pseudo,
+    avatarUrl: p.avatar?.imageUrl ?? null,
     scoreTotal: p.scoreTotal,
   }));
 
   const fullBoard = ranked.map((p, i) => ({
     playerId: p.id.toString(),
     pseudo: p.pseudo,
+    avatarUrl: p.avatar?.imageUrl ?? null,
     scoreTotal: p.scoreTotal,
     rank: i + 1,
   }));
@@ -426,6 +441,7 @@ export async function buildNucStateSnapshot(params: {
     players: players.map((p) => ({
       playerId: p.id.toString(),
       pseudo: p.pseudo,
+      avatarUrl: p.avatar?.imageUrl ?? null,
       scoreTotal: p.scoreTotal,
       joinedAt: p.joinedAt.toISOString(),
     })),
@@ -447,6 +463,7 @@ export async function buildNucStateSnapshot(params: {
     out.scoreboard = top3.map((e) => ({
       playerId: e.playerId,
       pseudo: e.pseudo,
+      avatarUrl: e.avatarUrl,
       scoreTotal: e.scoreTotal,
     }));
     const prizes = await resolvePrizesPayload(session.id);
@@ -494,12 +511,15 @@ export async function buildNucStateSnapshot(params: {
         questionId: q.id,
         playerId: { in: ranked.map((p) => p.id) },
       },
-      include: { player: { select: { id: true, pseudo: true } } },
+      include: {
+        player: { select: { id: true, pseudo: true, avatar: { select: { imageUrl: true } } } },
+      },
     });
     const sb = lastRows
       .map((r) => ({
         playerId: r.playerId.toString(),
         pseudo: r.player.pseudo,
+        avatarUrl: r.player.avatar?.imageUrl ?? null,
         scoreTotal: ranked.find((x) => x.id === r.playerId)?.scoreTotal ?? 0,
         scoreThisQuestion: r.pointsAwarded,
       }))
@@ -524,7 +544,13 @@ export async function buildConsoleStateSnapshot(
   const players = await prisma.player.findMany({
     where: { sessionId: session.id, status: 'active' },
     orderBy: [{ scoreTotal: 'desc' }, { joinedAt: 'asc' }],
-    select: { id: true, pseudo: true, scoreTotal: true, joinedAt: true },
+    select: {
+      id: true,
+      pseudo: true,
+      scoreTotal: true,
+      joinedAt: true,
+      avatar: { select: { imageUrl: true } },
+    },
   });
 
   const mem = getOrchestrator().getRunningState(session.id);
@@ -570,12 +596,14 @@ export async function buildConsoleStateSnapshot(
     players: players.map((p) => ({
       playerId: p.id.toString(),
       pseudo: p.pseudo,
+      avatarUrl: p.avatar?.imageUrl ?? null,
       scoreTotal: p.scoreTotal,
       joinedAt: p.joinedAt.toISOString(),
     })),
     scoreboard: players.slice(0, 5).map((p) => ({
       playerId: p.id.toString(),
       pseudo: p.pseudo,
+      avatarUrl: p.avatar?.imageUrl ?? null,
       scoreTotal: p.scoreTotal,
     })),
   };
@@ -617,6 +645,7 @@ export async function buildConsoleStateSnapshot(
       scoreboard: players.slice(0, 5).map((p) => ({
         playerId: p.id.toString(),
         pseudo: p.pseudo,
+        avatarUrl: p.avatar?.imageUrl ?? null,
         scoreTotal: p.scoreTotal,
       })),
       explanation: q.explanation,
@@ -629,6 +658,7 @@ export async function buildConsoleStateSnapshot(
     base.finalScoreboard = players.map((p, i) => ({
       playerId: p.id.toString(),
       pseudo: p.pseudo,
+      avatarUrl: p.avatar?.imageUrl ?? null,
       scoreTotal: p.scoreTotal,
       rank: i + 1,
     }));

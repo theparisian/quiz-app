@@ -150,6 +150,7 @@ router.get('/:id/full', requireAuth([...ADMIN_ROLES]), async (req, res, next) =>
       players: session.players.map((p) => ({
         id: p.id.toString(),
         pseudo: p.pseudo,
+        avatarUrl: (p as { avatar?: { imageUrl: string } | null }).avatar?.imageUrl ?? null,
         scoreTotal: p.scoreTotal,
         status: p.status,
         joinedAt: p.joinedAt.toISOString(),
@@ -186,6 +187,35 @@ router.get('/by-code/:slugShort', async (req, res, next) => {
         sponsor: quiz.sponsor ? { name: quiz.sponsor.name, logoUrl: quiz.sponsor.logoUrl } : null,
       },
       totalPlayers: session.totalPlayers,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/by-code/:slugShort/avatars', async (req, res, next) => {
+  try {
+    const slugShort = param(req, 'slugShort');
+    const session = await prisma.session.findFirst({
+      where: { slugShort },
+      orderBy: { createdAt: 'desc' },
+      select: { quiz: { select: { avatarsEnabled: true, avatarLibraryId: true } } },
+    });
+    if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
+
+    if (!session.quiz.avatarsEnabled || session.quiz.avatarLibraryId == null) {
+      res.json({ enabled: false, avatars: [] });
+      return;
+    }
+
+    const avatars = await prisma.avatar.findMany({
+      where: { libraryId: session.quiz.avatarLibraryId },
+      orderBy: { position: 'asc' },
+      select: { id: true, imageUrl: true, label: true },
+    });
+    res.json({
+      enabled: true,
+      avatars: avatars.map((a) => ({ id: a.id.toString(), imageUrl: a.imageUrl, label: a.label })),
     });
   } catch (error) {
     next(error);

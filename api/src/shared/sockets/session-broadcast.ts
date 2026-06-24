@@ -6,12 +6,13 @@ const SESSION_NAMESPACES = ['/player', '/console', '/mobile'] as const;
 export function broadcastPlayerJoined(
   io: Server,
   sessionId: bigint | string,
-  player: { playerId: string; pseudo: string; joinedAt?: string },
+  player: { playerId: string; pseudo: string; avatarUrl?: string | null; joinedAt?: string },
 ): void {
   const room = `session:${sessionId}`;
   const payload = {
     playerId: player.playerId,
     pseudo: player.pseudo,
+    avatarUrl: player.avatarUrl ?? null,
     joinedAt: player.joinedAt ?? new Date().toISOString(),
   };
   for (const ns of SESSION_NAMESPACES) {

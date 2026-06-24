@@ -336,6 +336,36 @@ Chaque PR a un **critère de complétude clair et testable**. Tant qu'il n'est p
 
 ---
 
+### PR10 — Avatars joueurs
+
+**Objectif :** permettre aux joueurs de choisir un avatar (bibliothèques gérées par le super-admin), affiché partout où apparaît un pseudo.
+
+> Spec détaillée : `CURSOR_REWRITE_PROMPT_PR10_AVATARS.md`. Décisions cadrées avec Anzio :
+> sélection **optionnelle** (avatar aléatoire pré-sélectionné, défaut auto-assigné si pas de choix), **doublons autorisés** dans une partie, validation upload = **normalisation serveur en 512x512**, avatar affiché aussi **côté console**.
+
+**Contenu :**
+
+- Modèles Prisma `AvatarLibrary` + `Avatar` ; champs `Quiz.avatarsEnabled` + `Quiz.avatarLibraryId` ; champ `Player.avatarId`. Migration.
+- Module backend `avatars` : CRUD bibliothèques + upload/suppression d'avatars (réutilise `shared/storage` + `shared/upload`). Normalisation PNG 512x512 à l'upload (ajout dépendance `sharp`).
+- Validation Zod (schémas REST + ajout `avatarUrl` / `avatarId` aux payloads socket dans `packages/validation`).
+- Interface D : entrée de nav "Avatars", liste des bibliothèques, éditeur (grille d'avatars, upload, réordonnancement, suppression). Onglet _Design_ du quiz : toggle "Autoriser les avatars" + sélecteur de bibliothèque.
+- Interface B (mobile) : grille de sélection d'avatar à la jonction (à côté de `pseudo-input`), avatar aléatoire pré-sélectionné, transmission de `avatarId` dans `player:join`.
+- Interface A (player NUC) : avatar devant le pseudo dans `PlayerPill` (lobby), `ScoreRow` (scores), résultats finaux. Rendu rond + fallback gracieux si pas d'avatar.
+- Interface C (console) : avatar dans la liste des joueurs.
+- Backend sessions : assignation auto d'un avatar aléatoire de la bibliothèque si avatars activés et joueur sans choix ; diffusion de l'`avatarUrl` dans `player:joined`, scores, résultats finaux et `session:state_snapshot` (reconnexion).
+
+**Critère de complétude :**
+
+- Anzio peut créer une bibliothèque d'avatars et y uploader des PNG (normalisés 512x512).
+- Anzio peut activer les avatars sur un quiz et choisir la bibliothèque.
+- Un joueur voit la grille, choisit (ou non) un avatar, et le retrouve sur l'écran cinéma (lobby + scores + final), sur son mobile et dans la console.
+- Sur un quiz sans avatars activés, rien ne change.
+- Tests : upload/normalisation, assignation auto, présence de l'`avatarUrl` dans les payloads.
+
+**Hors périmètre :** avatars uploadés par le joueur lui-même, avatars animés, packs sponsorisés payants.
+
+---
+
 ## Estimation grossière du temps
 
 À titre indicatif, en travaillant avec Cursor et Claude :
@@ -351,6 +381,7 @@ Chaque PR a un **critère de complétude clair et testable**. Tant qu'il n'est p
 | PR7 — Lots et email  | 1 demi-journée                |
 | PR8 — Observabilité  | 1 demi-journée                |
 | PR9 — Pilote prep    | 1 demi-journée                |
+| PR10 — Avatars       | 1 journée                     |
 
 **Total :** ~9-10 journées de travail effectif. À étaler sur le calendrier réel d'Anzio.
 

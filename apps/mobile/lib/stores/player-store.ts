@@ -16,6 +16,7 @@ export type PlayerConnectionStatus = 'connected' | 'disconnected' | 'reconnectin
 interface PlayerState {
   playerId: string | null;
   pseudo: string | null;
+  avatarUrl: string | null;
   resumeToken: string | null;
   sessionId: string | null;
   slugShort: string | null;
@@ -47,19 +48,28 @@ interface PlayerState {
   } | null;
 
   finalRank: number | null;
-  finalScoreboard: { playerId: string; pseudo: string; scoreTotal: number; rank: number }[] | null;
+  finalScoreboard:
+    | {
+        playerId: string;
+        pseudo: string;
+        avatarUrl?: string | null;
+        scoreTotal: number;
+        rank: number;
+      }[]
+    | null;
   prizeAvailabilityByRank: { rank1?: boolean; rank2?: boolean; rank3?: boolean } | null;
   prizes: SessionPrizesDisplay | null;
   joinedQuestionPosition: number | null;
   lateWaitTimerMs: number | null;
 
-  players: { playerId: string; pseudo: string }[];
+  players: { playerId: string; pseudo: string; avatarUrl?: string | null }[];
 
   connectionStatus: PlayerConnectionStatus;
 
   hydrate: (data: {
     playerId: string;
     pseudo: string;
+    avatarUrl?: string | null;
     resumeToken: string;
     sessionId: string;
     slugShort: string;
@@ -80,6 +90,7 @@ interface PlayerState {
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   playerId: null,
   pseudo: null,
+  avatarUrl: null,
   resumeToken: null,
   sessionId: null,
   slugShort: null,
@@ -138,6 +149,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set({
       playerId: data.playerId,
       pseudo: data.pseudo,
+      avatarUrl: data.avatarUrl ?? null,
       resumeToken: data.resumeToken,
       sessionId: data.sessionId,
       slugShort: data.slugShort,
@@ -173,6 +185,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       | {
           playerId: string;
           pseudo: string;
+          avatarUrl?: string | null;
           scoreTotal: number;
           currentRank: number | null;
           joinedQuestionPosition?: number | null;
@@ -192,6 +205,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const base = {
       playerId: player.playerId,
       pseudo: player.pseudo,
+      avatarUrl: player.avatarUrl ?? get().avatarUrl,
       scoreTotal: player.scoreTotal,
       currentRank: player.currentRank,
       sessionId: session.sessionId,
@@ -218,6 +232,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           finalScoreboard: {
             playerId: string;
             pseudo: string;
+            avatarUrl?: string | null;
             scoreTotal: number;
             rank: number;
           }[];
@@ -378,7 +393,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         set({
           players: [
             ...state.players,
-            { playerId: payload.playerId as string, pseudo: payload.pseudo as string },
+            {
+              playerId: payload.playerId as string,
+              pseudo: payload.pseudo as string,
+              avatarUrl: (payload.avatarUrl as string | null) ?? null,
+            },
           ],
           totalPlayers: state.totalPlayers + 1,
         });
@@ -466,6 +485,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         const finalScoreboard = payload.finalScoreboard as {
           playerId: string;
           pseudo: string;
+          avatarUrl?: string | null;
           scoreTotal: number;
           rank: number;
         }[];
@@ -496,6 +516,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set({
       playerId: null,
       pseudo: null,
+      avatarUrl: null,
       resumeToken: null,
       sessionId: null,
       slugShort: null,

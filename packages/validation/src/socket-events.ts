@@ -21,6 +21,7 @@ export const playerJoinPayloadSchema = z.object({
   pseudo: z.string().min(2).max(30),
   sessionSlugShort: z.string().regex(/^\d{4}$/),
   pseudoSource: z.enum(['SUGGESTED', 'CUSTOM']).optional(),
+  avatarId: z.string().min(1).optional(),
 });
 
 export const playerSubmitAnswerPayloadSchema = z.object({
@@ -128,6 +129,7 @@ export const sessionQuestionEndedSchema = z.object({
     z.object({
       playerId: z.string(),
       pseudo: z.string(),
+      avatarUrl: z.string().nullable().optional(),
       scoreTotal: z.number().int(),
       scoreThisQuestion: z.number().int(),
     }),
@@ -155,6 +157,7 @@ export const sessionEndedSchema = z.object({
     z.object({
       playerId: z.string(),
       pseudo: z.string(),
+      avatarUrl: z.string().nullable().optional(),
       scoreTotal: z.number().int(),
       rank: z.number().int(),
     }),
@@ -179,6 +182,7 @@ export const sessionAbortedSchema = z.object({
 export const playerJoinedSchema = z.object({
   playerId: z.string(),
   pseudo: z.string(),
+  avatarUrl: z.string().nullable().optional(),
   joinedAt: z.string().datetime(),
 });
 

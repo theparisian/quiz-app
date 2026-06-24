@@ -15,6 +15,7 @@ export const joinSessionSchema = z.object({
     .max(PSEUDO_MAX_LENGTH)
     .regex(pseudoRegex, 'Pseudo contains invalid characters'),
   pseudoSource: pseudoSourceSchema.optional(),
+  avatarId: z.string().min(1).optional(),
 });
 
 export const updateEmailSchema = z.object({

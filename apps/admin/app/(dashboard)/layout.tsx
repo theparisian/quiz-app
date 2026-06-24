@@ -12,6 +12,7 @@ import {
   Question,
   SignOut,
   Sparkle,
+  Smiley,
 } from '@phosphor-icons/react';
 import { useAuth } from '../../lib/auth';
 
@@ -22,6 +23,7 @@ const NAV_ITEMS: { href: string; label: string; icon: Icon }[] = [
   { href: '/quizzes', label: 'Quizz', icon: Question },
   { href: '/ai/usage', label: 'IA', icon: Sparkle },
   { href: '/sponsors', label: 'Sponsors', icon: Megaphone },
+  { href: '/avatars', label: 'Avatars', icon: Smiley },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
