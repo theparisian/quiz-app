@@ -6,3 +6,10 @@
 
 @import '@quiz-app/design-tokens/typography-base.css';
 @import '@quiz-app/design-tokens/surfaces-base.css';
+
+
+@layer components {
+    .custom-screen-lateral {
+        width: 50%;
+    }
+  }

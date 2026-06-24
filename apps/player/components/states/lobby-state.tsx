@@ -80,15 +80,15 @@ export default function LobbyState() {
       </div>
 
       {/* Partie droite : panneau verre dépoli, neutre, qui s'adapte à n'importe quel fond. */}
-      <aside className="m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-8 py-10 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
-        <div className="flex w-full flex-col items-center gap-7">
+      <aside className="custom-screen-lateral relative m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-8 py-10 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
+        <div className="flex w-[70%] flex-col items-center gap-7">
           <div>
             <h1 className="text-[clamp(28px,2.6vw,48px)] font-black leading-none tracking-tight drop-shadow">
               C&apos;est l&apos;heure du quiz !
             </h1>
           </div>
 
-          <div className="flex flex-col items-center gap-4">
+          <div className="relative flex flex-col items-center gap-4">
             <div className="flex items-center gap-4">
               <PhoneIcon className="h-12 w-9 shrink-0 text-white/80" />
               <div className="text-left leading-snug">
@@ -97,7 +97,7 @@ export default function LobbyState() {
               </div>
             </div>
 
-            <div className="text-[clamp(36px,5vw,64px)] font-black tabular-nums leading-none tracking-[0.1em]">
+            <div className="absolute -bottom-2.5 text-[clamp(36px,5vw,64px)] font-black tabular-nums leading-none tracking-[0.1em]">
               {slugShort}
             </div>
           </div>
