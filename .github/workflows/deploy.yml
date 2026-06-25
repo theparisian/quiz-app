@@ -55,6 +55,8 @@ jobs:
           SENTRY_ENVIRONMENT: ${{ secrets.SENTRY_ENVIRONMENT }}
           ADMIN_ALERT_EMAILS: ${{ secrets.ADMIN_ALERT_EMAILS }}
           HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
+          # IA — si ANTHROPIC_API_KEY est défini, injecte la clé + AI_PROVIDER=anthropic (root + api/.env)
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -130,6 +132,7 @@ jobs:
             workflow_emit_optional_b64 SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
             workflow_emit_optional_b64 ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
             workflow_emit_optional_b64 HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
+            workflow_emit_optional_b64 ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}"
             echo 'SESSION_SECRET="$(printf "%s" "$SESSION_SECRET_B64" | base64 -d)"'
             echo 'JWT_SECRET="$(printf "%s" "$JWT_SECRET_B64" | base64 -d)"'
             echo 'DATABASE_URL="$(printf "%s" "$DATABASE_URL_B64" | base64 -d)"'
@@ -151,6 +154,12 @@ jobs:
             echo '  key="$1"; val="$2"'
             echo '  if grep -q "^${key}=" .env 2>/dev/null; then grep -v "^${key}=" .env > .env.tmp && mv .env.tmp .env; fi'
             echo '  printf "%s=%s\n" "$key" "$val" >> .env'
+            echo '}'
+            echo 'upsert_env_file() {'
+            echo '  file="$1"; key="$2"; val="$3"'
+            echo '  touch "$file"'
+            echo '  if grep -q "^${key}=" "$file" 2>/dev/null; then grep -v "^${key}=" "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"; fi'
+            echo '  printf "%s=%s\n" "$key" "$val" >> "$file"'
             echo '}'
             echo 'upsert_env SESSION_SECRET "$SESSION_SECRET"'
             echo 'upsert_env JWT_SECRET "$JWT_SECRET"'
@@ -181,6 +190,13 @@ jobs:
             workflow_emit_optional_decode_and_upsert SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
             workflow_emit_optional_decode_and_upsert ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
             workflow_emit_optional_decode_and_upsert HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
+            workflow_emit_optional_decode_and_upsert ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}"
+            echo 'if [ -n "${ANTHROPIC_API_KEY:-}" ]; then'
+            echo '  upsert_env AI_PROVIDER anthropic'
+            echo '  mkdir -p api'
+            echo '  upsert_env_file api/.env AI_PROVIDER anthropic'
+            echo '  upsert_env_file api/.env ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"'
+            echo 'fi'
             echo 'git stash'
             echo "git fetch origin \"${BRANCH}\""
             echo "git checkout \"${BRANCH}\""
