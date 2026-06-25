@@ -3,21 +3,31 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.SEED_SUPER_ADMIN_EMAIL ?? 'contact@uxii.fr';
+  const superAdmins = [
+    { email: process.env.SEED_SUPER_ADMIN_EMAIL ?? 'contact@uxii.fr', displayName: 'Anzio' },
+    { email: 'vdhuart@gmail.com', displayName: 'Admin' },
+  ];
 
-  // Create super-admin if not exists
-  const existingAdmin = await prisma.user.findUnique({ where: { email } });
-  if (!existingAdmin) {
-    const admin = await prisma.user.create({
-      data: {
-        email,
-        displayName: 'Anzio',
-        role: 'super_admin',
-      },
-    });
-    console.log(`✓ Super-admin created: ${email} (ID: ${admin.id})`);
-  } else {
-    console.log(`✓ Super-admin already exists: ${email}`);
+  for (const { email, displayName } of superAdmins) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (!existing) {
+      const admin = await prisma.user.create({
+        data: { email, displayName, role: 'super_admin' },
+      });
+      console.log(`✓ Super-admin created: ${email} (ID: ${admin.id})`);
+    } else if (existing.role !== 'super_admin' || existing.deletedAt) {
+      const admin = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          role: 'super_admin',
+          deletedAt: null,
+          displayName: existing.displayName ?? displayName,
+        },
+      });
+      console.log(`✓ Super-admin updated: ${email} (ID: ${admin.id})`);
+    } else {
+      console.log(`✓ Super-admin already exists: ${email}`);
+    }
   }
 
   // Create demo cinema if not exists
