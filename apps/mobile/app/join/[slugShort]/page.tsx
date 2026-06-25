@@ -6,7 +6,6 @@ import { api } from '@/lib/api';
 import { getMobileSocket, disconnectMobileSocket } from '@/lib/socket';
 import { usePlayerStore } from '@/lib/stores/player-store';
 import PseudoInput from '@/components/pseudo-input';
-import AvatarPicker from '@/components/avatar-picker';
 
 interface SessionInfo {
   sessionId: string;
@@ -39,7 +38,6 @@ export default function JoinPage() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
-  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const joinedRef = useRef(false);
 
   useEffect(() => {
@@ -78,7 +76,7 @@ export default function JoinPage() {
     return message ?? 'Erreur lors de la connexion.';
   }
 
-  async function handleJoin(pseudo: string, pseudoSource: 'SUGGESTED' | 'CUSTOM') {
+  async function handleJoin(pseudo: string, avatarId: string | null) {
     setJoining(true);
     setError(null);
 
@@ -110,8 +108,8 @@ export default function JoinPage() {
       {
         sessionSlugShort: slugShort,
         pseudo,
-        pseudoSource,
-        ...(selectedAvatarId ? { avatarId: selectedAvatarId } : {}),
+        pseudoSource: 'CUSTOM',
+        ...(avatarId ? { avatarId } : {}),
       },
       (ack: JoinAck | undefined) => {
         if (!ack || ack.ok !== true || !ack.playerId || !ack.resumeToken || !ack.sessionId) {
@@ -173,12 +171,6 @@ export default function JoinPage() {
       </div>
 
       <div className="flex w-full max-w-xs flex-col gap-6">
-        <AvatarPicker
-          sessionCode={slugShort}
-          selectedId={selectedAvatarId}
-          onChange={setSelectedAvatarId}
-          disabled={joining}
-        />
         <PseudoInput sessionCode={slugShort} onSubmit={handleJoin} disabled={joining} />
         {error && (
           <div className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-center text-sm text-red-400">
