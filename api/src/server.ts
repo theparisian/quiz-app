@@ -2,10 +2,10 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { config as dotenvLoad } from 'dotenv';
 
-// Root .env first (deploy VPS), then api/.env for overrides locaux sans écraser la prod.
+// Root .env first — override pour écraser un AI_PROVIDER=mock persistant dans PM2.
 const repoRootDotenv = resolve(process.cwd(), '..', '.env');
 if (existsSync(repoRootDotenv)) {
-  dotenvLoad({ path: repoRootDotenv });
+  dotenvLoad({ path: repoRootDotenv, override: true });
 }
 dotenvLoad();
 

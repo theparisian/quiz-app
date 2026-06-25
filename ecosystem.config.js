@@ -10,6 +10,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: '4000',
+        AI_PROVIDER: 'anthropic',
       },
       env_file: '../.env',
       max_memory_restart: '500M',
