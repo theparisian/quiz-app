@@ -2,11 +2,12 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { config as dotenvLoad } from 'dotenv';
 
-dotenvLoad();
+// Root .env first (deploy VPS), then api/.env for overrides locaux sans écraser la prod.
 const repoRootDotenv = resolve(process.cwd(), '..', '.env');
 if (existsSync(repoRootDotenv)) {
   dotenvLoad({ path: repoRootDotenv });
 }
+dotenvLoad();
 
 import { createServer } from 'http';
 import { logger } from './shared/logger/index.js';
@@ -27,6 +28,14 @@ initSentry();
 
 validateAiEnvironment();
 validatePrizeEnvironment();
+
+logger.info(
+  {
+    aiProvider: process.env.AI_PROVIDER ?? 'anthropic',
+    hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY?.trim(),
+  },
+  'AI environment loaded',
+);
 
 const app = buildApp();
 const httpServer = createServer(app);

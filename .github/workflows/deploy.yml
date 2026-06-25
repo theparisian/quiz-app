@@ -55,7 +55,7 @@ jobs:
           SENTRY_ENVIRONMENT: ${{ secrets.SENTRY_ENVIRONMENT }}
           ADMIN_ALERT_EMAILS: ${{ secrets.ADMIN_ALERT_EMAILS }}
           HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
-          # IA — si ANTHROPIC_API_KEY est défini, injecte la clé + AI_PROVIDER=anthropic (root + api/.env)
+          # IA — obligatoire en prod (Anthropic)
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
@@ -77,7 +77,7 @@ jobs:
               '  upsert_env '"$n"' "$'"$n"'"' \
               'fi'
           }
-          for key in SESSION_SECRET JWT_SECRET DATABASE_URL CORS_ORIGINS NEXT_PUBLIC_API_URL APP_URL_ADMIN APP_URL_CONSOLE SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS SMTP_FROM SMTP_FROM_NAME PRIZE_HMAC_SECRET PRIZE_REDEEM_BASE_URL PRIZE_UNSUBSCRIBE_BASE_URL; do
+          for key in SESSION_SECRET JWT_SECRET DATABASE_URL CORS_ORIGINS NEXT_PUBLIC_API_URL APP_URL_ADMIN APP_URL_CONSOLE SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS SMTP_FROM SMTP_FROM_NAME PRIZE_HMAC_SECRET PRIZE_REDEEM_BASE_URL PRIZE_UNSUBSCRIBE_BASE_URL ANTHROPIC_API_KEY; do
             eval "v=\${$key:-}"
             if [ -z "$v" ]; then
               echo "::error::Secret GitHub $key manquant ou vide."
@@ -101,6 +101,7 @@ jobs:
           PRIZE_HMAC_SECRET_B64="$(printf '%s' "$PRIZE_HMAC_SECRET" | base64 -w0)"
           PRIZE_REDEEM_BASE_URL_B64="$(printf '%s' "$PRIZE_REDEEM_BASE_URL" | base64 -w0)"
           PRIZE_UNSUBSCRIBE_BASE_URL_B64="$(printf '%s' "$PRIZE_UNSUBSCRIBE_BASE_URL" | base64 -w0)"
+          ANTHROPIC_API_KEY_B64="$(printf '%s' "$ANTHROPIC_API_KEY" | base64 -w0)"
 
           BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
           {
@@ -122,6 +123,7 @@ jobs:
             echo "PRIZE_HMAC_SECRET_B64=${PRIZE_HMAC_SECRET_B64}"
             echo "PRIZE_REDEEM_BASE_URL_B64=${PRIZE_REDEEM_BASE_URL_B64}"
             echo "PRIZE_UNSUBSCRIBE_BASE_URL_B64=${PRIZE_UNSUBSCRIBE_BASE_URL_B64}"
+            echo "ANTHROPIC_API_KEY_B64=${ANTHROPIC_API_KEY_B64}"
             workflow_emit_optional_b64 APP_URL_MOBILE "${APP_URL_MOBILE:-}"
             workflow_emit_optional_b64 NEXT_PUBLIC_PLAY_URL "${NEXT_PUBLIC_PLAY_URL:-}"
             workflow_emit_optional_b64 SENTRY_DSN_API "${SENTRY_DSN_API:-}"
@@ -132,7 +134,6 @@ jobs:
             workflow_emit_optional_b64 SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
             workflow_emit_optional_b64 ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
             workflow_emit_optional_b64 HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
-            workflow_emit_optional_b64 ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}"
             echo 'SESSION_SECRET="$(printf "%s" "$SESSION_SECRET_B64" | base64 -d)"'
             echo 'JWT_SECRET="$(printf "%s" "$JWT_SECRET_B64" | base64 -d)"'
             echo 'DATABASE_URL="$(printf "%s" "$DATABASE_URL_B64" | base64 -d)"'
@@ -149,6 +150,7 @@ jobs:
             echo 'PRIZE_HMAC_SECRET="$(printf "%s" "$PRIZE_HMAC_SECRET_B64" | base64 -d)"'
             echo 'PRIZE_REDEEM_BASE_URL="$(printf "%s" "$PRIZE_REDEEM_BASE_URL_B64" | base64 -d)"'
             echo 'PRIZE_UNSUBSCRIBE_BASE_URL="$(printf "%s" "$PRIZE_UNSUBSCRIBE_BASE_URL_B64" | base64 -d)"'
+            echo 'ANTHROPIC_API_KEY="$(printf "%s" "$ANTHROPIC_API_KEY_B64" | base64 -d)"'
             echo 'touch .env'
             echo 'upsert_env() {'
             echo '  key="$1"; val="$2"'
@@ -160,6 +162,13 @@ jobs:
             echo '  touch "$file"'
             echo '  if grep -q "^${key}=" "$file" 2>/dev/null; then grep -v "^${key}=" "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"; fi'
             echo '  printf "%s=%s\n" "$key" "$val" >> "$file"'
+            echo '}'
+            echo 'apply_ai_env() {'
+            echo '  upsert_env AI_PROVIDER anthropic'
+            echo '  upsert_env ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"'
+            echo '  mkdir -p api'
+            echo '  upsert_env_file api/.env AI_PROVIDER anthropic'
+            echo '  upsert_env_file api/.env ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"'
             echo '}'
             echo 'upsert_env SESSION_SECRET "$SESSION_SECRET"'
             echo 'upsert_env JWT_SECRET "$JWT_SECRET"'
@@ -190,13 +199,6 @@ jobs:
             workflow_emit_optional_decode_and_upsert SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
             workflow_emit_optional_decode_and_upsert ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
             workflow_emit_optional_decode_and_upsert HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
-            workflow_emit_optional_decode_and_upsert ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}"
-            echo 'if [ -n "${ANTHROPIC_API_KEY:-}" ]; then'
-            echo '  upsert_env AI_PROVIDER anthropic'
-            echo '  mkdir -p api'
-            echo '  upsert_env_file api/.env AI_PROVIDER anthropic'
-            echo '  upsert_env_file api/.env ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"'
-            echo 'fi'
             echo 'git stash'
             echo "git fetch origin \"${BRANCH}\""
             echo "git checkout \"${BRANCH}\""
@@ -207,6 +209,8 @@ jobs:
             echo '  pnpm install --frozen-lockfile'
             echo '  pnpm --filter @quiz-app/api db:generate'
             echo '  sed -i '"'"'s/\r$//'"'"' .env'
+            echo '  if [ -f api/.env ]; then sed -i '"'"'s/\r$//'"'"' api/.env; fi'
+            echo '  apply_ai_env'
             echo '  source scripts/load-env.sh'
             echo '  pnpm turbo build --concurrency=1'
             echo '  pnpm --filter @quiz-app/api db:migrate:deploy'

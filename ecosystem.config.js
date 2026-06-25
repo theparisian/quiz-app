@@ -11,6 +11,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: '4000',
       },
+      env_file: '../.env',
       max_memory_restart: '500M',
       error_file: '/home/ubuntu/.pm2/logs/quiz-api-error.log',
       out_file: '/home/ubuntu/.pm2/logs/quiz-api-out.log',
