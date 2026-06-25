@@ -59,6 +59,54 @@ const config: Config = {
           '0%, 100%': { transform: 'translateY(0) rotate(var(--pseudo-rot, 0deg))' },
           '50%': { transform: 'translateY(-12px) rotate(calc(var(--pseudo-rot, 0deg) * -1))' },
         },
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(28px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'podium-rise': {
+          '0%': { opacity: '0', transform: 'translateY(90px) scale(0.92)' },
+          '60%': { opacity: '1' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'winner-pop': {
+          '0%': { opacity: '0', transform: 'translateY(60px) scale(0.8)' },
+          '65%': { opacity: '1', transform: 'translateY(-8px) scale(1.04)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'crown-drop': {
+          '0%': { opacity: '0', transform: 'translateY(-34px) rotate(-14deg) scale(0.5)' },
+          '70%': { opacity: '1', transform: 'translateY(5px) rotate(5deg) scale(1.08)' },
+          '100%': { opacity: '1', transform: 'translateY(0) rotate(0deg) scale(1)' },
+        },
+        'laurel-left': {
+          '0%': { opacity: '0', transform: 'translateX(28px) rotate(18deg) scale(0.7)' },
+          '100%': { opacity: '1', transform: 'translateX(0) rotate(0deg) scale(1)' },
+        },
+        'laurel-right': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateX(-28px) scaleX(-1) rotate(18deg) scale(0.7)',
+          },
+          '100%': { opacity: '1', transform: 'scaleX(-1) translateX(0) rotate(0deg) scale(1)' },
+        },
+        'winner-aura': {
+          '0%, 100%': { opacity: '0.45', transform: 'scale(1)' },
+          '50%': { opacity: '0.85', transform: 'scale(1.08)' },
+        },
+        'bonus-pop': {
+          '0%': { opacity: '0', transform: 'translateY(14px) scale(0.85)' },
+          '70%': { opacity: '1', transform: 'translateY(0) scale(1.05)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'confetti-fall': {
+          '0%': { opacity: '0', transform: 'translate3d(0, -12vh, 0) rotate(0deg)' },
+          '8%': { opacity: '1' },
+          '100%': {
+            opacity: '1',
+            transform:
+              'translate3d(var(--confetti-drift, 0px), 112vh, 0) rotate(var(--confetti-rot, 720deg))',
+          },
+        },
       },
       animation: {
         'glow-pulse': 'glow-pulse 1.5s ease-in-out infinite',
@@ -72,6 +120,15 @@ const config: Config = {
         'timer-digit': 'timer-digit 0.35s ease-out',
         'pseudo-pop': 'pseudo-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards',
         'pseudo-float': 'pseudo-float 4s ease-in-out infinite',
+        'fade-in-up': 'fade-in-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'podium-rise': 'podium-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'winner-pop': 'winner-pop 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'crown-drop': 'crown-drop 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'laurel-left': 'laurel-left 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'laurel-right': 'laurel-right 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'winner-aura': 'winner-aura 2.6s ease-in-out infinite',
+        'bonus-pop': 'bonus-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'confetti-fall': 'confetti-fall 4s linear forwards',
       },
     },
   },
