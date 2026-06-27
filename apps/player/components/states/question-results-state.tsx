@@ -5,6 +5,7 @@ import { useNucStore } from '@/lib/stores/nuc-store';
 import { playSound } from '@/lib/audio';
 import { ANSWER_COLORS } from '@quiz-app/design-tokens';
 import ScoreRow from '@/components/shared/score-row';
+import QuizBackground from '@/components/shared/quiz-background';
 
 export default function QuestionResultsState() {
   const currentQuestionPosition = useNucStore((s) => s.currentQuestionPosition);
@@ -42,52 +43,55 @@ export default function QuestionResultsState() {
   const prevMap = new Map(previousScoreboard.map((e) => [e.playerId, e.scoreTotal]));
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-center bg-white/5 py-4 text-xl font-medium text-gray-300">
-        Question {currentQuestionPosition} / {totalQuestions}
-      </div>
+    <div className="relative flex h-full flex-col">
+      <QuizBackground />
+      <div className="relative z-10 flex h-full flex-col">
+        <div className="flex items-center justify-center bg-white/5 py-4 text-xl font-medium text-gray-300">
+          Question {currentQuestionPosition} / {totalQuestions}
+        </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-8 px-16">
-        <div className="text-2xl text-gray-400">La bonne réponse était :</div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-8 px-16">
+          <div className="text-2xl text-gray-400">La bonne réponse était :</div>
 
-        {correctAnswer && (
-          <div
-            className="animate-glow-pulse rounded-2xl px-16 py-8 text-center text-4xl font-bold text-white"
-            style={{ backgroundColor: correctColor, boxShadow: `0 0 30px ${correctColor}` }}
-          >
-            {correctAnswer.position} — {correctAnswer.text} ✓
-          </div>
-        )}
+          {correctAnswer && (
+            <div
+              className="animate-glow-pulse rounded-2xl px-16 py-8 text-center text-4xl font-bold text-white"
+              style={{ backgroundColor: correctColor, boxShadow: `0 0 30px ${correctColor}` }}
+            >
+              {correctAnswer.position} — {correctAnswer.text} ✓
+            </div>
+          )}
 
-        {lastResults.explanationText && (
-          <div className="max-w-3xl text-center text-xl italic text-gray-400">
-            {lastResults.explanationText}
-          </div>
-        )}
+          {lastResults.explanationText && (
+            <div className="max-w-3xl text-center text-xl italic text-gray-400">
+              {lastResults.explanationText}
+            </div>
+          )}
 
-        <div className="w-full max-w-2xl">
-          <div className="mb-4 text-xl font-semibold text-gray-300">Top 5</div>
-          <div className="space-y-2">
-            {top5.map((entry, i) => (
-              <ScoreRow
-                key={entry.playerId}
-                rank={i + 1}
-                pseudo={entry.pseudo}
-                avatarUrl={entry.avatarUrl}
-                scoreTotal={entry.scoreTotal}
-                scoreDiff={entry.scoreTotal - (prevMap.get(entry.playerId) ?? 0)}
-                index={i}
-              />
-            ))}
+          <div className="w-full max-w-2xl">
+            <div className="mb-4 text-xl font-semibold text-gray-300">Top 5</div>
+            <div className="space-y-2">
+              {top5.map((entry, i) => (
+                <ScoreRow
+                  key={entry.playerId}
+                  rank={i + 1}
+                  pseudo={entry.pseudo}
+                  avatarUrl={entry.avatarUrl}
+                  scoreTotal={entry.scoreTotal}
+                  scoreDiff={entry.scoreTotal - (prevMap.get(entry.playerId) ?? 0)}
+                  index={i}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {countdown !== null && (
-        <div className="pb-8 text-center text-xl text-gray-400">
-          Question suivante dans {countdown}...
-        </div>
-      )}
+        {countdown !== null && (
+          <div className="pb-8 text-center text-xl text-gray-400">
+            Question suivante dans {countdown}...
+          </div>
+        )}
+      </div>
     </div>
   );
 }

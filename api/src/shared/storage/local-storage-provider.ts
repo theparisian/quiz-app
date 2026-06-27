@@ -12,6 +12,18 @@ const MIME_EXT: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/webp': '.webp',
   'image/svg+xml': '.svg',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+};
+
+const EXT_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
 };
 
 function validateKeySegments(kind: string, id: string, filename: string): void {
@@ -79,16 +91,7 @@ export class LocalStorageProvider implements StorageProvider {
     try {
       const buffer = await fs.readFile(filePath);
       const ext = path.extname(filePath).toLowerCase();
-      const mimeType =
-        ext === '.png'
-          ? 'image/png'
-          : ext === '.jpg' || ext === '.jpeg'
-            ? 'image/jpeg'
-            : ext === '.webp'
-              ? 'image/webp'
-              : ext === '.svg'
-                ? 'image/svg+xml'
-                : 'application/octet-stream';
+      const mimeType = EXT_MIME[ext] ?? 'application/octet-stream';
       return { buffer, mimeType };
     } catch (e) {
       if (

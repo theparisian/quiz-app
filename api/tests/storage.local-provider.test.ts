@@ -24,6 +24,23 @@ describe('LocalStorageProvider', () => {
     expect(await p.exists(key)).toBe(false);
   });
 
+  it('put/get video/mp4', async () => {
+    const base = mkdtempSync(path.join(os.tmpdir(), 'ls-vid-'));
+    const p = new LocalStorageProvider(base, 'http://x/uploads');
+    const { key, url } = await p.put({
+      kind: 'quiz-background',
+      id: 'my-quiz',
+      filename: 'file',
+      buffer: Buffer.from([0x00, 0x00, 0x00]),
+      mimeType: 'video/mp4',
+    });
+    expect(url).toContain('quiz-background');
+    expect(url).toMatch(/\.mp4$/);
+    const got = await p.get(key);
+    expect(got.mimeType).toBe('video/mp4');
+    await p.delete(key);
+  });
+
   it('rejects bad kind', async () => {
     const base = mkdtempSync(path.join(os.tmpdir(), 'ls2-'));
     const p = new LocalStorageProvider(base, 'http://x/uploads');
