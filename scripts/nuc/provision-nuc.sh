@@ -148,10 +148,10 @@ collect_params() {
   echo
   [[ -n "$AUTH_KEY" ]] || die "auth_key obligatoire."
 
-  read -rp "URL API HTTPS [https://demo.uxii.fr] : " api_in
-  API_URL="${api_in:-https://demo.uxii.fr}"
+  read -rp "URL API HTTPS [https://api.shh.show] : " api_in
+  API_URL="${api_in:-https://api.shh.show}"
 
-  local def_player="https://player.demo.uxii.fr"
+  local def_player="https://screen.shh.show"
   read -rp "URL player (interface A) [${def_player}] : " player_in
   PLAYER_URL="${player_in:-$def_player}"
 

@@ -4,7 +4,7 @@
 >
 > **État au moment de la rédaction :** réécriture v2 from-scratch quasi terminée (PR1 → PR9 livrées). Le code legacy v1 reste présent à la racine pour référence mais est destiné à l'archivage.
 >
-> **Porteur :** Anzio · **Repo :** github.com/theparisian/quiz-app · **Domaine actuel :** demo.uxii.fr
+> **Porteur :** Anzio · **Repo :** github.com/theparisian/quiz-app · **Domaine actuel :** shh.show
 
 ---
 

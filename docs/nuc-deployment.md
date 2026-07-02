@@ -83,13 +83,13 @@ sudo ./provision-nuc.sh
 
 Questions et défauts proposés : voir tableau interactif fichier script (sommairement) :
 
-| Champ                | Obligatoire                                                   |
-| -------------------- | ------------------------------------------------------------- |
-| `nuc_uid` admin      | ✅                                                            |
-| `auth_key` (masquée) | ✅                                                            |
-| URL API HTTPS        | Défaut `https://demo.uxii.fr`                                 |
-| URL player           | Défaut `https://player.demo.uxii.fr` (confirmation opérateur) |
-| `CINEMA_NAME`        | Optionnel fichier env diagnostic humain lecture               |
+| Champ                | Obligatoire                                               |
+| -------------------- | --------------------------------------------------------- |
+| `nuc_uid` admin      | ✅                                                        |
+| `auth_key` (masquée) | ✅                                                        |
+| URL API HTTPS        | Défaut `https://api.shh.show`                             |
+| URL player           | Défaut `https://screen.shh.show` (confirmation opérateur) |
+| `CINEMA_NAME`        | Optionnel fichier env diagnostic humain lecture           |
 
 Ensuite : recap + confirmation **`o`**.
 

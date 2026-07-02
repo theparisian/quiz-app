@@ -671,7 +671,7 @@ Self-service annonceurs, multi-langues, app native, analytics avancés, marketpl
 - **Repo :** github.com/theparisian/quiz-app
 - **Cinéma pilote :** [à compléter]
 - **Hébergement :** VPS en Union européenne (cf. §4.3 : typiquement OVH ou équivalent UE) ; URL ou identifiant d'instance de prod : **[à compléter]**
-- **Domaine :** demo.uxii.fr (existant) — éventuelle migration vers domaine projet dédié
+- **Domaine :** shh.show (mobile/spectateur), api.shh.show (API + Socket.IO), screen.shh.show (player ciné), console.shh.show (projectionniste), admin.shh.show (super admin)
 
 ---
 
