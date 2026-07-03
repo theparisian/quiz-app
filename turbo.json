@@ -1,5 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_MOBILE_URL",
+    "NEXT_PUBLIC_PLAY_URL",
+    "NEXT_PUBLIC_SENTRY_DSN_ADMIN",
+    "NEXT_PUBLIC_SENTRY_DSN_CONSOLE",
+    "NEXT_PUBLIC_SENTRY_DSN_MOBILE",
+    "NEXT_PUBLIC_SENTRY_DSN_PLAYER",
+    "SENTRY_ENVIRONMENT"
+  ],
   "tasks": {
     "dev": {
       "cache": false,
