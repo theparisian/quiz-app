@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provisioning Quiz App — NUC Ubuntu Server x86_64 (pilote terrain).
+# Provisioning shh — NUC Ubuntu Server x86_64 (pilote terrain).
 # Exécuter : sudo ./provision-nuc.sh
 #
 # Arborescence cible :
@@ -128,7 +128,7 @@ show_intro() {
   cat <<'EOF'
 
 ═══════════════════════════════════════════════════════════════
- Quiz App — provisioning NUC (Ubuntu Server amd64)
+ shh — provisioning NUC (Ubuntu Server amd64)
 
  • Installe Chromium, Xorg minimal via xinit, systemd (Restart=always + timer).
  • Le nuc_uid doit exister dans l’admin avant de lancer ce script.

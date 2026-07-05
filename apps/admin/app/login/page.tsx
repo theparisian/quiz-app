@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PaperPlaneTilt } from '@phosphor-icons/react';
+import { AppLogo } from '@quiz-app/ui';
 import { api } from '../../lib/api';
 
 export default function LoginPage() {
@@ -28,9 +29,9 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Quiz App</h1>
-          <p className="mt-1 text-sm text-gray-500">Administration</p>
+        <div className="flex flex-col items-center text-center">
+          <AppLogo className="h-10" />
+          <p className="mt-2 text-sm text-gray-500">Administration</p>
         </div>
 
         <form

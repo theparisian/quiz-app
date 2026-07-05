@@ -14,6 +14,7 @@ import {
   Sparkle,
   Smiley,
 } from '@phosphor-icons/react';
+import { AppLogo } from '@quiz-app/ui';
 import { useAuth } from '../../lib/auth';
 
 const NAV_ITEMS: { href: string; label: string; icon: Icon }[] = [
@@ -51,8 +52,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <aside className="flex w-56 flex-col border-r bg-white">
         <div className="border-b px-4 py-4">
-          <h1 className="text-lg font-bold text-gray-900">Quiz App</h1>
-          <p className="text-xs text-gray-400">Super Admin</p>
+          <AppLogo className="h-7" />
+          <p className="mt-1 text-xs text-gray-400">Super Admin</p>
         </div>
         <nav className="flex-1 space-y-1 px-2 py-3">
           {NAV_ITEMS.map((item) => {

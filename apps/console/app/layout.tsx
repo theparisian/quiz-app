@@ -4,8 +4,8 @@ import { AuthProvider } from '../lib/auth';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Quiz App — Console',
-  description: 'Console projectionniste du Quiz App',
+  title: 'Shh! — Console',
+  description: 'Console projectionniste Shh!',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

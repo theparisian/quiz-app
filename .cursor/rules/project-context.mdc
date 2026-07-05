@@ -1,5 +1,5 @@
 ---
-description: Contexte global du projet Quiz App Cinéma. À charger dans chaque conversation.
+description: Contexte global du projet shh. À charger dans chaque conversation.
 alwaysApply: true
 ---
 

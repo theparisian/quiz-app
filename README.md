@@ -1,4 +1,4 @@
-# Quiz App Cinéma
+# Shh!
 
 Plateforme multi-cinéma de quizz interactifs joués en direct par le public d'une salle de cinéma.
 

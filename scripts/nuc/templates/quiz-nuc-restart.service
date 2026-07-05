@@ -1,5 +1,5 @@
 [Unit]
-Description=Quiz App — redémarrage préventif du kiosque Chromium (oneshot)
+Description=shh — redémarrage préventif du kiosque Chromium (oneshot)
 
 [Service]
 Type=oneshot

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { AppLogo } from '@quiz-app/ui';
 import { getMobileSocket, disconnectMobileSocket } from '@/lib/socket';
 import { usePlayerStore } from '@/lib/stores/player-store';
 import PseudoInput from '@/components/pseudo-input';
@@ -162,8 +163,8 @@ export default function JoinPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6">
       <div className="mb-8 text-center">
-        <div className="mb-2 text-4xl">🎬</div>
-        <h1 className="text-2xl font-bold">Quiz au {session.cinema.name}</h1>
+        <AppLogo className="mx-auto h-8" variant="light" />
+        <h1 className="mt-4 text-2xl font-bold">Quiz au {session.cinema.name}</h1>
         <p className="mt-1 text-gray-400">{session.quiz.title}</p>
         {session.state !== 'lobby' && (
           <p className="text-brand-400 mt-2 text-sm">Partie en cours — rejoins-nous !</p>

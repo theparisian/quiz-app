@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { api } from '@/lib/api';
 
+import { AppLogo } from '@quiz-app/ui';
 import CodeInput from '@/components/code-input';
 
 interface SessionInfo {
@@ -84,9 +85,7 @@ function HomeContent() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6">
       <div className="mb-8 text-center">
-        <div className="mb-2 text-4xl">🎬</div>
-
-        <h1 className="text-3xl font-bold">Quiz Cinéma</h1>
+        <AppLogo className="mx-auto h-10" variant="light" />
       </div>
 
       <div className="w-full max-w-xs">

@@ -1,7 +1,7 @@
 {
-  "name": "Quiz Cinéma",
-  "short_name": "Quiz",
-  "description": "Jouez au quiz cinéma !",
+  "name": "Shh!",
+  "short_name": "Shh!",
+  "description": "Jouez au quizz cinéma !",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a2e",

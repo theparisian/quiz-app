@@ -2,13 +2,17 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Quiz Cinéma',
-  description: 'Jouez au quiz cinéma depuis votre téléphone !',
+  title: 'Shh!',
+  description: 'Jouez au quizz cinéma depuis votre téléphone !',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Quiz Cinéma',
+    title: 'Shh!',
+  },
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
   },
 };
 

@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { AppLogo } from '@quiz-app/ui';
 
 export default function CheckEmailPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6 text-center">
+        <AppLogo className="mx-auto h-8" />
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
           <svg
             className="h-8 w-8 text-blue-600"

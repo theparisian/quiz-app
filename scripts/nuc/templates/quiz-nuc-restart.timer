@@ -1,5 +1,5 @@
 [Unit]
-Description=Quiz App — redémarrage nocturne Chromium (purge freeze potentiels hors séances)
+Description=shh — redémarrage nocturne Chromium (purge freeze potentiels hors séances)
 
 [Timer]
 OnCalendar=*-*-* 04:00:00

@@ -2,7 +2,7 @@
   "name": "quiz-app",
   "version": "2.0.0",
   "private": true,
-  "description": "Quiz App Cinéma — Plateforme multi-cinéma de quizz interactifs",
+  "description": "shh — Plateforme multi-cinéma de quizz interactifs",
   "engines": {
     "node": ">=20.0.0"
   },

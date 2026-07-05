@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { AppLogo } from '@quiz-app/ui';
 import { useAuth } from '@/lib/auth';
 
 const NAV_ITEMS = [
@@ -46,8 +47,8 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     <div className="flex min-h-screen">
       <aside className="flex w-56 flex-col border-r bg-white">
         <div className="border-b px-4 py-4">
-          <h1 className="text-lg font-bold text-gray-900">Quiz App</h1>
-          <p className="text-xs text-gray-400">Console</p>
+          <AppLogo className="h-7" />
+          <p className="mt-1 text-xs text-gray-400">Console</p>
           {user.cinemaName && (
             <p className="mt-1 truncate text-xs font-medium text-gray-600">{user.cinemaName}</p>
           )}

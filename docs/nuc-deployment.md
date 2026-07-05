@@ -1,4 +1,4 @@
-# Déploiement NUC — documentation technique (pilote Quiz App)
+# Déploiement NUC — documentation technique (pilote shh)
 
 Guide pour **installer de zéro** un poste Ubuntu Server destiné au **player** (`apps/player`) sous Chromium kiosque, puis le relier au cloud existant. Public : équipe projet / exploitation technique désignée.
 
@@ -30,7 +30,7 @@ Guide pour **installer de zéro** un poste Ubuntu Server destiné au **player** 
 ### 2.2 Boot NUC et installation minimale
 
 1. Brancher HDMI/DP à un écran de contrôle pour le wizard.
-2. Brancher Ethernet (réseau autorisé sortant HTTPS + WebSockets vers l’infra Quiz App déployée).
+2. Brancher Ethernet (réseau autorisé sortant HTTPS + WebSockets vers l’infra shh déployée).
 3. Répondre aux questions du wizard : langue française, clavier, disque système tel que politique infra site.
 4. **Ne pas installer** de desktop GNOME Ubuntu — objectif environnement léger puisque le script utilisera **`xserver-xorg`** + **`xinit`** uniquement au moment du kiosk.
 5. Activer **OpenSSH Server** lorsque proposé (accès `ssh` après premier boot pour maintenance et mises à jour).

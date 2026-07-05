@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { AppLogo } from '@quiz-app/ui';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -110,9 +111,9 @@ function AcceptInvitationContent() {
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Bienvenue sur Quiz App</h1>
-          <p className="mt-1 text-sm text-gray-500">Finalise ton inscription</p>
+        <div className="flex flex-col items-center text-center">
+          <AppLogo className="h-10" />
+          <p className="mt-2 text-sm text-gray-500">Finalise ton inscription</p>
         </div>
 
         <form

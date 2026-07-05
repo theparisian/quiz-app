@@ -4,8 +4,8 @@ import { AuthProvider } from '../lib/auth';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Quiz App — Super Admin',
-  description: 'Interface super-admin du Quiz App',
+  title: 'Shh! — Super Admin',
+  description: 'Interface super-admin Shh!',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

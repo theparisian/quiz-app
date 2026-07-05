@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Quiz App — Écran Cinéma',
-  description: 'Écran cinéma du Quiz App',
+  title: 'Shh! — Écran Cinéma',
+  description: 'Écran cinéma Shh!',
 };
 
 export const viewport: Viewport = {

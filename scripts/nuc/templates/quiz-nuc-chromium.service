@@ -1,5 +1,5 @@
 [Unit]
-Description=Quiz App NUC kiosk (xinit + Chromium)
+Description=shh NUC kiosk (xinit + Chromium)
 After=network-online.target
 Wants=network-online.target
 

@@ -47,7 +47,7 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
-  const from = `"${process.env.SMTP_FROM_NAME ?? 'Quiz App'}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER ?? 'noreply@quiz.app'}>`;
+  const from = `"${process.env.SMTP_FROM_NAME ?? 'shh'}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER ?? 'noreply@shh.show'}>`;
   const t = getTransporter();
 
   const toField = Array.isArray(options.to) ? options.to.join(',') : options.to;

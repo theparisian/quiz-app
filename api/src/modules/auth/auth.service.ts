@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { prisma } from '../../shared/db/index.js';
 import { sendEmail, renderTemplate } from '../../shared/email/index.js';
+import { getBrandLogoUrl } from '../../shared/brand.js';
 import { signJwt } from '../../shared/auth/jwt.js';
 import { logger } from '../../shared/logger/index.js';
 
@@ -43,21 +44,20 @@ export const authService = {
     const html = renderTemplate('magic-link', {
       displayName: user.displayName ?? user.email ?? '',
       link,
+      logoUrl: getBrandLogoUrl(),
     });
 
     await sendEmail({
       to: email,
-      subject: 'Ton lien de connexion — Quiz App',
+      subject: 'Ton lien de connexion — Shh!',
       html,
-      text: `Connecte-toi à Quiz App : ${link} (expire dans 15 minutes)`,
+      text: `Connecte-toi à Shh! : ${link} (expire dans 15 minutes)`,
     });
 
     logger.info({ userId: user.id.toString(), email }, 'Magic link generated and sent');
   },
 
-  async verifyMagicLink(
-    token: string,
-  ): Promise<{
+  async verifyMagicLink(token: string): Promise<{
     accessToken: string;
     user: { id: string; email: string | null; displayName: string | null; role: string };
   } | null> {

@@ -59,7 +59,7 @@ export async function sendCriticalAlert(input: LogEventInput): Promise<void> {
   const text = buildCriticalAlertText(input);
   await sendEmail({
     to: recipients,
-    subject: `[Quiz App - CRITICAL] ${input.eventType}`,
+    subject: `[shh - CRITICAL] ${input.eventType}`,
     text,
   });
 }

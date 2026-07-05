@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { prisma } from '../../shared/db/index.js';
 import { signJwt } from '../../shared/auth/jwt.js';
 import { sendEmail, renderTemplate } from '../../shared/email/index.js';
+import { getBrandLogoUrl } from '../../shared/brand.js';
 import { logger } from '../../shared/logger/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import type { InvitationRole } from '@quiz-app/types';
@@ -56,11 +57,12 @@ export const invitationsService = {
       cinemaName: cinema.name,
       role: roleLabel,
       link,
+      logoUrl: getBrandLogoUrl(),
     });
 
     await sendEmail({
       to: data.email,
-      subject: `Invitation à rejoindre ${cinema.name} — Quiz App`,
+      subject: `Invitation à rejoindre ${cinema.name} — Shh!`,
       html,
       text: `Tu as été invité à rejoindre ${cinema.name} en tant que ${roleLabel}. Lien : ${link}`,
     });
