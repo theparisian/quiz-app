@@ -6,7 +6,6 @@ import { AppLogo } from '@quiz-app/ui';
 import type { Socket } from 'socket.io-client';
 import AnswerButton from './answer-button';
 import QuestionProgressBar from './question-progress-bar';
-import QuestionTimer from './question-timer';
 
 interface QuestionScreenProps {
   socket: Socket | null;
@@ -20,8 +19,6 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
   const currentQuestionId = usePlayerStore((s) => s.currentQuestionId);
   const currentQuestionText = usePlayerStore((s) => s.currentQuestionText);
   const currentQuestionImageUrl = usePlayerStore((s) => s.currentQuestionImageUrl);
-  const questionStartedAt = usePlayerStore((s) => s.questionStartedAt);
-  const questionTimeLimitMs = usePlayerStore((s) => s.questionTimeLimitMs);
   const currentAnswers = usePlayerStore((s) => s.currentAnswers);
   const answerMap = usePlayerStore((s) => s.answerMap);
   const selectAnswer = usePlayerStore((s) => s.selectAnswer);
@@ -59,13 +56,9 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
         )}
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pt-2">
-        {questionStartedAt != null && (
-          <QuestionTimer startedAt={questionStartedAt} totalMs={questionTimeLimitMs} />
-        )}
-
+      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pt-6">
         {currentQuestionText && (
-          <h2 className="mt-8 max-w-full text-center text-xl font-bold leading-snug">
+          <h2 className="max-w-full text-center text-xl font-bold leading-snug">
             {currentQuestionText}
           </h2>
         )}
