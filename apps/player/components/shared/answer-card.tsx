@@ -35,7 +35,7 @@ export default function AnswerCard({
 
   return (
     <div
-      className={`flex items-center gap-6 rounded-2xl px-8 py-6 ${
+      className={`flex items-center gap-5 rounded-2xl px-6 py-5 ${
         revealStatus === 'neutral' ? 'animate-answer-reveal opacity-0' : 'opacity-100'
       } ${isWrong ? 'opacity-30 transition-opacity duration-500' : ''} ${
         isCorrect ? 'animate-correct-highlight' : ''
@@ -52,10 +52,10 @@ export default function AnswerCard({
         transition: isCorrect && !isGlass ? 'background-color 0.5s ease' : undefined,
       }}
     >
-      <span className="text-4xl font-black" style={isGlass ? { color: color.bg } : undefined}>
+      <span className="text-3xl font-black" style={isGlass ? { color: color.bg } : undefined}>
         {position}
       </span>
-      <span className="text-2xl font-semibold">{text}</span>
+      <span className="text-xl font-semibold">{text}</span>
     </div>
   );
 }

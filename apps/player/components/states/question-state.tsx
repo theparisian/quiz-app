@@ -115,8 +115,8 @@ export default function QuestionState() {
               </div>
             </div>
 
-            <div className="flex flex-1 flex-col items-center justify-center gap-8 px-16">
-              <h2 className="max-w-[80vw] text-center text-[clamp(28px,3.2vw,56px)] font-bold leading-tight">
+            <div className="flex flex-1 flex-col items-center justify-center gap-12 px-16">
+              <h2 className="max-w-[70vw] text-center text-[clamp(24px,2.6vw,44px)] font-bold leading-tight">
                 {currentQuestion.text}
               </h2>
 
@@ -128,7 +128,10 @@ export default function QuestionState() {
                 />
               )}
 
-              <div key={currentQuestion.id} className="grid w-full max-w-[90vw] grid-cols-2 gap-6">
+              <div
+                key={currentQuestion.id}
+                className="mx-auto grid w-full max-w-[68vw] grid-cols-2 gap-5"
+              >
                 {sortedAnswers.map((answer, i) => {
                   let revealStatus: 'neutral' | 'correct' | 'wrong' = 'neutral';
                   if (isRevealing && correctAnswerId) {

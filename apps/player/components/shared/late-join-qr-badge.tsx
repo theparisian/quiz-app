@@ -45,7 +45,7 @@ export default function LateJoinQrBadge({ slugShort }: LateJoinQrBadgeProps) {
       </svg>
 
       <div className="absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2">
-        <div className="rounded-full bg-white p-2 shadow-lg shadow-black/40">
+        <div className="rounded-2xl bg-white p-4 shadow-lg shadow-black/40">
           <StyledQrCode value={joinUrl} size={QR_SIZE} />
         </div>
       </div>

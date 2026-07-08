@@ -1,5 +1,6 @@
 'use client';
 
+import { AppLogo } from '@quiz-app/ui';
 import { useNucStore } from '@/lib/stores/nuc-store';
 import QrCode from '@/components/shared/qr-code';
 import PlayerPill from '@/components/shared/player-pill';
@@ -36,8 +37,6 @@ function PhoneIcon({ className }: { className?: string }) {
 export default function LobbyState() {
   const slugShort = useNucStore((s) => s.slugShort);
   const players = useNucStore((s) => s.players);
-  const cinemaLogoUrl = useNucStore((s) => s.cinemaLogoUrl);
-  const cinemaName = useNucStore((s) => s.cinemaName);
   const prizes = useNucStore((s) => s.prizes);
   const lobbyRemainingMs = useNucStore((s) => s.lobbyRemainingMs);
   const lobbyPrizesEnabled = useNucStore((s) => s.lobbyPrizesEnabled);
@@ -53,17 +52,7 @@ export default function LobbyState() {
   return (
     <div className="relative z-10 flex h-full">
       {/* Partie gauche : réservée à l'image de fond de l'annonceur. */}
-      <div className="relative flex-1 overflow-hidden">
-        {(cinemaLogoUrl || cinemaName) && (
-          <div className="absolute left-10 top-10">
-            {cinemaLogoUrl ? (
-              <img src={cinemaLogoUrl} alt="" className="h-12 opacity-70" />
-            ) : (
-              <span className="text-sm text-white/70 drop-shadow">{cinemaName}</span>
-            )}
-          </div>
-        )}
-      </div>
+      <div className="relative flex-1 overflow-hidden" />
 
       {/* Pseudos connectés — fixés en bas à gauche de l'écran. */}
       <div className="pointer-events-none fixed bottom-10 left-10 z-20 max-w-[55vw]">
@@ -88,8 +77,9 @@ export default function LobbyState() {
       {/* Partie droite : panneau verre dépoli, neutre, qui s'adapte à n'importe quel fond. */}
       <aside className="custom-screen-lateral relative m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-8 py-10 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
         <div className="flex w-[70%] flex-col items-center gap-7">
-          <div>
-            <h1 className="text-[clamp(28px,2.6vw,48px)] font-black leading-none tracking-tight drop-shadow">
+          <div className="flex flex-col items-center gap-3">
+            <AppLogo className="h-10" variant="light" />
+            <h1 className="text-[clamp(18px,1.6vw,28px)] font-bold leading-tight tracking-tight text-white/90 drop-shadow">
               C&apos;est l&apos;heure du quiz !
             </h1>
           </div>
@@ -97,9 +87,9 @@ export default function LobbyState() {
           <div className="relative flex flex-col items-center gap-4">
             <div className="flex items-center gap-4">
               <PhoneIcon className="h-12 w-9 shrink-0 text-white/80" />
-              <div className="text-left leading-tight">
+              <div className="text-left leading-none">
                 <p className="text-base text-white/80">Connectez-vous sur</p>
-                <p className="text-lg font-bold text-white">{mobileHost}</p>
+                <p className="-mt-0.5 text-lg font-bold text-white">{mobileHost}</p>
               </div>
             </div>
 
@@ -111,6 +101,7 @@ export default function LobbyState() {
           <QrCode
             value={`${MOBILE_URL}/?s=${slugShort}`}
             size={160}
+            className="mb-4 pb-6"
             caption="Scannez le QR Code et rejoignez la partie"
             captionClassName="max-w-[14rem] text-center text-sm font-bold leading-tight text-gray-800"
           />
@@ -151,8 +142,8 @@ export default function LobbyState() {
 
         {lobbyRemainingMs !== null && (
           <div className="absolute -bottom-3 rounded-full bg-black px-8 py-2.5">
-            <div className="text-[10px] uppercase tracking-wide text-white/55">Début partie</div>
-            <div className="text-xl font-black tabular-nums leading-tight">
+            <div className="text-xs uppercase tracking-wide text-white/55">Début partie</div>
+            <div className="text-2xl font-black tabular-nums leading-tight">
               {formatCountdown(lobbyRemainingMs)}
             </div>
           </div>
