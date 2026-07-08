@@ -1,74 +1,29 @@
 'use client';
 
+import BreedingRhombusSpinner from '@/components/breeding-rhombus-spinner';
 import { usePlayerStore } from '@/lib/stores/player-store';
 import { resolveMediaUrl } from '@/lib/media-url';
 
 export default function LobbyWaiting() {
   const pseudo = usePlayerStore((s) => s.pseudo);
   const avatarUrl = usePlayerStore((s) => s.avatarUrl);
-  const players = usePlayerStore((s) => s.players);
-  const totalPlayers = usePlayerStore((s) => s.totalPlayers);
-  const prizes = usePlayerStore((s) => s.prizes);
-  const rank1 = prizes?.rank1;
   const myAvatar = resolveMediaUrl(avatarUrl);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-      <div className="mb-8 flex flex-col items-center text-center">
-        {myAvatar && (
-          <img
-            src={myAvatar}
-            alt=""
-            className="ring-brand-500/50 mb-3 h-24 w-24 rounded-full object-cover ring-4"
-          />
-        )}
-        <div className="mb-2 text-lg text-gray-400">Tu participes en tant que :</div>
-        <div className="bg-brand-600/20 text-brand-400 inline-block rounded-full px-6 py-2 text-xl font-bold">
-          {pseudo}
-        </div>
-      </div>
-
-      {rank1 && (
-        <div className="mb-4 text-center text-sm text-gray-300">
-          À gagner : {rank1.label} 🥇
-          {rank1.isSuperPrize && (
-            <span className="ml-2 rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-400">
-              Super lot
-            </span>
-          )}
-        </div>
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12">
+      {myAvatar && (
+        <img
+          src={myAvatar}
+          alt=""
+          className="ring-brand-500/50 h-24 w-24 rounded-full object-cover ring-4"
+        />
       )}
 
-      {prizes?.all && (
-        <div className="mb-6 text-center text-sm text-emerald-300">
-          🎁 Un lot pour tous les joueurs : {prizes.all.label}
-        </div>
-      )}
+      <div className="text-xl font-bold">{pseudo}</div>
 
-      <div className="mb-8 text-gray-400">On attend les autres joueurs...</div>
-
-      <div className="w-full max-w-xs rounded-xl bg-white/5 p-4">
-        <div className="mb-3 text-sm font-semibold text-gray-400">
-          {totalPlayers} joueur{totalPlayers > 1 ? 's' : ''} connecté{totalPlayers > 1 ? 's' : ''}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {players.map((p) => {
-            const av = resolveMediaUrl(p.avatarUrl);
-            return (
-              <span
-                key={p.playerId}
-                className="flex items-center gap-1.5 rounded-full bg-white/10 py-1 pl-1 pr-3 text-sm"
-              >
-                {av ? <img src={av} alt="" className="h-6 w-6 rounded-full object-cover" /> : null}
-                {p.pseudo}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-8 text-center text-sm text-gray-600">
-        Le projectionniste va bientôt lancer la session !
+      <div className="flex flex-col items-center gap-4">
+        <BreedingRhombusSpinner />
+        <div className="text-gray-400">En attente des autres joueurs</div>
       </div>
     </div>
   );
