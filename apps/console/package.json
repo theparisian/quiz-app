@@ -10,6 +10,7 @@
     "lint": "eslint app/ lib/ components/ hooks/"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@quiz-app/observability": "workspace:^",
     "@quiz-app/socket-client": "workspace:*",
     "@quiz-app/types": "workspace:*",

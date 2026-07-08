@@ -805,6 +805,7 @@ export const quizzesService = {
           type: true,
           status: true,
           language: true,
+          coverImageUrl: true,
           createdAt: true,
           sponsor: { select: { slug: true, name: true } },
           createdBy: { select: { id: true, displayName: true, email: true } },

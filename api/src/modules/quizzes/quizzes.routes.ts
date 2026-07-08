@@ -102,6 +102,7 @@ export function shapeQuizSummary(item: {
   type: string;
   status: string;
   language: string;
+  coverImageUrl: string | null;
   createdAt: Date;
   sponsor: { slug: string; name: string } | null;
   createdBy: { id: bigint; displayName: string | null; email: string | null };
@@ -114,6 +115,7 @@ export function shapeQuizSummary(item: {
     type: item.type,
     status: item.status,
     language: item.language,
+    coverImageUrl: item.coverImageUrl,
     createdAt: item.createdAt.toISOString(),
     sponsor: item.sponsor,
     createdBy: {

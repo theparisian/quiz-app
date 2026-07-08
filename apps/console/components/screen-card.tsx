@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ProjectorScreen } from '@phosphor-icons/react';
 
 interface ScreenCardProps {
   id: string;
@@ -22,7 +23,10 @@ export function ScreenCard({ id, name, capacity, nucStatus, lastSeenAt }: Screen
       href={`/screens/${id}`}
       className="block rounded-lg border bg-white p-5 shadow-sm transition hover:shadow-md"
     >
-      <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
+      <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+        <ProjectorScreen className="shrink-0 text-gray-500" size={22} weight="duotone" />
+        {name}
+      </h3>
       <div className="mt-2 flex items-center gap-2">
         <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusDot}`} />
         <span className="text-sm text-gray-600">{statusLabel}</span>
