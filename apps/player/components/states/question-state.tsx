@@ -9,7 +9,7 @@ import QuizBackground from '@/components/shared/quiz-background';
 import ScoreRow from '@/components/shared/score-row';
 import TimerBar from '@/components/shared/timer-bar';
 
-type FlowPhase = 'question' | 'reveal' | 'fade_out' | 'split';
+type FlowPhase = 'question' | 'reveal' | 'fade_out' | 'split' | 'split_fade_out' | 'split_done';
 
 const REVEAL_DURATION_MS = 2500;
 const FADE_OUT_DURATION_MS = 500;
@@ -33,9 +33,13 @@ export default function QuestionState() {
 
   useEffect(() => {
     if (uiState === 'question') {
-      setPhase('question');
       pauseBackground();
       playSound('question-start');
+      setPhase((prev) => {
+        if (prev === 'split_done') return 'question';
+        if (prev === 'split' || prev === 'split_fade_out') return 'split_fade_out';
+        return 'question';
+      });
     } else if (uiState === 'question_results') {
       if (!currentQuestion && lastResults) {
         setPhase('split');
@@ -59,6 +63,19 @@ export default function QuestionState() {
   }, [phase]);
 
   useEffect(() => {
+    if (phase !== 'split_fade_out') return;
+    const timer = setTimeout(() => {
+      setPhase(useNucStore.getState().uiState === 'question' ? 'question' : 'split_done');
+    }, FADE_OUT_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== 'split' || countdown !== 1) return;
+    setPhase('split_fade_out');
+  }, [phase, countdown]);
+
+  useEffect(() => {
     if (phase !== 'split' || !nextQuestionInMs) return;
     let remaining = Math.ceil(nextQuestionInMs / 1000);
     setCountdown(remaining);
@@ -71,7 +88,8 @@ export default function QuestionState() {
   }, [phase, nextQuestionInMs, currentQuestionPosition]);
 
   if (!currentQuestion && phase === 'question') return null;
-  if (phase === 'split' && !lastResults) return null;
+  if ((phase === 'split' || phase === 'split_fade_out' || phase === 'split_done') && !lastResults)
+    return null;
 
   const sortedAnswers = currentQuestion
     ? [...currentQuestion.answers].sort(
@@ -89,15 +107,20 @@ export default function QuestionState() {
   const top5 = lastResults?.scoreboard.slice(0, 5) ?? [];
   const prevMap = new Map(previousScoreboard.map((e) => [e.playerId, e.scoreTotal]));
 
-  const showQuestionLayout = phase === 'question' || phase === 'reveal' || phase === 'fade_out';
+  const showQuestionLayout =
+    (phase === 'question' || phase === 'reveal' || phase === 'fade_out') && currentQuestion;
+  const showSplitLayout =
+    (phase === 'split' || phase === 'split_fade_out' || phase === 'split_done') && lastResults;
   const isRevealing = phase === 'reveal' || phase === 'fade_out';
+  const isSplitFadingOut = phase === 'split_fade_out';
+  const isSplitHidden = phase === 'split_done';
 
   return (
     <div className="relative flex h-full flex-col">
       <QuizBackground />
 
       <div className="relative z-10 flex h-full flex-col">
-        {showQuestionLayout && currentQuestion && (
+        {showQuestionLayout && (
           <div
             className={`flex h-full flex-col ${
               phase === 'fade_out' ? 'animate-content-fade-out pointer-events-none' : ''
@@ -115,7 +138,10 @@ export default function QuestionState() {
               </div>
             </div>
 
-            <div className="flex flex-1 flex-col items-center justify-center gap-12 px-16">
+            <div
+              key={currentQuestion.id}
+              className="animate-fade-in-up flex flex-1 flex-col items-center justify-center gap-12 px-16 opacity-0"
+            >
               <h2 className="max-w-[70vw] text-center text-[clamp(24px,2.6vw,44px)] font-bold leading-tight">
                 {currentQuestion.text}
               </h2>
@@ -128,10 +154,7 @@ export default function QuestionState() {
                 />
               )}
 
-              <div
-                key={currentQuestion.id}
-                className="mx-auto grid w-full max-w-[68vw] grid-cols-2 gap-5"
-              >
+              <div className="mx-auto grid w-full max-w-[68vw] grid-cols-2 gap-5">
                 {sortedAnswers.map((answer, i) => {
                   let revealStatus: 'neutral' | 'correct' | 'wrong' = 'neutral';
                   if (isRevealing && correctAnswerId) {
@@ -160,8 +183,12 @@ export default function QuestionState() {
           </div>
         )}
 
-        {phase === 'split' && lastResults && (
-          <div className="flex h-full flex-col">
+        {showSplitLayout && (
+          <div
+            className={`flex h-full flex-col ${
+              isSplitFadingOut ? 'animate-content-fade-out pointer-events-none' : ''
+            } ${isSplitHidden ? 'pointer-events-none opacity-0' : ''}`}
+          >
             <div className="flex items-center justify-center bg-white/5 py-4 text-xl font-medium text-gray-300">
               Question {currentQuestionPosition} / {totalQuestions}
             </div>
