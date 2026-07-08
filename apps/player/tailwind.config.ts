@@ -107,6 +107,15 @@ const config: Config = {
               'translate3d(var(--confetti-drift, 0px), 112vh, 0) rotate(var(--confetti-rot, 720deg))',
           },
         },
+        'correct-highlight': {
+          '0%': { transform: 'scale(1)', boxShadow: '0 0 0 rgba(34, 197, 94, 0)' },
+          '40%': { transform: 'scale(1.03)', boxShadow: '0 0 40px rgba(34, 197, 94, 0.7)' },
+          '100%': { transform: 'scale(1)', boxShadow: '0 0 24px rgba(34, 197, 94, 0.5)' },
+        },
+        'content-fade-out': {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' },
+        },
       },
       animation: {
         'glow-pulse': 'glow-pulse 1.5s ease-in-out infinite',
@@ -129,6 +138,8 @@ const config: Config = {
         'winner-aura': 'winner-aura 2.6s ease-in-out infinite',
         'bonus-pop': 'bonus-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'confetti-fall': 'confetti-fall 4s linear forwards',
+        'correct-highlight': 'correct-highlight 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'content-fade-out': 'content-fade-out 0.5s ease-out forwards',
       },
     },
   },

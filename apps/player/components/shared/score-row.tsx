@@ -9,6 +9,7 @@ interface ScoreRowProps {
   scoreDiff: number;
   index: number;
   avatarUrl?: string | null;
+  animated?: boolean;
 }
 
 export default function ScoreRow({
@@ -18,11 +19,14 @@ export default function ScoreRow({
   scoreDiff,
   index,
   avatarUrl,
+  animated = true,
 }: ScoreRowProps) {
   return (
     <div
-      className="animate-cascade-in flex items-center justify-between rounded-xl bg-white/5 px-6 py-4 opacity-0"
-      style={{ animationDelay: `${index * 0.1}s` }}
+      className={`flex items-center justify-between rounded-xl bg-white/5 px-6 py-4 ${
+        animated ? 'animate-cascade-in opacity-0' : ''
+      }`}
+      style={animated ? { animationDelay: `${index * 0.1}s` } : undefined}
     >
       <div className="flex items-center gap-4">
         <span className="w-10 text-right text-xl font-bold text-gray-400">#{rank}</span>

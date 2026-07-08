@@ -4,6 +4,8 @@ import { ANSWER_COLORS, type AnswerDisplayStyle } from '@quiz-app/design-tokens'
 
 const ANSWER_POSITIONS = ['A', 'B', 'C', 'D'] as const;
 
+type AnswerRevealStatus = 'neutral' | 'correct' | 'wrong';
+
 interface AnswerCardProps {
   position: 'A' | 'B' | 'C' | 'D';
   text: string;
@@ -11,7 +13,10 @@ interface AnswerCardProps {
   displayStyle?: AnswerDisplayStyle;
   /** Délai entre chaque réponse (ms), appliqué selon l'index. */
   staggerDelayMs?: number;
+  revealStatus?: AnswerRevealStatus;
 }
+
+const CORRECT_GREEN = '#22c55e';
 
 export default function AnswerCard({
   position,
@@ -19,22 +24,32 @@ export default function AnswerCard({
   index,
   displayStyle = 'multicolor',
   staggerDelayMs = 1000,
+  revealStatus = 'neutral',
 }: AnswerCardProps) {
   const color = ANSWER_COLORS[position];
   const isGlass = displayStyle === 'glass';
+  const isCorrect = revealStatus === 'correct';
+  const isWrong = revealStatus === 'wrong';
   const staggerIndex = ANSWER_POSITIONS.indexOf(position);
   const revealDelayMs = (staggerIndex >= 0 ? staggerIndex : index) * staggerDelayMs;
 
   return (
     <div
-      className={`animate-answer-reveal flex items-center gap-6 rounded-2xl px-8 py-6 opacity-0 ${
+      className={`flex items-center gap-6 rounded-2xl px-8 py-6 ${
+        revealStatus === 'neutral' ? 'animate-answer-reveal opacity-0' : 'opacity-100'
+      } ${isWrong ? 'opacity-30 transition-opacity duration-500' : ''} ${
+        isCorrect ? 'animate-correct-highlight' : ''
+      } ${
         isGlass
-          ? 'border border-white/25 bg-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-md'
+          ? `border text-white shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-md ${
+              isCorrect ? 'border-green-400/60 bg-green-500/25' : 'border-white/25 bg-white/10'
+            }`
           : 'text-white'
       }`}
       style={{
-        backgroundColor: isGlass ? undefined : color.bg,
-        animationDelay: `${revealDelayMs}ms`,
+        backgroundColor: isGlass ? undefined : isCorrect ? CORRECT_GREEN : color.bg,
+        animationDelay: revealStatus === 'neutral' ? `${revealDelayMs}ms` : undefined,
+        transition: isCorrect && !isGlass ? 'background-color 0.5s ease' : undefined,
       }}
     >
       <span className="text-4xl font-black" style={isGlass ? { color: color.bg } : undefined}>

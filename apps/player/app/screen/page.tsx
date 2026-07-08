@@ -5,7 +5,6 @@ import { useNucStore } from '@/lib/stores/nuc-store';
 import IdleState from '@/components/states/idle-state';
 import LobbyState from '@/components/states/lobby-state';
 import QuestionState from '@/components/states/question-state';
-import QuestionResultsState from '@/components/states/question-results-state';
 import FinalResultsState from '@/components/states/final-results-state';
 import AbortedState from '@/components/states/aborted-state';
 import PausedOverlay from '@/components/states/paused-overlay';
@@ -31,8 +30,7 @@ export default function ScreenPage() {
       {uiState === 'lobby' && <LobbyBackground />}
       {uiState === 'idle' && <IdleState />}
       {uiState === 'lobby' && <LobbyState />}
-      {uiState === 'question' && <QuestionState />}
-      {uiState === 'question_results' && <QuestionResultsState />}
+      {(uiState === 'question' || uiState === 'question_results') && <QuestionState />}
       {uiState === 'final_results' && <FinalResultsState />}
       {uiState === 'aborted' && <AbortedState />}
       {isPaused && <PausedOverlay />}
