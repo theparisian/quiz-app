@@ -77,7 +77,7 @@ export default function LobbyState() {
       {/* Partie droite : panneau verre dépoli, neutre, qui s'adapte à n'importe quel fond. */}
       <aside className="custom-screen-lateral relative m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-12 py-14 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
         <div className="flex w-[70%] flex-col items-center gap-7">
-          <div className="flex flex-col items-center gap-3">
+          <div className="mb-6 flex flex-col items-center gap-3">
             <AppLogo className="h-14" variant="light" />
             <h1 className="text-[clamp(15px,1.3vw,22px)] font-bold leading-tight tracking-tight text-white/90 drop-shadow">
               C&apos;est l&apos;heure du quiz !
@@ -101,7 +101,7 @@ export default function LobbyState() {
           <QrCode
             value={`${MOBILE_URL}/?s=${slugShort}`}
             size={160}
-            className="mb-6 pb-8"
+            className="mb-6 mt-6 pb-8"
             caption={
               <>
                 Scannez le QR Code
