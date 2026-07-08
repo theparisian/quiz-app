@@ -77,7 +77,11 @@ export default function JoinPage() {
     return message ?? 'Erreur lors de la connexion.';
   }
 
-  async function handleJoin(pseudo: string, avatarId: string | null) {
+  async function handleJoin(
+    pseudo: string,
+    avatarId: string | null,
+    pseudoSource: 'SUGGESTED' | 'CUSTOM' = 'CUSTOM',
+  ) {
     setJoining(true);
     setError(null);
 
@@ -109,7 +113,7 @@ export default function JoinPage() {
       {
         sessionSlugShort: slugShort,
         pseudo,
-        pseudoSource: 'CUSTOM',
+        pseudoSource,
         ...(avatarId ? { avatarId } : {}),
       },
       (ack: JoinAck | undefined) => {
