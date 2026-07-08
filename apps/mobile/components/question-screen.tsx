@@ -56,7 +56,7 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
         )}
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pt-6">
+      <div className="px-4 pt-4">
         {currentQuestionText && (
           <h2 className="max-w-full text-center text-xl font-bold leading-snug">
             {currentQuestionText}
@@ -73,7 +73,7 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
       </div>
 
       <div
-        className="flex shrink-0 flex-col gap-2.5 px-4 pb-4 pt-3"
+        className="mt-auto flex shrink-0 flex-col gap-2.5 px-4 pb-4 pt-3"
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
         {POSITIONS.map((pos) => (
