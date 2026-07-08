@@ -39,7 +39,7 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
   const answersByPosition = Object.fromEntries(currentAnswers.map((a) => [a.position, a.text]));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex flex-col">
       <header className="flex shrink-0 flex-col items-center px-4 pb-3 pt-4">
         <AppLogo className="h-8" variant="light" />
         {currentQuestionPosition != null && totalQuestions > 0 && (
@@ -56,7 +56,7 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
         )}
       </header>
 
-      <div className="px-4 pt-4">
+      <div className="px-4 pb-6 pt-4">
         {currentQuestionText && (
           <h2 className="max-w-full text-center text-xl font-bold leading-snug">
             {currentQuestionText}
@@ -70,20 +70,20 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
             className="mt-4 max-h-32 rounded-xl object-contain"
           />
         )}
-      </div>
 
-      <div
-        className="mt-auto flex shrink-0 flex-col gap-2.5 px-4 pb-4 pt-3"
-        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
-      >
-        {POSITIONS.map((pos) => (
-          <AnswerButton
-            key={pos}
-            position={pos}
-            text={answersByPosition[pos] ?? pos}
-            onTap={() => handleTap(pos)}
-          />
-        ))}
+        <div
+          className="mt-6 flex flex-col gap-2.5"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        >
+          {POSITIONS.map((pos) => (
+            <AnswerButton
+              key={pos}
+              position={pos}
+              text={answersByPosition[pos] ?? pos}
+              onTap={() => handleTap(pos)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
