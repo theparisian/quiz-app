@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { Socket } from 'socket.io-client';
 import { usePlayerStore } from '@/lib/stores/player-store';
+import { resolveMediaUrl } from '@/lib/media-url';
+import { AppLogo } from '@quiz-app/ui';
+import type { Socket } from 'socket.io-client';
 import AnswerButton from './answer-button';
+import QuestionProgressBar from './question-progress-bar';
+import QuestionTimer from './question-timer';
 
 interface QuestionScreenProps {
   socket: Socket | null;
@@ -15,29 +18,13 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
   const currentQuestionPosition = usePlayerStore((s) => s.currentQuestionPosition);
   const totalQuestions = usePlayerStore((s) => s.totalQuestions);
   const currentQuestionId = usePlayerStore((s) => s.currentQuestionId);
+  const currentQuestionText = usePlayerStore((s) => s.currentQuestionText);
+  const currentQuestionImageUrl = usePlayerStore((s) => s.currentQuestionImageUrl);
   const questionStartedAt = usePlayerStore((s) => s.questionStartedAt);
   const questionTimeLimitMs = usePlayerStore((s) => s.questionTimeLimitMs);
+  const currentAnswers = usePlayerStore((s) => s.currentAnswers);
   const answerMap = usePlayerStore((s) => s.answerMap);
   const selectAnswer = usePlayerStore((s) => s.selectAnswer);
-
-  const [remainingSec, setRemainingSec] = useState(Math.ceil(questionTimeLimitMs / 1000));
-  const rafRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (!questionStartedAt) return;
-    function tick() {
-      const elapsed = Date.now() - (questionStartedAt ?? Date.now());
-      const remaining = Math.max(0, questionTimeLimitMs - elapsed);
-      setRemainingSec(Math.ceil(remaining / 1000));
-      if (remaining > 0) {
-        rafRef.current = requestAnimationFrame(tick);
-      }
-    }
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [questionStartedAt, questionTimeLimitMs]);
 
   function handleTap(position: (typeof POSITIONS)[number]) {
     if (!socket || !currentQuestionId) return;
@@ -52,18 +39,57 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
     selectAnswer(answerId, position);
   }
 
+  const answersByPosition = Object.fromEntries(currentAnswers.map((a) => [a.position, a.text]));
+
   return (
-    <div className="flex flex-1 flex-col px-4 py-4">
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-lg font-bold tabular-nums">⏱ {remainingSec}s</span>
-        <span className="text-sm text-gray-400">
-          Question {currentQuestionPosition}/{totalQuestions}
-        </span>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex shrink-0 flex-col items-center px-4 pb-3 pt-4">
+        <AppLogo className="h-8" variant="light" />
+        {currentQuestionPosition != null && totalQuestions > 0 && (
+          <>
+            <QuestionProgressBar
+              current={currentQuestionPosition}
+              total={totalQuestions}
+              className="mt-4 w-[85%]"
+            />
+            <p className="mt-2 text-sm text-gray-400">
+              Question {currentQuestionPosition} / {totalQuestions}
+            </p>
+          </>
+        )}
+      </header>
+
+      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pt-2">
+        {questionStartedAt != null && (
+          <QuestionTimer startedAt={questionStartedAt} totalMs={questionTimeLimitMs} />
+        )}
+
+        {currentQuestionText && (
+          <h2 className="mt-8 max-w-full text-center text-xl font-bold leading-snug">
+            {currentQuestionText}
+          </h2>
+        )}
+
+        {currentQuestionImageUrl && (
+          <img
+            src={resolveMediaUrl(currentQuestionImageUrl) ?? undefined}
+            alt=""
+            className="mt-4 max-h-32 rounded-xl object-contain"
+          />
+        )}
       </div>
 
-      <div className="grid flex-1 grid-cols-2 gap-3">
+      <div
+        className="flex shrink-0 flex-col gap-2.5 px-4 pb-4 pt-3"
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+      >
         {POSITIONS.map((pos) => (
-          <AnswerButton key={pos} position={pos} onTap={() => handleTap(pos)} />
+          <AnswerButton
+            key={pos}
+            position={pos}
+            text={answersByPosition[pos] ?? pos}
+            onTap={() => handleTap(pos)}
+          />
         ))}
       </div>
     </div>

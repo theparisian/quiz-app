@@ -1,6 +1,24 @@
 import { create } from 'zustand';
 import type { SessionPrizesDisplay } from '@quiz-app/validation';
 
+type StoredAnswer = { id: string; position: 'A' | 'B' | 'C' | 'D'; text: string };
+
+function parseQuestionAnswers(answers: { id?: string; position: string; text: string }[]): {
+  answerMap: Record<string, string>;
+  currentAnswers: StoredAnswer[];
+} {
+  const answerMap: Record<string, string> = {};
+  const currentAnswers: StoredAnswer[] = [];
+  for (const a of answers) {
+    const pos = a.position as 'A' | 'B' | 'C' | 'D';
+    if (a.id) {
+      answerMap[a.position] = a.id;
+    }
+    currentAnswers.push({ id: a.id ?? a.position, position: pos, text: a.text });
+  }
+  return { answerMap, currentAnswers };
+}
+
 export type PlayerUiState =
   | 'lobby'
   | 'late_wait'
@@ -32,9 +50,12 @@ interface PlayerState {
 
   currentQuestionPosition: number | null;
   currentQuestionId: string | null;
+  currentQuestionText: string | null;
+  currentQuestionImageUrl: string | null;
   questionStartedAt: number | null;
   questionTimeLimitMs: number;
   answerMap: Record<string, string>; // position -> answerId
+  currentAnswers: { id: string; position: 'A' | 'B' | 'C' | 'D'; text: string }[];
 
   selectedAnswerId: string | null;
   selectedAnswerPosition: 'A' | 'B' | 'C' | 'D' | null;
@@ -106,9 +127,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   currentQuestionPosition: null,
   currentQuestionId: null,
+  currentQuestionText: null,
+  currentQuestionImageUrl: null,
   questionStartedAt: null,
   questionTimeLimitMs: 20000,
   answerMap: {},
+  currentAnswers: [],
 
   selectedAnswerId: null,
   selectedAnswerPosition: null,
@@ -246,8 +270,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         prizes: (snap.prizes as SessionPrizesDisplay | undefined) ?? null,
         currentQuestionPosition: null,
         currentQuestionId: null,
+        currentQuestionText: null,
+        currentQuestionImageUrl: null,
         questionStartedAt: null,
         answerMap: {},
+        currentAnswers: [],
         selectedAnswerId: null,
         selectedAnswerPosition: null,
         lastQuestionResult: null,
@@ -299,18 +326,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       | {
           position: number;
           questionId: string;
+          text?: string;
+          imageUrl?: string | null;
           timeLimitMs: number;
           remainingMs: number;
           alreadyAnsweredPosition: string | null;
-          answers: { id: string; position: string; text: string }[];
+          answers: { id?: string; position: string; text: string }[];
         }
       | undefined;
 
     if (cq && (session.state === 'running' || session.state === 'paused')) {
-      const aMap: Record<string, string> = {};
-      for (const a of cq.answers) {
-        aMap[a.position] = a.id;
-      }
+      const { answerMap: aMap, currentAnswers } = parseQuestionAnswers(cq.answers);
       const tlm = cq.timeLimitMs;
       const rem = cq.remainingMs;
       const startedAt = Date.now() - (tlm - rem);
@@ -323,9 +349,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             uiState: 'paused',
             currentQuestionPosition: cq.position,
             currentQuestionId: cq.questionId,
+            currentQuestionText: cq.text ?? null,
+            currentQuestionImageUrl: cq.imageUrl ?? null,
             questionTimeLimitMs: tlm,
             questionStartedAt: startedAt,
             answerMap: aMap,
+            currentAnswers,
             selectedAnswerId: aMap[pos] ?? null,
             selectedAnswerPosition: (pos as 'A' | 'B' | 'C' | 'D') ?? null,
           });
@@ -335,9 +364,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             uiState: 'paused',
             currentQuestionPosition: cq.position,
             currentQuestionId: cq.questionId,
+            currentQuestionText: cq.text ?? null,
+            currentQuestionImageUrl: cq.imageUrl ?? null,
             questionTimeLimitMs: tlm,
             questionStartedAt: startedAt,
             answerMap: aMap,
+            currentAnswers,
             selectedAnswerId: null,
             selectedAnswerPosition: null,
           });
@@ -351,9 +383,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           uiState: 'waiting_others',
           currentQuestionPosition: cq.position,
           currentQuestionId: cq.questionId,
+          currentQuestionText: cq.text ?? null,
+          currentQuestionImageUrl: cq.imageUrl ?? null,
           questionTimeLimitMs: tlm,
           questionStartedAt: startedAt,
           answerMap: aMap,
+          currentAnswers,
           selectedAnswerId: aMap[pos] ?? null,
           selectedAnswerPosition: pos as 'A' | 'B' | 'C' | 'D',
         });
@@ -363,9 +398,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           uiState: 'question_active',
           currentQuestionPosition: cq.position,
           currentQuestionId: cq.questionId,
+          currentQuestionText: cq.text ?? null,
+          currentQuestionImageUrl: cq.imageUrl ?? null,
           questionTimeLimitMs: tlm,
           questionStartedAt: startedAt,
           answerMap: aMap,
+          currentAnswers,
           selectedAnswerId: null,
           selectedAnswerPosition: null,
           lastQuestionResult: null,
@@ -412,17 +450,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       case 'session:question_started': {
         const answers = payload.answers as { id: string; position: string; text: string }[];
-        const aMap: Record<string, string> = {};
-        for (const a of answers) {
-          aMap[a.position] = a.id;
-        }
+        const { answerMap: aMap, currentAnswers } = parseQuestionAnswers(answers);
         set({
           uiState: 'question_active',
           currentQuestionPosition: payload.questionPosition as number,
           currentQuestionId: payload.questionId as string,
+          currentQuestionText: (payload.questionText as string) ?? null,
+          currentQuestionImageUrl: (payload.questionImageUrl as string | null) ?? null,
           questionStartedAt: Date.now(),
           questionTimeLimitMs: payload.timeLimitMs as number,
           answerMap: aMap,
+          currentAnswers,
           selectedAnswerId: null,
           selectedAnswerPosition: null,
           lastQuestionResult: null,
@@ -529,9 +567,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       totalPlayers: 0,
       currentQuestionPosition: null,
       currentQuestionId: null,
+      currentQuestionText: null,
+      currentQuestionImageUrl: null,
       questionStartedAt: null,
       questionTimeLimitMs: 20000,
       answerMap: {},
+      currentAnswers: [],
       selectedAnswerId: null,
       selectedAnswerPosition: null,
       scoreTotal: 0,
