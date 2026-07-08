@@ -57,7 +57,7 @@ export function StyledQrCode({ value, size = 320, className }: StyledQrCodeProps
 }
 
 interface QrCodeProps extends StyledQrCodeProps {
-  caption?: string;
+  caption?: React.ReactNode;
   captionClassName?: string;
 }
 

@@ -75,21 +75,21 @@ export default function LobbyState() {
       </div>
 
       {/* Partie droite : panneau verre dépoli, neutre, qui s'adapte à n'importe quel fond. */}
-      <aside className="custom-screen-lateral relative m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-8 py-10 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
+      <aside className="custom-screen-lateral relative m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-12 py-14 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
         <div className="flex w-[70%] flex-col items-center gap-7">
           <div className="flex flex-col items-center gap-3">
-            <AppLogo className="h-10" variant="light" />
-            <h1 className="text-[clamp(18px,1.6vw,28px)] font-bold leading-tight tracking-tight text-white/90 drop-shadow">
+            <AppLogo className="h-14" variant="light" />
+            <h1 className="text-[clamp(15px,1.3vw,22px)] font-bold leading-tight tracking-tight text-white/90 drop-shadow">
               C&apos;est l&apos;heure du quiz !
             </h1>
           </div>
 
           <div className="relative flex flex-col items-center gap-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <PhoneIcon className="h-12 w-9 shrink-0 text-white/80" />
-              <div className="text-left leading-none">
+              <div className="text-left leading-[0.95]">
                 <p className="text-base text-white/80">Connectez-vous sur</p>
-                <p className="-mt-0.5 text-lg font-bold text-white">{mobileHost}</p>
+                <p className="-mt-1 text-lg font-bold text-white">{mobileHost}</p>
               </div>
             </div>
 
@@ -101,8 +101,14 @@ export default function LobbyState() {
           <QrCode
             value={`${MOBILE_URL}/?s=${slugShort}`}
             size={160}
-            className="mb-4 pb-6"
-            caption="Scannez le QR Code et rejoignez la partie"
+            className="mb-6 pb-8"
+            caption={
+              <>
+                Scannez le QR Code
+                <br />
+                et rejoignez la partie
+              </>
+            }
             captionClassName="max-w-[14rem] text-center text-sm font-bold leading-tight text-gray-800"
           />
 
@@ -141,7 +147,7 @@ export default function LobbyState() {
         </div>
 
         {lobbyRemainingMs !== null && (
-          <div className="absolute -bottom-3 rounded-full bg-black px-8 py-2.5">
+          <div className="absolute -bottom-8 rounded-full bg-black px-8 py-2.5">
             <div className="text-xs uppercase tracking-wide text-white/55">Début partie</div>
             <div className="text-2xl font-black tabular-nums leading-tight">
               {formatCountdown(lobbyRemainingMs)}
