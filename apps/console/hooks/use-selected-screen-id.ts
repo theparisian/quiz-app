@@ -37,31 +37,6 @@ export function useSelectedScreenId(): string | null {
     staleTime: 60_000,
   });
 
-  // #region agent log
-  fetch('http://127.0.0.1:7376/ingest/bb886729-3067-42e7-8e36-4c5165f027e2', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '6b2aa5' },
-    body: JSON.stringify({
-      sessionId: '6b2aa5',
-      runId: 'post-fix',
-      hypothesisId: 'H1',
-      location: 'use-selected-screen-id.ts:render',
-      message: 'useSelectedScreenId render',
-      data: {
-        pathname,
-        screenFromPath,
-        sessionId: sessionId ?? null,
-        needsSessionLookup,
-        result:
-          screenFromPath ??
-          (pathname === '/sessions/new' ? screenIdFromSearchParams() : null) ??
-          (needsSessionLookup ? (fromActive?.screenId ?? data?.screenId ?? null) : null),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-
   if (screenFromPath) return screenFromPath;
 
   if (pathname === '/sessions/new') {
