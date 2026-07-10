@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProjectorScreen, HandPointing } from '@phosphor-icons/react';
+import { ProjectorScreen, CursorClick } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
 import { useActiveSessions } from '@/hooks/use-active-sessions';
@@ -49,7 +49,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-      <HandPointing className="text-blue-300" size={48} weight="duotone" />
+      <CursorClick className="text-blue-300" size={48} weight="duotone" />
       <h1 className="mt-4 text-2xl font-bold text-gray-900">
         {screens && screens.length > 1 ? 'Choisis une salle' : 'Bienvenue'}
       </h1>
