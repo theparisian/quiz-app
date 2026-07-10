@@ -23,6 +23,22 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
 
   const isSettingsActive = pathname === '/settings';
 
+  // #region agent log
+  fetch('http://127.0.0.1:7376/ingest/bb886729-3067-42e7-8e36-4c5165f027e2', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '6b2aa5' },
+    body: JSON.stringify({
+      sessionId: '6b2aa5',
+      runId: 'pre-fix',
+      hypothesisId: 'H3',
+      location: 'console-shell.tsx:render',
+      message: 'ConsoleShell render',
+      data: { pathname, selectedScreenId, screensCount: screens?.length ?? 0 },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/login');
