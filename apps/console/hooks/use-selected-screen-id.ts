@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useActiveSessions } from './use-active-sessions';
@@ -10,9 +10,13 @@ interface SessionScreenRef {
   screenId: string;
 }
 
+function screenIdFromSearchParams(): string | null {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('screenId');
+}
+
 export function useSelectedScreenId(): string | null {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { data: activeSessions } = useActiveSessions(user?.cinemaSlug ?? null);
 
@@ -20,7 +24,7 @@ export function useSelectedScreenId(): string | null {
   if (screenFromPath) return screenFromPath;
 
   if (pathname === '/sessions/new') {
-    return searchParams.get('screenId');
+    return screenIdFromSearchParams();
   }
 
   const sessionId = pathname.match(/^\/sessions\/([^/]+)/)?.[1];

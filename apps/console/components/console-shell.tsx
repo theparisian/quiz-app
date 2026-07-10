@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Gear, SignOut } from '@phosphor-icons/react';
 import { AppLogo } from '@quiz-app/ui';
 import { useAuth } from '@/lib/auth';
@@ -11,7 +11,7 @@ import { useActiveSessions } from '@/hooks/use-active-sessions';
 import { useSelectedScreenId } from '@/hooks/use-selected-screen-id';
 import { SidebarScreenList } from '@/components/sidebar-screen-list';
 
-function ConsoleShellInner({ children }: { children: React.ReactNode }) {
+export default function ConsoleShell({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -115,19 +115,5 @@ function ConsoleShellInner({ children }: { children: React.ReactNode }) {
       </aside>
       <main className="flex-1 overflow-y-auto p-6">{children}</main>
     </div>
-  );
-}
-
-export default function ConsoleShell({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <p className="text-gray-400">Chargement...</p>
-        </div>
-      }
-    >
-      <ConsoleShellInner>{children}</ConsoleShellInner>
-    </Suspense>
   );
 }

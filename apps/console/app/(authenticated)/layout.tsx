@@ -1,4 +1,4 @@
-'use client';
+export const dynamic = 'force-dynamic';
 
 import ConsoleShell from '@/components/console-shell';
 
