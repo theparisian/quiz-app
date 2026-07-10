@@ -37,7 +37,7 @@ export default function NewSessionPage() {
           href={screenId ? `/screens/${screenId}` : '/dashboard'}
           className="text-sm text-gray-400 hover:text-gray-600"
         >
-          ← Retour
+          ← {screenId ? 'Retour à la salle' : 'Retour'}
         </Link>
       </div>
 

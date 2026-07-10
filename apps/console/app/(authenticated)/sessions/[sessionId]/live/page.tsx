@@ -60,7 +60,7 @@ export default function LiveSessionPage() {
       <div className="py-16 text-center">
         <p className="text-red-600">{loadError}</p>
         <Link href="/dashboard" className="mt-4 inline-block text-sm text-blue-600 hover:underline">
-          Retour au dashboard
+          Retour à l&apos;accueil
         </Link>
       </div>
     );
@@ -96,12 +96,6 @@ export default function LiveSessionPage() {
     <div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link
-            href={screenId ? `/screens/${screenId}` : '/dashboard'}
-            className="text-sm text-gray-400 hover:text-gray-600"
-          >
-            ← {screenName ?? 'Retour'}
-          </Link>
           <h1 className="text-lg font-bold text-gray-900">
             {screenName} — {quiz?.title}
           </h1>

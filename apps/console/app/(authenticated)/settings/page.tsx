@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   if (!user) return null;
 
@@ -17,8 +17,9 @@ export default function SettingsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900">Réglages</h1>
+      <p className="mt-1 text-sm text-gray-500">Informations de ton compte</p>
 
-      <div className="mt-6 max-w-md rounded-lg border bg-white p-6">
+      <div className="mt-6 max-w-md rounded-lg border bg-white p-6 shadow-sm">
         <dl className="space-y-4 text-sm">
           <div>
             <dt className="text-gray-500">Email</dt>
@@ -37,14 +38,6 @@ export default function SettingsPage() {
             <dd className="font-medium text-gray-900">{user.cinemaName ?? '–'}</dd>
           </div>
         </dl>
-
-        <button
-          type="button"
-          onClick={logout}
-          className="mt-6 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-        >
-          Se déconnecter
-        </button>
       </div>
     </div>
   );

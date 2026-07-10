@@ -2,11 +2,10 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProjectorScreen, HandPointing } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
-import { useActiveSession } from '@/hooks/use-active-session';
-import { ScreenCard } from '@/components/screen-card';
-import Link from 'next/link';
+import { useActiveSessions } from '@/hooks/use-active-sessions';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -14,7 +13,7 @@ export default function DashboardPage() {
   const cinemaSlug = user?.cinemaSlug ?? null;
 
   const { data: screens, isLoading: screensLoading } = useScreens(cinemaSlug);
-  const { data: activeSession } = useActiveSession(cinemaSlug);
+  const { data: activeSessions } = useActiveSessions(cinemaSlug);
 
   useEffect(() => {
     const singleScreen = !screensLoading && screens?.length === 1 ? screens[0] : null;
@@ -27,9 +26,10 @@ export default function DashboardPage() {
 
   if (user.role === 'super_admin' && !cinemaSlug) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Console</h1>
-        <p className="mt-2 text-sm text-gray-500">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+        <ProjectorScreen className="text-gray-300" size={48} weight="duotone" />
+        <h1 className="mt-4 text-2xl font-bold text-gray-900">Console</h1>
+        <p className="mt-2 max-w-sm text-sm text-gray-500">
           Connecté en super-admin. Sélectionne un cinéma depuis l&apos;interface admin pour accéder
           à ses salles.
         </p>
@@ -37,48 +37,32 @@ export default function DashboardPage() {
     );
   }
 
+  if (screensLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-gray-400">Chargement...</p>
+      </div>
+    );
+  }
+
+  const liveCount = activeSessions?.length ?? 0;
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900">Mes salles</h1>
-      <p className="mt-1 text-sm text-gray-500">{user.cinemaName}</p>
-
-      {activeSession && (
-        <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-orange-800">
-              Session en cours sur {activeSession.screenName ?? 'une salle'} —{' '}
-              {activeSession.quizTitle}
-            </p>
-            <Link
-              href={`/sessions/${activeSession.id}/live`}
-              className="rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700"
-            >
-              Reprendre la console →
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {screensLoading ? (
-        <p className="mt-6 text-gray-400">Chargement des salles...</p>
-      ) : screens && screens.length > 0 ? (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {screens.map((s) => {
-            const nuc = s.nucs[0];
-            return (
-              <ScreenCard
-                key={s.id}
-                id={s.id}
-                name={s.name}
-                capacity={s.capacity}
-                nucStatus={nuc?.status ?? null}
-                lastSeenAt={nuc?.lastSeenAt ?? null}
-              />
-            );
-          })}
-        </div>
-      ) : (
-        <p className="mt-6 text-gray-400">Aucune salle configurée.</p>
+    <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+      <HandPointing className="text-blue-300" size={48} weight="duotone" />
+      <h1 className="mt-4 text-2xl font-bold text-gray-900">
+        {screens && screens.length > 1 ? 'Choisis une salle' : 'Bienvenue'}
+      </h1>
+      <p className="mt-2 max-w-md text-sm text-gray-500">
+        {screens && screens.length > 1
+          ? 'Sélectionne une salle dans le menu de gauche pour voir ses sessions et en lancer une nouvelle.'
+          : 'Aucune salle configurée pour ce cinéma.'}
+      </p>
+      {liveCount > 0 && (
+        <p className="mt-4 flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+          <span className="animate-live-pulse h-2 w-2 rounded-full bg-green-500" />
+          {liveCount} session{liveCount > 1 ? 's' : ''} en cours
+        </p>
       )}
     </div>
   );
