@@ -107,11 +107,11 @@ function mapQuestionsFromPrisma(
 }
 
 function broadcastToSession(sessionId: bigint, event: string, payload: unknown) {
-  const io = getIo();
+  if (!ioInstance) return;
   const room = `session:${sessionId}`;
-  io.of('/player').to(room).emit(event, payload);
-  io.of('/mobile').to(room).emit(event, payload);
-  io.of('/console').to(room).emit(event, payload);
+  ioInstance.of('/player').to(room).emit(event, payload);
+  ioInstance.of('/mobile').to(room).emit(event, payload);
+  ioInstance.of('/console').to(room).emit(event, payload);
 }
 
 function clearTimers(state: RunningSessionState) {
