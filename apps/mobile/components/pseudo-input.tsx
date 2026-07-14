@@ -149,7 +149,7 @@ export default function PseudoInput({ sessionCode, onSubmit, disabled }: PseudoI
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <div ref={popoverRef} className="relative">
+      <div ref={popoverRef} className="relative my-6">
         {popoverOpen && showAvatar && (
           <div className="absolute bottom-full left-0 right-0 z-10 mb-3 rounded-2xl bg-white p-4 shadow-xl">
             <div className="grid grid-cols-5 gap-2">

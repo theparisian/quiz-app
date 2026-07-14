@@ -7,6 +7,7 @@ import { AppLogo } from '@quiz-app/ui';
 import { getMobileSocket, disconnectMobileSocket } from '@/lib/socket';
 import { usePlayerStore } from '@/lib/stores/player-store';
 import PseudoInput from '@/components/pseudo-input';
+import { ScreenExitWrapper, SCREEN_EXIT_MS } from '@/components/screen-transition';
 
 interface SessionInfo {
   sessionId: string;
@@ -39,6 +40,7 @@ export default function JoinPage() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
+  const [exiting, setExiting] = useState(false);
   const joinedRef = useRef(false);
 
   useEffect(() => {
@@ -140,7 +142,10 @@ export default function JoinPage() {
           stateSnapshot: ack.stateSnapshot ?? null,
         });
 
-        router.push(`/play/${ack.sessionId}`);
+        setExiting(true);
+        window.setTimeout(() => {
+          router.push(`/play/${ack.sessionId}`);
+        }, SCREEN_EXIT_MS);
       },
     );
   }
@@ -165,17 +170,19 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+    <ScreenExitWrapper
+      exiting={exiting}
+      className="flex min-h-screen flex-col items-center justify-center px-6"
+    >
       <div className="mb-8 text-center">
         <AppLogo className="mx-auto h-8" variant="light" />
-        <h1 className="mt-4 text-2xl font-bold">Quiz au {session.cinema.name}</h1>
-        <p className="mt-1 text-gray-400">{session.quiz.title}</p>
+        <h1 className="mt-4 text-2xl font-bold">Choisi ton pseudo</h1>
         {session.state !== 'lobby' && (
           <p className="text-brand-400 mt-2 text-sm">Partie en cours — rejoins-nous !</p>
         )}
       </div>
 
-      <div className="flex w-full max-w-xs flex-col gap-6">
+      <div className="flex w-full max-w-xs flex-col gap-6 py-6">
         <PseudoInput sessionCode={slugShort} onSubmit={handleJoin} disabled={joining} />
         {error && (
           <div className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-center text-sm text-red-400">
@@ -183,6 +190,6 @@ export default function JoinPage() {
           </div>
         )}
       </div>
-    </div>
+    </ScreenExitWrapper>
   );
 }
