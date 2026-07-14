@@ -1,8 +1,10 @@
 'use client';
 
-import { ANSWER_COLORS, type AnswerDisplayStyle } from '@quiz-app/design-tokens';
-
-const ANSWER_POSITIONS = ['A', 'B', 'C', 'D'] as const;
+import {
+  ANSWER_COLORS,
+  type AnswerDisplayStyle,
+  answerRevealDelayMs,
+} from '@quiz-app/design-tokens';
 
 type AnswerRevealStatus = 'neutral' | 'correct' | 'wrong';
 
@@ -23,15 +25,14 @@ export default function AnswerCard({
   text,
   index,
   displayStyle = 'multicolor',
-  staggerDelayMs = 1000,
+  staggerDelayMs,
   revealStatus = 'neutral',
 }: AnswerCardProps) {
   const color = ANSWER_COLORS[position];
   const isGlass = displayStyle === 'glass';
   const isCorrect = revealStatus === 'correct';
   const isWrong = revealStatus === 'wrong';
-  const staggerIndex = ANSWER_POSITIONS.indexOf(position);
-  const revealDelayMs = (staggerIndex >= 0 ? staggerIndex : index) * staggerDelayMs;
+  const revealDelayMs = answerRevealDelayMs(position, index, staggerDelayMs);
 
   return (
     <div

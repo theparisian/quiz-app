@@ -18,9 +18,9 @@ export default function LobbyWaiting() {
         <div className="text-2xl font-black">{pseudo}</div>
       </div>
 
-      <div className="my-20 flex flex-col items-center gap-4">
+      <div className="my-20 flex flex-col items-center">
         <BreedingRhombusSpinner />
-        <WaitingLabel>En attente des joueurs</WaitingLabel>
+        <WaitingLabel className="mt-10 text-gray-400">En attente des joueurs</WaitingLabel>
       </div>
     </div>
   );

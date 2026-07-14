@@ -72,13 +72,15 @@ export default function QuestionScreen({ socket }: QuestionScreenProps) {
         )}
 
         <div
+          key={currentQuestionId ?? currentQuestionPosition}
           className="mt-6 flex flex-col gap-2.5"
           style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         >
-          {POSITIONS.map((pos) => (
+          {POSITIONS.map((pos, index) => (
             <AnswerButton
               key={pos}
               position={pos}
+              index={index}
               text={answersByPosition[pos] ?? pos}
               onTap={() => handleTap(pos)}
             />
