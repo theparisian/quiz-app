@@ -13,14 +13,14 @@ export default function LobbyWaiting() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
       <div className="flex flex-col items-center gap-2">
-        {myAvatar && <img src={myAvatar} alt="" className="h-32 w-32 rounded-full object-cover" />}
+        {myAvatar && <img src={myAvatar} alt="" className="h-40 w-40 rounded-full object-cover" />}
 
         <div className="text-2xl font-black">{pseudo}</div>
       </div>
 
-      <div className="my-12 flex flex-col items-center gap-4">
+      <div className="my-20 flex flex-col items-center gap-4">
         <BreedingRhombusSpinner />
-        <WaitingLabel>En attente des autres joueurs</WaitingLabel>
+        <WaitingLabel>En attente des joueurs</WaitingLabel>
       </div>
     </div>
   );

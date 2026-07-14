@@ -6,9 +6,52 @@ import { usePlayerStore } from '@/lib/stores/player-store';
 
 interface PrizeEmailFormProps {
   onSuccess: () => void;
+  prizeLabel?: string;
 }
 
-export default function PrizeEmailForm({ onSuccess }: PrizeEmailFormProps) {
+function EnvelopeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-brand-400 h-5 w-5 shrink-0"
+      aria-hidden
+    >
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m2 7 10 7 10-7" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-3.5 w-3.5 shrink-0"
+      aria-hidden
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function prizeButtonLabel(prizeLabel?: string): string {
+  if (!prizeLabel) return 'Valider';
+  const short = prizeLabel.trim().split(/\s+/)[0];
+  return short ? `Recevoir mon ${short}` : 'Valider';
+}
+
+export default function PrizeEmailForm({ onSuccess, prizeLabel }: PrizeEmailFormProps) {
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,42 +91,53 @@ export default function PrizeEmailForm({ onSuccess }: PrizeEmailFormProps) {
   }
 
   return (
-    <div className="w-full max-w-xs">
-      <div className="mb-4 text-center text-sm text-gray-400">
-        Saisis ton email pour recevoir ton lot :
+    <div className="w-full">
+      <div className="mb-4 flex items-center gap-2 text-sm text-gray-300">
+        <EnvelopeIcon />
+        <span>Saisis ton email pour recevoir ton lot :</span>
       </div>
+
       <input
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="email@example.com"
-        className="focus:ring-brand-500 mb-3 w-full rounded-xl bg-white/10 px-4 py-4 text-center text-lg text-white placeholder-gray-600 outline-none ring-2 ring-white/20"
+        className="focus:ring-brand-500 mb-4 w-full rounded-xl bg-white/10 px-4 py-4 text-lg text-white placeholder-gray-600 outline-none ring-2 ring-white/20"
         style={{ fontSize: '16px' }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && consent) void handleSubmit();
         }}
       />
-      <label className="mb-3 flex items-start gap-2 text-left text-sm text-gray-400">
+
+      <label className="mb-5 flex items-start gap-3 text-left text-sm text-gray-400">
         <input
           type="checkbox"
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
-          className="mt-1"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20"
         />
         <span>J&apos;ai 15 ans ou plus et j&apos;accepte de recevoir mon lot par email.</span>
       </label>
-      {error && <div className="mb-3 text-center text-sm text-red-400">{error}</div>}
+
+      {error && <div className="mb-4 text-sm text-red-400">{error}</div>}
+
       <button
         onClick={() => void handleSubmit()}
         disabled={loading || !email || !consent}
-        className="bg-brand-600 mb-2 w-full rounded-xl py-3 font-semibold text-white disabled:opacity-40"
+        className="bg-brand-600 mb-4 w-full rounded-xl py-4 text-lg font-semibold text-white transition-colors disabled:opacity-40"
       >
-        Valider
+        {loading ? 'Envoi…' : prizeButtonLabel(prizeLabel)}
       </button>
-      <p className="mb-2 text-center text-xs text-gray-500">
-        Email utilisé uniquement pour l&apos;envoi du lot. Lien de désinscription dans chaque email.
+
+      <p className="flex items-start justify-center gap-1.5 text-center text-xs leading-relaxed text-gray-500">
+        <LockIcon />
+        <span>
+          Email utilisé uniquement pour l&apos;envoi du lot. Lien de désinscription dans chaque
+          email.
+        </span>
       </p>
-      <button onClick={onSuccess} className="w-full py-2 text-sm text-gray-500 underline">
+
+      <button onClick={onSuccess} className="mt-4 w-full py-2 text-sm text-gray-500 underline">
         Plus tard, merci
       </button>
     </div>

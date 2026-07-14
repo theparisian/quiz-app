@@ -213,7 +213,7 @@ export default function PseudoInput({ sessionCode, onSubmit, disabled }: PseudoI
       </div>
 
       {suggestions.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="mt-8 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-medium uppercase tracking-wider text-gray-500">
               Ou prends une identité prête
