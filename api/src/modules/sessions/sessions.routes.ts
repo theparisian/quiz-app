@@ -323,12 +323,7 @@ router.post('/:id/abort', requireAuth([...ADMIN_ROLES]), async (req, res, next) 
     const sessionId = BigInt(param(req, 'id'));
     const body = validate(abortSessionSchema, req.body);
     clearLobbyTimer(sessionId);
-    const orchestrator = getOrchestrator();
-    if (orchestrator.isRunning(sessionId)) {
-      await orchestrator.abortSession(sessionId, body.reason);
-    } else {
-      await sessionsService.abort(sessionId, body.reason);
-    }
+    await getOrchestrator().abortSession(sessionId, body.reason);
     res.json({ message: 'Session aborted' });
   } catch (error) {
     next(error);
