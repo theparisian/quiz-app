@@ -1,5 +1,5 @@
 import type { Config } from 'tailwindcss';
-import { ELEVATION_SHADOW, SURFACE_RADIUS } from './elevation';
+import { ELEVATION_SHADOW, GLASS_SURFACE_SHADOW, SURFACE_RADIUS } from './elevation';
 
 export const tailwindPreset: Partial<Config> = {
   theme: {
@@ -43,6 +43,7 @@ export const tailwindPreset: Partial<Config> = {
         lg: ELEVATION_SHADOW,
         xl: ELEVATION_SHADOW,
         '2xl': ELEVATION_SHADOW,
+        glass: GLASS_SURFACE_SHADOW,
         inner: 'inset 0 2px 4px 0 rgba(103, 110, 144, 0.06)',
         none: 'none',
       },

@@ -75,7 +75,7 @@ export default function LobbyState() {
       </div>
 
       {/* Partie droite : panneau verre dépoli, neutre, qui s'adapte à n'importe quel fond. */}
-      <aside className="custom-screen-lateral relative m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-12 py-14 text-center shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
+      <aside className="custom-screen-lateral shadow-glass relative m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-12 py-14 text-center ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
         <div className="flex w-[70%] flex-col items-center gap-7">
           <div className="mb-6 flex flex-col items-center gap-3">
             <AppLogo className="h-14" variant="light" />

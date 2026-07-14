@@ -1,4 +1,5 @@
 export { tailwindPreset } from './tailwind-preset';
+export { GLASS_SURFACE_SHADOW } from './elevation';
 export { ANSWER_COLORS, type AnswerLetter } from './answer-colors';
 export {
   ANSWER_POSITIONS,

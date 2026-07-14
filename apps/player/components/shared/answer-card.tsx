@@ -42,8 +42,8 @@ export default function AnswerCard({
         isCorrect ? 'animate-correct-highlight' : ''
       } ${
         isGlass
-          ? `border text-white shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-md ${
-              isCorrect ? 'border-green-400/60 bg-green-500/25' : 'border-white/25 bg-white/10'
+          ? `shadow-glass border text-white backdrop-blur-md ${
+              isCorrect ? 'border-green-400/60 bg-green-500/25' : 'border-white/20 bg-white/10'
             }`
           : 'text-white'
       }`}

@@ -26,7 +26,7 @@ function MiniAnswerCard({
     <div
       className={`flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm ${
         isGlass
-          ? 'border border-white/25 bg-white/10 text-white shadow-[0_4px_16px_rgba(0,0,0,0.3)] backdrop-blur-md'
+          ? 'shadow-glass border border-white/20 bg-white/10 text-white backdrop-blur-md'
           : 'text-white'
       }`}
       style={{ backgroundColor: isGlass ? undefined : color.bg }}
