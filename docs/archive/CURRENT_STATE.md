@@ -6,24 +6,24 @@
 
 ### Dépendances (package.json)
 
-| Dépendance | Version | Usage dans ce projet |
-|---|---|---|
-| `@getbrevo/brevo` | ^2.2.0 | Envoi d'emails transactionnels au gagnant du quiz via l'API Brevo |
-| `bcrypt` | ^6.0.0 | Hachage et vérification des mots de passe des comptes hôte/admin |
-| `bootstrap` | ^5.3.3 | Framework CSS/JS servi en statique pour toutes les pages frontend |
-| `dotenv` | ^16.3.1 | Chargement des variables d'environnement depuis `.env` |
-| `express` | ^4.18.2 | Serveur HTTP, routage, middleware de session, service des fichiers statiques |
-| `express-session` | ^1.18.1 | Gestion des sessions utilisateur (cookies côté navigateur, store en mémoire) |
-| `mysql2` | ^3.14.1 | Connexion à la base de données MySQL via un pool de connexions (mode promise) |
-| `qrcode` | ^1.5.4 | Listé dans les dépendances mais **non utilisé dans le code serveur** — la génération de QR codes se fait côté client via une lib CDN |
-| `socket.io` | ^4.7.2 | Communication temps réel bidirectionnelle entre le serveur et les clients (host, screen, players) |
-| `uuid` | ^11.1.0 | Génération d'identifiants uniques pour les joueurs et les quiz |
+| Dépendance        | Version | Usage dans ce projet                                                                                                                 |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `@getbrevo/brevo` | ^2.2.0  | Envoi d'emails transactionnels au gagnant du quiz via l'API Brevo                                                                    |
+| `bcrypt`          | ^6.0.0  | Hachage et vérification des mots de passe des comptes hôte/admin                                                                     |
+| `bootstrap`       | ^5.3.3  | Framework CSS/JS servi en statique pour toutes les pages frontend                                                                    |
+| `dotenv`          | ^16.3.1 | Chargement des variables d'environnement depuis `.env`                                                                               |
+| `express`         | ^4.18.2 | Serveur HTTP, routage, middleware de session, service des fichiers statiques                                                         |
+| `express-session` | ^1.18.1 | Gestion des sessions utilisateur (cookies côté navigateur, store en mémoire)                                                         |
+| `mysql2`          | ^3.14.1 | Connexion à la base de données MySQL via un pool de connexions (mode promise)                                                        |
+| `qrcode`          | ^1.5.4  | Listé dans les dépendances mais **non utilisé dans le code serveur** — la génération de QR codes se fait côté client via une lib CDN |
+| `socket.io`       | ^4.7.2  | Communication temps réel bidirectionnelle entre le serveur et les clients (host, screen, players)                                    |
+| `uuid`            | ^11.1.0 | Génération d'identifiants uniques pour les joueurs et les quiz                                                                       |
 
 **devDependencies :**
 
-| Dépendance | Version | Usage |
-|---|---|---|
-| `nodemon` | ^3.0.1 | Redémarrage automatique du serveur en développement |
+| Dépendance | Version | Usage                                               |
+| ---------- | ------- | --------------------------------------------------- |
+| `nodemon`  | ^3.0.1  | Redémarrage automatique du serveur en développement |
 
 ### Structure des dossiers
 
@@ -65,6 +65,7 @@ quiz-app/
 ### Point d'entrée serveur
 
 Un seul fichier : `server.js` (~968 lignes). Il contient :
+
 - La configuration Express et Socket.IO
 - Toutes les routes HTTP
 - L'état du jeu en mémoire (`gameState`)
@@ -72,6 +73,7 @@ Un seul fichier : `server.js` (~968 lignes). Il contient :
 - Les fonctions de logique de jeu (`nextQuestion`, `startTimer`, `endGame`, `resetGame`, etc.)
 
 Les modules dans `config/` sont des helpers appelés depuis `server.js` :
+
 - `config/database.js` : pool MySQL, `initDatabase()`, méthodes CRUD
 - `config/auth.js` : `verifyCredentials()` et middleware `requireAuth`
 - `config/email.js` : `sendWinnerEmail()`
@@ -85,29 +87,29 @@ Aucun bundler, aucun transpileur. JavaScript vanilla ES6+.
 
 ### Variables d'environnement
 
-| Variable | Rôle |
-|---|---|
-| `PORT` | Port d'écoute du serveur (défaut : 3000) |
-| `NODE_ENV` | Environnement (development / production) |
-| `SESSION_SECRET` | Secret pour signer les cookies de session (obligatoire en prod) |
-| `SESSION_COOKIE_SECURE` | Active le flag `secure` sur le cookie de session (true/false) |
-| `TRUST_PROXY` | Active `trust proxy` sur Express quand derrière un reverse proxy (1/0) |
-| `BASE_URL` | URL publique du site, utilisée pour générer les QR codes (défaut : `https://demo.uxii.fr`) |
-| `SOCKET_CORS_ORIGIN` | Origines autorisées pour Socket.IO, séparées par des virgules |
-| `DB_HOST` | Hôte MySQL (défaut : localhost) |
-| `DB_USER` | Utilisateur MySQL (défaut : local_user) |
-| `DB_PASSWORD` | Mot de passe MySQL (défaut : local_password) |
-| `DB_NAME` | Nom de la base MySQL (défaut : local_db) |
-| `BREVO_API_KEY` | Clé API Brevo pour l'envoi d'emails |
-| `SENDER_EMAIL` | Adresse email d'expédition (défaut : quizmaster@example.com) |
-| `LOG_DB_CONFIG` | Active les logs détaillés de la connexion MySQL au démarrage (1/0) |
+| Variable                | Rôle                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| `PORT`                  | Port d'écoute du serveur (défaut : 3000)                                                   |
+| `NODE_ENV`              | Environnement (development / production)                                                   |
+| `SESSION_SECRET`        | Secret pour signer les cookies de session (obligatoire en prod)                            |
+| `SESSION_COOKIE_SECURE` | Active le flag `secure` sur le cookie de session (true/false)                              |
+| `TRUST_PROXY`           | Active `trust proxy` sur Express quand derrière un reverse proxy (1/0)                     |
+| `BASE_URL`              | URL publique du site, utilisée pour générer les QR codes (défaut : `https://demo.uxii.fr`) |
+| `SOCKET_CORS_ORIGIN`    | Origines autorisées pour Socket.IO, séparées par des virgules                              |
+| `DB_HOST`               | Hôte MySQL (défaut : localhost)                                                            |
+| `DB_USER`               | Utilisateur MySQL (défaut : local_user)                                                    |
+| `DB_PASSWORD`           | Mot de passe MySQL (défaut : local_password)                                               |
+| `DB_NAME`               | Nom de la base MySQL (défaut : local_db)                                                   |
+| `BREVO_API_KEY`         | Clé API Brevo pour l'envoi d'emails                                                        |
+| `SENDER_EMAIL`          | Adresse email d'expédition (défaut : quizmaster@example.com)                               |
+| `LOG_DB_CONFIG`         | Active les logs détaillés de la connexion MySQL au démarrage (1/0)                         |
 
 ### Comment le projet se lance
 
-| Script | Commande | Description |
-|---|---|---|
-| `npm start` | `node server.js` | Lancement production |
-| `npm run dev` | `nodemon server.js` | Lancement développement avec hot-reload |
+| Script           | Commande                              | Description                                       |
+| ---------------- | ------------------------------------- | ------------------------------------------------- |
+| `npm start`      | `node server.js`                      | Lancement production                              |
+| `npm run dev`    | `nodemon server.js`                   | Lancement développement avec hot-reload           |
 | `npm run deploy` | `npm version patch && node server.js` | Incrémente la version patch puis lance le serveur |
 
 ---
@@ -120,14 +122,14 @@ Le schéma est défini programmatiquement dans `config/database.js` via des `CRE
 
 Stocke les comptes des hôtes/administrateurs.
 
-| Colonne | Type | Contraintes |
-|---|---|---|
-| `id` | INT | PRIMARY KEY, AUTO_INCREMENT |
-| `username` | VARCHAR(50) | NOT NULL, UNIQUE |
-| `password_hash` | VARCHAR(255) | NOT NULL |
-| `is_admin` | BOOLEAN | DEFAULT FALSE |
-| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
-| `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP |
+| Colonne         | Type         | Contraintes                                           |
+| --------------- | ------------ | ----------------------------------------------------- |
+| `id`            | INT          | PRIMARY KEY, AUTO_INCREMENT                           |
+| `username`      | VARCHAR(50)  | NOT NULL, UNIQUE                                      |
+| `password_hash` | VARCHAR(255) | NOT NULL                                              |
+| `is_admin`      | BOOLEAN      | DEFAULT FALSE                                         |
+| `created_at`    | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP                             |
+| `updated_at`    | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP |
 
 Relations : aucune clé étrangère.
 
@@ -135,15 +137,15 @@ Relations : aucune clé étrangère.
 
 Stocke les questions individuelles (utilisées comme seed pour créer le quiz par défaut).
 
-| Colonne | Type | Contraintes |
-|---|---|---|
-| `id` | INT | PRIMARY KEY, AUTO_INCREMENT |
-| `question` | TEXT | NOT NULL |
-| `options` | JSON | NOT NULL |
-| `correct_index` | INT | NOT NULL |
-| `explanation` | TEXT | NOT NULL |
-| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
-| `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP |
+| Colonne         | Type      | Contraintes                                           |
+| --------------- | --------- | ----------------------------------------------------- |
+| `id`            | INT       | PRIMARY KEY, AUTO_INCREMENT                           |
+| `question`      | TEXT      | NOT NULL                                              |
+| `options`       | JSON      | NOT NULL                                              |
+| `correct_index` | INT       | NOT NULL                                              |
+| `explanation`   | TEXT      | NOT NULL                                              |
+| `created_at`    | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP                             |
+| `updated_at`    | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP |
 
 Relations : aucune clé étrangère. Cette table semble être un héritage ; les questions sont désormais stockées en JSON dans la table `quizzes`.
 
@@ -151,15 +153,15 @@ Relations : aucune clé étrangère. Cette table semble être un héritage ; les
 
 Stocke les quiz (ensemble de questions).
 
-| Colonne | Type | Contraintes |
-|---|---|---|
-| `id` | VARCHAR(36) | PRIMARY KEY (UUID) |
-| `name` | VARCHAR(255) | NOT NULL |
-| `description` | TEXT | — |
-| `questions` | JSON | NOT NULL |
-| `active` | BOOLEAN | DEFAULT FALSE |
-| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
-| `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP |
+| Colonne       | Type         | Contraintes                                           |
+| ------------- | ------------ | ----------------------------------------------------- |
+| `id`          | VARCHAR(36)  | PRIMARY KEY (UUID)                                    |
+| `name`        | VARCHAR(255) | NOT NULL                                              |
+| `description` | TEXT         | —                                                     |
+| `questions`   | JSON         | NOT NULL                                              |
+| `active`      | BOOLEAN      | DEFAULT FALSE                                         |
+| `created_at`  | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP                             |
+| `updated_at`  | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP |
 
 Relations : référencée par `game_history.quiz_id` (pas de FK formelle en SQL).
 
@@ -169,17 +171,17 @@ Un seul quiz peut être actif à la fois (logique applicative, pas de contrainte
 
 Stocke l'historique des parties jouées.
 
-| Colonne | Type | Contraintes |
-|---|---|---|
-| `id` | INT | PRIMARY KEY, AUTO_INCREMENT |
-| `quiz_id` | VARCHAR(36) | NOT NULL |
-| `quiz_name` | VARCHAR(255) | NOT NULL |
-| `player_count` | INT | NOT NULL |
-| `winner_name` | VARCHAR(255) | — |
-| `winner_email` | VARCHAR(255) | — |
-| `winner_score` | INT | — |
-| `leaderboard` | JSON | NOT NULL |
-| `timestamp` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
+| Colonne        | Type         | Contraintes                 |
+| -------------- | ------------ | --------------------------- |
+| `id`           | INT          | PRIMARY KEY, AUTO_INCREMENT |
+| `quiz_id`      | VARCHAR(36)  | NOT NULL                    |
+| `quiz_name`    | VARCHAR(255) | NOT NULL                    |
+| `player_count` | INT          | NOT NULL                    |
+| `winner_name`  | VARCHAR(255) | —                           |
+| `winner_email` | VARCHAR(255) | —                           |
+| `winner_score` | INT          | —                           |
+| `leaderboard`  | JSON         | NOT NULL                    |
+| `timestamp`    | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP   |
 
 Relations : `quiz_id` référence logiquement `quizzes.id` (pas de FK SQL).
 
@@ -241,16 +243,19 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 **Destinée à :** Hôte / Administrateur (projectionniste)
 
 **Éléments d'interface :**
+
 - Formulaire de connexion avec champs « Nom d'utilisateur » et « Mot de passe »
 - Bouton « Se connecter »
 - Zone d'erreur (identifiants incorrects)
 
 **Actions utilisateur :**
+
 - Soumettre le formulaire de login (POST /auth)
 
 **Events Socket.IO :** Aucun.
 
 **Fichiers associés :**
+
 - `/bootstrap/dist/css/bootstrap.min.css`
 - `/css/custom.css`
 - `/bootstrap/dist/js/bootstrap.bundle.min.js`
@@ -263,6 +268,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 **Destinée à :** Hôte / Administrateur (projectionniste)
 
 **Éléments d'interface :**
+
 - Header avec nom d'utilisateur connecté, bouton Connexion/Déconnexion
 - Deux onglets : « Gestion QUIZ » (admin) et « Quiz ACTIF » (host)
 - Lien pour ouvrir l'écran de présentation (`/screen`) dans un nouvel onglet
@@ -274,6 +280,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 - Footer avec version de l'app
 
 **Actions utilisateur :**
+
 - Démarrer le quiz
 - Passer à la question suivante
 - Forcer la fin du timer
@@ -282,6 +289,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 - Se déconnecter
 
 **Events Socket.IO émis :**
+
 - `host-join`
 - `start-game`
 - `next-question`
@@ -294,6 +302,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 - `activate-quiz`
 
 **Events Socket.IO reçus :**
+
 - `game-setup`
 - `player-joined`
 - `player-left`
@@ -314,6 +323,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 - `quiz-activated`
 
 **Fichiers associés :**
+
 - `/bootstrap/dist/css/bootstrap.min.css`
 - Bootstrap Icons (CDN)
 - `/css/custom.css`
@@ -328,6 +338,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 **Destinée à :** Joueur (spectateur en salle de cinéma, sur mobile)
 
 **Éléments d'interface :**
+
 - Écran de saisie du code session (champ texte + bouton « Jouer »)
 - Écran de saisie du pseudonyme (champ texte + bouton « Jouer »)
 - Écran d'attente (loader SVG + message)
@@ -336,18 +347,21 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 - Écran final (position dans le classement, score, formulaire email si gagnant)
 
 **Actions utilisateur :**
+
 - Entrer le code de session
 - Entrer son pseudonyme
 - Sélectionner une réponse (clic sur une option)
 - Soumettre son email (si gagnant)
 
 **Events Socket.IO émis :**
+
 - `verify-session`
 - `player-join`
 - `player-answer`
 - `submit-winner-email`
 
 **Events Socket.IO reçus :**
+
 - `session-verified`
 - `session-invalid`
 - `join-error`
@@ -364,6 +378,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 - `email-error`
 
 **Fichiers associés :**
+
 - `/bootstrap/dist/css/bootstrap.min.css`
 - `/css/custom.css`
 - `/bootstrap/dist/js/bootstrap.bundle.min.js`
@@ -377,6 +392,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 **Destinée à :** Écran de cinéma (projection grand écran)
 
 **Éléments d'interface :**
+
 - Bouton « Activer le son » (en haut à droite)
 - Écran d'attente : URL du quiz, code session, QR code généré dynamiquement, grille des joueurs connectés
 - Écran de question : timer circulaire SVG, texte de la question, options animées (apparition séquentielle), badges des joueurs qui ont répondu
@@ -386,12 +402,15 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 - Éléments audio : son nouvelle question, musique de fond (loop), sons par option, son bonne réponse
 
 **Actions utilisateur :**
+
 - Cliquer sur « Activer le son » pour débloquer l'autoplay audio du navigateur
 
 **Events Socket.IO émis :**
+
 - `screen-join`
 
 **Events Socket.IO reçus :**
+
 - `game-setup`
 - `player-joined`
 - `player-left`
@@ -404,6 +423,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 - `game-reset`
 
 **Fichiers associés :**
+
 - `/bootstrap/dist/css/bootstrap.min.css`
 - `/css/custom.css`
 - CSS inline dans `<style>` (styles spécifiques screen)
@@ -417,18 +437,18 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 
 ## Section 4 — Routes HTTP (backend)
 
-| Méthode | Chemin | Description | Auth | Body | Réponse |
-|---|---|---|---|---|---|
-| GET | `/` | Redirige vers `/host` | Non | — | 302 → `/host` |
-| GET | `/login` | Sert la page de login | Non | — | HTML |
-| POST | `/auth` | Traite le formulaire de login | Non | `username`, `password` (form urlencoded) | 302 → `/host` ou 302 → `/login?error=1` |
-| GET | `/logout` | Détruit la session et redirige | Non | — | 302 → `/login` |
-| GET | `/host` | Sert l'interface hôte/admin | Oui (session) | — | HTML |
-| GET | `/play` | Sert l'interface joueur | Non | — | HTML |
-| GET | `/play/:sessionCode` | Sert l'interface joueur (avec code pré-rempli) | Non | — | HTML (même fichier que `/play`) |
-| GET | `/screen` | Sert l'écran de présentation | Non | — | HTML |
-| GET | `/admin` | Redirige vers `/host` | Oui (session) | — | 302 → `/host` |
-| GET | `/api/session` | Retourne le code de session courant | Oui (session) | — | JSON `{ sessionCode: "..." }` |
+| Méthode | Chemin               | Description                                    | Auth          | Body                                     | Réponse                                 |
+| ------- | -------------------- | ---------------------------------------------- | ------------- | ---------------------------------------- | --------------------------------------- |
+| GET     | `/`                  | Redirige vers `/host`                          | Non           | —                                        | 302 → `/host`                           |
+| GET     | `/login`             | Sert la page de login                          | Non           | —                                        | HTML                                    |
+| POST    | `/auth`              | Traite le formulaire de login                  | Non           | `username`, `password` (form urlencoded) | 302 → `/host` ou 302 → `/login?error=1` |
+| GET     | `/logout`            | Détruit la session et redirige                 | Non           | —                                        | 302 → `/login`                          |
+| GET     | `/host`              | Sert l'interface hôte/admin                    | Oui (session) | —                                        | HTML                                    |
+| GET     | `/play`              | Sert l'interface joueur                        | Non           | —                                        | HTML                                    |
+| GET     | `/play/:sessionCode` | Sert l'interface joueur (avec code pré-rempli) | Non           | —                                        | HTML (même fichier que `/play`)         |
+| GET     | `/screen`            | Sert l'écran de présentation                   | Non           | —                                        | HTML                                    |
+| GET     | `/admin`             | Redirige vers `/host`                          | Oui (session) | —                                        | 302 → `/host`                           |
+| GET     | `/api/session`       | Retourne le code de session courant            | Oui (session) | —                                        | JSON `{ sessionCode: "..." }`           |
 
 ---
 
@@ -436,60 +456,60 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 
 ### Client → Serveur
 
-| Event | Émetteur | Payload | Room | Description |
-|---|---|---|---|---|
-| `host-join` | host | — | Rejoint `host-room` | Enregistre le socket comme hôte, renvoie `game-setup` |
-| `screen-join` | screen | — | Rejoint `screen-room` | Enregistre le socket comme écran, renvoie `game-setup` |
-| `verify-session` | player | `{ sessionCode }` | — | Vérifie si le code session est valide |
-| `player-join` | player | `{ playerName, sessionCode }` | Rejoint `game-room` | Inscrit le joueur dans la session |
-| `start-game` | host | — | — | Démarre la partie (vérifie auth + joueurs présents) |
-| `player-answer` | player | `{ playerId, answerIndex }` | — | Soumet une réponse à la question courante |
-| `next-question` | host | — | — | Passe à la question suivante |
-| `question-timer-ended` | host | — | — | Force la fin du timer de la question courante |
-| `new-game` | host | — | — | Réinitialise la session (nouveau code, joueurs vidés) |
-| `admin-init` | host (admin) | — | — | Demande la liste des quiz + init admin |
-| `get-quizzes` | host (admin) | — | — | Demande la liste des quiz |
-| `get-quiz-list` | host (admin) | — | — | Demande la liste des quiz (variante) |
-| `save-quiz` | host (admin) | `{ id?, name, description, questions }` | — | Crée ou met à jour un quiz |
-| `create-quiz` | host (admin) | `{ quiz: { id?, name, description, questions, active } }` | — | Crée un quiz |
-| `update-quiz` | host (admin) | `{ quiz: { id, name, description, questions } }` | — | Met à jour un quiz existant |
-| `activate-quiz` | host (admin) | `{ id }` | — | Active un quiz (désactive les autres) |
-| `delete-quiz` | host (admin) | `{ id }` | — | Supprime un quiz |
-| `submit-winner-email` | player | `{ playerId, email }` | — | Soumet l'email du gagnant pour recevoir le lot |
+| Event                  | Émetteur     | Payload                                                   | Room                  | Description                                            |
+| ---------------------- | ------------ | --------------------------------------------------------- | --------------------- | ------------------------------------------------------ |
+| `host-join`            | host         | —                                                         | Rejoint `host-room`   | Enregistre le socket comme hôte, renvoie `game-setup`  |
+| `screen-join`          | screen       | —                                                         | Rejoint `screen-room` | Enregistre le socket comme écran, renvoie `game-setup` |
+| `verify-session`       | player       | `{ sessionCode }`                                         | —                     | Vérifie si le code session est valide                  |
+| `player-join`          | player       | `{ playerName, sessionCode }`                             | Rejoint `game-room`   | Inscrit le joueur dans la session                      |
+| `start-game`           | host         | —                                                         | —                     | Démarre la partie (vérifie auth + joueurs présents)    |
+| `player-answer`        | player       | `{ playerId, answerIndex }`                               | —                     | Soumet une réponse à la question courante              |
+| `next-question`        | host         | —                                                         | —                     | Passe à la question suivante                           |
+| `question-timer-ended` | host         | —                                                         | —                     | Force la fin du timer de la question courante          |
+| `new-game`             | host         | —                                                         | —                     | Réinitialise la session (nouveau code, joueurs vidés)  |
+| `admin-init`           | host (admin) | —                                                         | —                     | Demande la liste des quiz + init admin                 |
+| `get-quizzes`          | host (admin) | —                                                         | —                     | Demande la liste des quiz                              |
+| `get-quiz-list`        | host (admin) | —                                                         | —                     | Demande la liste des quiz (variante)                   |
+| `save-quiz`            | host (admin) | `{ id?, name, description, questions }`                   | —                     | Crée ou met à jour un quiz                             |
+| `create-quiz`          | host (admin) | `{ quiz: { id?, name, description, questions, active } }` | —                     | Crée un quiz                                           |
+| `update-quiz`          | host (admin) | `{ quiz: { id, name, description, questions } }`          | —                     | Met à jour un quiz existant                            |
+| `activate-quiz`        | host (admin) | `{ id }`                                                  | —                     | Active un quiz (désactive les autres)                  |
+| `delete-quiz`          | host (admin) | `{ id }`                                                  | —                     | Supprime un quiz                                       |
+| `submit-winner-email`  | player       | `{ playerId, email }`                                     | —                     | Soumet l'email du gagnant pour recevoir le lot         |
 
 ### Serveur → Client
 
-| Event | Destinataire | Payload | Description |
-|---|---|---|---|
-| `game-setup` | host, screen | `{ sessionCode, playerCount, questions, appVersion, isAdmin?, username?, baseUrl? }` | Configuration initiale à la connexion |
-| `session-verified` | player | `{ success: true }` | Code session valide |
-| `session-invalid` | player | `{ error }` | Code session invalide |
-| `join-success` | player | `{ playerId, playerName }` | Joueur inscrit avec succès |
-| `join-error` | player | `{ error }` | Erreur lors de l'inscription |
-| `player-joined` | host-room, screen-room | `{ playerId, playerName, playerCount }` | Un joueur a rejoint |
-| `player-left` | host-room, screen-room | `{ playerId, playerName, playerCount }` | Un joueur est parti |
-| `game-started` | game-room, screen-room, host-room | — | La partie commence |
-| `new-question` | game-room, host-room, screen-room | `{ questionNumber, totalQuestions, question, options, timeLimit, correctIndex? }` | Nouvelle question (correctIndex uniquement pour host) |
-| `timer-update` | game-room, host-room, screen-room | `{ timeLeft }` | Mise à jour du timer (chaque seconde) |
-| `time-up` | game-room, host-room, screen-room | — | Temps écoulé pour la question |
-| `answer-result` | player (unicast) | `{ isCorrect, pointsEarned, totalScore }` | Résultat de la réponse du joueur |
-| `player-answer` | host-room, screen-room | `{ playerId, playerName, answerIndex }` | Un joueur a répondu (pour affichage) |
-| `question-results` | game-room, host-room, screen-room | `{ correctIndex, correctAnswer?, explanation, scores, playerAnswers? }` | Résultats de la question |
-| `game-end` | game-room, host-room, screen-room | `{ winner, leaderboard }` | Fin de la partie |
-| `game-reset` | host-room, game-room, screen-room | `{ sessionCode }` (host/screen) ou `{}` (game-room) | Réinitialisation de la session |
-| `game-error` | host (unicast) | `{ error }` | Erreur de jeu |
-| `host-error` | host (unicast) | `{ error }` | Erreur d'authentification hôte |
-| `admin-error` | host (unicast) | `{ error }` | Erreur d'administration |
-| `admin-init-response` | host (unicast) | `{ success, quizzes?, appVersion?, error? }` | Réponse à l'init admin |
-| `quizzes-list` | host (unicast) | `{ quizzes }` | Liste des quiz |
-| `quiz-list-updated` | host (unicast) | `{ quizzes }` | Liste des quiz mise à jour |
-| `quiz-saved` | host (unicast) | `{ success, message, quizId? }` | Résultat de la sauvegarde |
-| `quiz-created` | host (unicast) | `{ success, quizId?, error? }` | Résultat de la création |
-| `quiz-updated` | host (unicast) | `{ success, error? }` | Résultat de la mise à jour |
-| `quiz-activated` | host (unicast) | `{ success, message? }` | Résultat de l'activation |
-| `quiz-deleted` | host (unicast) | `{ success, message? }` | Résultat de la suppression |
-| `email-success` | player (unicast) | `{ message }` | Email envoyé avec succès |
-| `email-error` | player (unicast) | `{ error }` | Erreur d'envoi d'email |
+| Event                 | Destinataire                      | Payload                                                                              | Description                                           |
+| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| `game-setup`          | host, screen                      | `{ sessionCode, playerCount, questions, appVersion, isAdmin?, username?, baseUrl? }` | Configuration initiale à la connexion                 |
+| `session-verified`    | player                            | `{ success: true }`                                                                  | Code session valide                                   |
+| `session-invalid`     | player                            | `{ error }`                                                                          | Code session invalide                                 |
+| `join-success`        | player                            | `{ playerId, playerName }`                                                           | Joueur inscrit avec succès                            |
+| `join-error`          | player                            | `{ error }`                                                                          | Erreur lors de l'inscription                          |
+| `player-joined`       | host-room, screen-room            | `{ playerId, playerName, playerCount }`                                              | Un joueur a rejoint                                   |
+| `player-left`         | host-room, screen-room            | `{ playerId, playerName, playerCount }`                                              | Un joueur est parti                                   |
+| `game-started`        | game-room, screen-room, host-room | —                                                                                    | La partie commence                                    |
+| `new-question`        | game-room, host-room, screen-room | `{ questionNumber, totalQuestions, question, options, timeLimit, correctIndex? }`    | Nouvelle question (correctIndex uniquement pour host) |
+| `timer-update`        | game-room, host-room, screen-room | `{ timeLeft }`                                                                       | Mise à jour du timer (chaque seconde)                 |
+| `time-up`             | game-room, host-room, screen-room | —                                                                                    | Temps écoulé pour la question                         |
+| `answer-result`       | player (unicast)                  | `{ isCorrect, pointsEarned, totalScore }`                                            | Résultat de la réponse du joueur                      |
+| `player-answer`       | host-room, screen-room            | `{ playerId, playerName, answerIndex }`                                              | Un joueur a répondu (pour affichage)                  |
+| `question-results`    | game-room, host-room, screen-room | `{ correctIndex, correctAnswer?, explanation, scores, playerAnswers? }`              | Résultats de la question                              |
+| `game-end`            | game-room, host-room, screen-room | `{ winner, leaderboard }`                                                            | Fin de la partie                                      |
+| `game-reset`          | host-room, game-room, screen-room | `{ sessionCode }` (host/screen) ou `{}` (game-room)                                  | Réinitialisation de la session                        |
+| `game-error`          | host (unicast)                    | `{ error }`                                                                          | Erreur de jeu                                         |
+| `host-error`          | host (unicast)                    | `{ error }`                                                                          | Erreur d'authentification hôte                        |
+| `admin-error`         | host (unicast)                    | `{ error }`                                                                          | Erreur d'administration                               |
+| `admin-init-response` | host (unicast)                    | `{ success, quizzes?, appVersion?, error? }`                                         | Réponse à l'init admin                                |
+| `quizzes-list`        | host (unicast)                    | `{ quizzes }`                                                                        | Liste des quiz                                        |
+| `quiz-list-updated`   | host (unicast)                    | `{ quizzes }`                                                                        | Liste des quiz mise à jour                            |
+| `quiz-saved`          | host (unicast)                    | `{ success, message, quizId? }`                                                      | Résultat de la sauvegarde                             |
+| `quiz-created`        | host (unicast)                    | `{ success, quizId?, error? }`                                                       | Résultat de la création                               |
+| `quiz-updated`        | host (unicast)                    | `{ success, error? }`                                                                | Résultat de la mise à jour                            |
+| `quiz-activated`      | host (unicast)                    | `{ success, message? }`                                                              | Résultat de l'activation                              |
+| `quiz-deleted`        | host (unicast)                    | `{ success, message? }`                                                              | Résultat de la suppression                            |
+| `email-success`       | player (unicast)                  | `{ message }`                                                                        | Email envoyé avec succès                              |
+| `email-error`         | player (unicast)                  | `{ error }`                                                                          | Erreur d'envoi d'email                                |
 
 ---
 
@@ -592,6 +612,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
 **Emplacement :** `server.js`, lignes 429-445 (dans le handler `player-answer`).
 
 **Algorithme :**
+
 1. Si la réponse est **incorrecte** : 0 point.
 2. Si la réponse est **correcte** :
    - Calcul proportionnel au temps restant : `points = Math.round(1000 * (timeLeft / totalTime))`
@@ -600,6 +621,7 @@ Aucun index explicite créé au-delà des clés primaires et de la contrainte UN
    - Donc un joueur qui répond correctement obtient entre 500 et 1000 points.
 
 **En résumé :**
+
 - Réponse rapide et correcte : ~1000 points.
 - Réponse lente mais correcte : 500 points (minimum garanti).
 - Réponse incorrecte : 0 point.
@@ -614,6 +636,7 @@ Les scores sont cumulés dans `gameState.scores[playerId]` au fil des questions.
 ### Qui peut se connecter
 
 Deux niveaux de droits :
+
 1. **Admin** (`is_admin = true`) : Accès à l'onglet « Gestion QUIZ » (CRUD quiz) + toutes les fonctions hôte.
 2. **Hôte** (`is_admin = false`) : Accès uniquement à l'onglet « Quiz ACTIF » (contrôle de la session).
 
@@ -653,7 +676,7 @@ let gameState = {
   sessionCode: generateSessionCode(),
   timePerQuestion: 20,
   timer: null,
-  activeQuiz: null
+  activeQuiz: null,
 };
 ```
 
@@ -711,6 +734,7 @@ Fichier : `.github/workflows/deploy.yml`
 **Déclencheur :** Push sur la branche `master`.
 
 **Processus :**
+
 1. Checkout du code.
 2. Configuration SSH via `webfactory/ssh-agent`.
 3. Connexion SSH au VPS (`secrets.VPS_USER@secrets.VPS_HOST`).
@@ -767,10 +791,11 @@ Le joueur écoute `game-started` dans son client (non visible explicitement dans
 ### Events dupliqués pour le CRUD quiz
 
 Il existe des events redondants pour le même usage :
+
 - `get-quizzes` et `get-quiz-list` font la même chose.
 - `create-quiz` et `save-quiz` (sans id) font la même chose.
 - `update-quiz` et `save-quiz` (avec id) font la même chose.
-À clarifier : deux versions du code qui cohabitent.
+  À clarifier : deux versions du code qui cohabitent.
 
 ### Variable `timer` dans les questions
 
@@ -803,6 +828,7 @@ Aucune protection contre le spam de connexions joueurs, de réponses multiples (
 ### Session store en mémoire
 
 `express-session` utilise le `MemoryStore` par défaut. En production, cela signifie :
+
 - Les sessions sont perdues au redémarrage.
 - Risque de fuite mémoire à long terme (warning dans la doc express-session).
 
