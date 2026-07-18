@@ -1,8 +1,8 @@
-# Quiz App Cinéma — Dossier de présentation complet
+# Shh! — Dossier de présentation complet
 
 > **But de ce document :** présenter l'application dans son ensemble, fonctionnellement et techniquement, de façon autoportante. Conçu pour servir de contexte unique à une discussion stratégique (produit, business, fonctionnel) sans avoir à lire le reste du repo.
 >
-> **État au moment de la rédaction :** réécriture v2 from-scratch quasi terminée (PR1 → PR9 livrées). Le code legacy v1 reste présent à la racine pour référence mais est destiné à l'archivage.
+> **Shh!** (anciennement Quiz App Cinéma) est la plateforme décrite ici. La réécriture v2 est livrée intégralement ; la phase actuelle est la préparation du pilote terrain et les itérations produit (cf. `ROADMAP.md`).
 >
 > **Porteur :** Anzio · **Repo :** github.com/theparisian/quiz-app · **Domaine actuel :** shh.show
 
@@ -234,6 +234,8 @@ Entités principales (toutes en BigInt auto-increment, IDs externes exposés via
 
 Pages : saisie code 4 chiffres (auto-join via `?s=CODE`), saisie pseudo (validation longueur + bad-words), gameplay. États : lobby, question active (4 boutons colorés A/B/C/D, mini timer), attente des autres, résultat (correct/incorrect/trop tard + points + rang), pause, final (top 3 → formulaire email lot ; sinon rang + merci), aborted. Reconnexion (bannière + resume). PWA (manifest standalone).
 
+**Late-join (livré).** Un spectateur peut rejoindre une session **déjà en cours** : le serveur gère le late-join (event `player_late_joined`), le mobile affiche un écran d'attente dédié (`late-wait-screen`) jusqu'à la prochaine question, et le player affiche un badge QR spécifique pour inviter les retardataires. Couvert par `late-join.test.ts`.
+
 ### C — Console projectionniste (`apps/console`)
 
 Login magic link, dashboard des salles du cinéma, création de session (quiz picker), console live (lobby, header question X/N + compteur joueurs + toggle audio, preview question, timer interpolé, contrôles pause/resume/force-end/abort, liste joueurs, podium fin, modale de confirmation abort). Reconnexion via `console:resume`. Design sobre desktop-first. Scopée au cinéma de l'utilisateur.
@@ -281,35 +283,11 @@ Soft delete + anonymisation email pour suppression de compte. **Mineurs :** opti
 
 ---
 
-## 13. État d'avancement (réécriture v2)
+## 13. État d'avancement
 
-Le plan de migration découpait le travail en 9 PRs. **Toutes sont livrées** (PR1 → PR9). Le projet est fonctionnellement complet sur le périmètre MVP.
+La réécriture v2 est **livrée intégralement** (PR1 → PR10) et mergée sur master ; l'historique détaillé des PRs est archivé dans `docs/archive/`. Le projet est fonctionnellement complet sur le périmètre MVP.
 
-| PR          | Périmètre                                                       | Statut |
-| ----------- | --------------------------------------------------------------- | ------ |
-| PR1         | Fondations monorepo (4 apps + packages + backend + Prisma + CI) | ✅     |
-| PR2         | Auth (magic link, JWT, invitations) + cinémas/salles/NUCs       | ✅     |
-| PR3         | Création/gestion de quizz + sponsors + uploads                  | ✅     |
-| PR4         | Génération IA de quizz (Claude) + audit                         | ✅     |
-| PR5 (a/b/c) | Sessions live (backend + console + NUC + mobile)                | ✅     |
-| PR6         | Reconnexion, résilience, réhydratation, monitoring NUC          | ✅     |
-| PR7         | Lots par email, QR signé, redemption API                        | ✅     |
-| PR8         | Observabilité (Pino, Sentry, events_log, dashboard, alertes)    | ✅     |
-| PR9         | Préparation pilote (script provisioning NUC, runbook, recovery) | ✅     |
-
-**Reste à faire avant pilote terrain réel :**
-
-- Tests bout-en-bout en conditions réelles (envoi email SMTP réel + scan QR téléphone, scénario résilience crash serveur) — partiellement à rejouer manuellement.
-- Provisionnement d'un NUC physique réel + installation chez le cinéma pilote.
-- Compléter les `[À COMPLÉTER]` : cinéma pilote, URL/instance d'hébergement prod, contacts du runbook.
-- Configuration des secrets prod (SMTP, Sentry DSN, PRIZE_HMAC_SECRET, etc.).
-
-**Dette technique connue (notée, non bloquante) :**
-
-- Route REST `POST /api/players/join` doublonne le chemin socket `player:join` (conservée pour les tests).
-- Les apps mobile/console/player ont chacune un `lib/socket.ts` local au lieu d'utiliser `packages/socket-client` (factorisation à planifier).
-- Backoff Socket.io explicite seulement sur le player (à propager mobile/console).
-- Pas de cleanup auto des fichiers `ai-input` orphelins.
+Ce qui reste à faire (avant pilote terrain, backlog produit priorisé, questions ouvertes et dette technique) est désormais suivi dans **`ROADMAP.md`**, source d'autorité pour les priorités.
 
 ---
 
@@ -329,7 +307,6 @@ Ces points ne sont **pas tranchés** et sont les plus utiles à challenger d'un 
 - **Lots & rétention** : aujourd'hui top 3 par email. Faut-il un compte joueur récurrent ? une mécanique de fidélité multi-séances ?
 - **Contenu** : qui produit les quizz à l'échelle ? La génération IA suffit-elle ? Marketplace de quizz ? Quizz brandés par les distributeurs de films ?
 - **Mineurs** : l'exclusion actuelle limite l'audience cinéma (familles). À réévaluer.
-- **Late-join** : aujourd'hui non supporté (on ne rejoint pas une partie en cours). Impact sur la participation ?
 
 ### Technique / scalabilité
 

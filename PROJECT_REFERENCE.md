@@ -1,4 +1,4 @@
-# PROJECT REFERENCE — Quiz App Cinéma
+# PROJECT REFERENCE — Shh!
 
 > **Version :** 2.0 — Mai 2026
 > **Statut :** Document de référence stable. À charger en début de chaque session IA (Cursor, Claude, etc.) comme contexte partagé.
@@ -9,12 +9,12 @@
 
 ## 0. À LIRE EN PREMIER (pour toute IA assistant le projet)
 
-Tu vas aider à développer une application de quizz live joué en salle de cinéma avant la séance. Avant d'écrire la moindre ligne de code, tu dois :
+Tu vas aider à faire évoluer **Shh!**, une application de quiz live joué en salle de cinéma avant la séance. La base de code v2 est en place et mergée sur master ; le travail consiste à l'itérer et à préparer le pilote terrain. Avant d'écrire la moindre ligne de code, tu dois :
 
 1. **Lire ce document en entier.** Il contient toutes les conventions, contraintes et décisions architecturales. Ne réinvente rien qui est déjà décidé ici.
 2. **Respecter les principes non négociables** (section 2). Ils priment sur toute considération de "code propre" ou de "best practice générique".
-3. **Demander avant de t'écarter.** Si tu vois un cas non couvert, propose au porteur du projet plutôt que d'inventer.
-4. **Le code existant est en cours de réécriture from-scratch.** N'essaie pas de le préserver. Le `CURRENT_STATE.md` documente l'existant uniquement comme référence fonctionnelle, pas comme code à conserver.
+3. **Demander avant de t'écarter.** Si tu vois un cas non couvert, propose à Anzio plutôt que d'inventer.
+4. **Rester dans le périmètre de la tâche en cours.** Les priorités et le backlog sont dans `ROADMAP.md` ; la vue produit/stratégie dans `APP_OVERVIEW.md`.
 
 ---
 
@@ -263,11 +263,14 @@ Un joueur anonyme doit pouvoir terminer une partie et recevoir son lot par email
 cinemas
   id, slug, name, address, city, postal_code, country,
   contact_name, contact_email, contact_phone,
-  status (active|paused|trial), created_at, updated_at, notes
+  status (active|paused|trial, défaut trial),
+  background_music_url, logo_url,
+  prizes_config (JSON), super_prize_config (JSON), staff_pin_hash,
+  notes, created_at, updated_at, deleted_at (soft delete)
 
 screens (salles d'un cinéma)
-  id, cinema_id, name (ex: "Salle 1"), capacity, status,
-  created_at, updated_at
+  id, cinema_id, name (ex: "Salle 1"), capacity,
+  status (active|inactive|maintenance), created_at, updated_at
 
 nucs (devices physiques)
   id, screen_id, nuc_uid (unique, généré à l'install),
@@ -288,7 +291,13 @@ users (joueurs avec compte + admins + projectionnistes + super-admin)
 quizzes (gabarits réutilisables)
   id, slug, title, description, type (standard|sponsored|custom),
   sponsor_id (nullable), language, duration_estimate_seconds,
-  cover_image_url, branding_json (couleurs custom, logo si sponsorisé),
+  cover_image_url,
+  background_media_url, background_media_type (image|video),
+  background_overlay_opacity,
+  lobby_background_media_url, lobby_background_media_type (image|video),
+  lobby_background_overlay_opacity,
+  branding_json (couleurs custom, logo si sponsorisé),
+  prizes_config (JSON),
   status (draft|published|archived),
   avatars_enabled (bool, défaut false),
   avatar_library_id (nullable, FK avatar_libraries),
@@ -316,18 +325,23 @@ sessions (instance d'un quizz lancée dans une salle)
   projectionist_user_id (nullable),
   state (lobby|running|paused|ended|aborted),
   current_question_position (nullable),
+  current_question_started_at (nullable), current_question_paused_at (nullable),
+  audio_muted (bool, défaut false),
+  super_prize_template_id (nullable, FK prize_templates),
   started_at, ended_at,
   total_players, winner_player_id (nullable),
   created_at, updated_at
 
 players (participant à une session, peut être anonyme)
   id, session_id, user_id (nullable si anonyme), pseudo,
+  pseudo_source (SUGGESTED|CUSTOM, défaut CUSTOM),
   avatar_id (nullable, FK avatars ; assigné aléatoirement si avatars activés
              et que le joueur n'a pas choisi),
   resume_token (unique, pour reconnexion),
   joined_at, last_seen_at, status (active|disconnected|kicked),
+  joined_question_position (nullable, pour le late-join),
   score_total, rank_final (nullable jusqu'à la fin),
-  email_for_prize (nullable)
+  email_for_prize (nullable), email_consent_at (nullable)
 
 player_answers
   id, player_id, question_id, chosen_answer_id (nullable),
@@ -336,11 +350,24 @@ player_answers
 
 sponsors
   id, name, slug, logo_url, brand_color_primary, brand_color_secondary,
-  contact_email, contract_terms, active, created_at, updated_at
+  contact_email, contract_terms, active,
+  metadata (JSON), prizes_config (JSON), created_at, updated_at
 
-prizes
-  id, session_id, player_id, type (discount_qr|video|other),
-  payload_json, email_sent_at, redeemed_at (nullable)
+prizes (lot attribué à un joueur en fin de session)
+  id, session_id, player_id,
+  redeem_code (unique, nanoid), signature (HMAC), short_code (unique),
+  rank, is_consolation (bool, défaut false), label,
+  type (discount_qr|video|other), payload_json,
+  prize_template_id (nullable, FK prize_templates),
+  expires_at (nullable), email_sent_at (nullable),
+  redeemed_at (nullable), redeemed_via (nullable)
+  -- unicité (player_id, session_id)
+
+prize_templates (gabarits de lots par cinéma et/ou sponsor)
+  id, cinema_id (nullable), sponsor_id (nullable),
+  label, type (discount_qr|video|other), payload_json,
+  validity_days (nullable), stock (nullable), stock_initial (nullable),
+  is_active (bool, défaut true), created_at, updated_at
 
 events_log
   id, session_id (nullable), nuc_id (nullable), cinema_id (nullable),
@@ -349,7 +376,8 @@ events_log
 
 ai_generations (audit des générations IA)
   id, user_id, quiz_id (nullable),
-  input_summary, model_used, tokens_input, tokens_output,
+  input_summary, input_full, output_json (JSON), error_details (JSON),
+  model_used, tokens_input, tokens_output,
   cost_estimate_eur, status (success|failed|partial),
   error_message (nullable), created_at
 ```
@@ -416,6 +444,7 @@ ai_generations (audit des générations IA)
 - camelCase variables/fonctions, PascalCase types/composants, snake_case colonnes DB.
 - Path aliases configurés (`@/modules/...`).
 - Commentaires en français pour la doc projet, anglais OK pour code technique.
+- **Sérialisation des IDs :** tout ID `BigInt` Prisma est converti en `string` avant toute réponse JSON d'API (jamais de `BigInt` brut sérialisé).
 
 ### 6.4 Gestion des erreurs
 
@@ -600,54 +629,11 @@ const QuestionShowPayload = z.object({
 
 ---
 
-## 11. ROADMAP DE LA RÉÉCRITURE
+## 11. ROADMAP
 
-### Phase 0 — Pré-requis (FAIT)
+La réécriture v2 (PR1 → PR10) est livrée et mergée sur master ; son historique détaillé est archivé dans `docs/archive/`.
 
-- ✅ Backup du code existant.
-- ✅ Décisions stack et archi (ce document).
-- ✅ État des lieux (`CURRENT_STATE.md`).
-- ✅ Décision : **réécriture complète**.
-
-### Phase 1 — Fondations (PR1)
-
-Init monorepo Turborepo (4 apps Next.js + packages), TypeScript strict, ESLint/Prettier/Husky, Prisma + schéma DB complet, bootstrap backend modulaire avec 1 module exemple, Socket.io avec namespaces et types partagés, CI minimale.
-
-### Phase 2 — Auth et entités de base (PR2)
-
-Module users + auth (magic link, JWT, OAuth Google/Apple). Modules cinemas, screens, nucs avec CRUD super-admin. Interface D minimale : login + liste des cinémas/salles/NUCs.
-
-### Phase 3 — Création et gestion de quizz (PR3)
-
-Modules quizzes, questions, answers. Interface D : éditeur de quizz complet (questions, options, timer, explication, branding sponsor). Validation Zod.
-
-### Phase 4 — IA génération de quizz (PR4)
-
-Module IA backend (appel Claude API, schéma JSON strict). Popin "Générer avec IA" dans l'éditeur D. Audit DB des générations.
-
-### Phase 5 — Sessions live cœur métier (PR5)
-
-Module sessions complet avec persistance. Modules players, player_answers. Logique de scoring serveur. Events Socket.io session multi-room multi-tenant. Interface C (console). Interface A (player NUC). Interface B (mobile).
-
-### Phase 6 — Reconnexion et robustesse (PR6)
-
-Resume_tokens et state_snapshot. Tests d'intégration des cas de coupure. Watchdog Chromium NUC. Heartbeat + monitoring NUC dans interface D.
-
-### Phase 7 — Lots et email (PR7)
-
-Module prizes. Envoi email via Nodemailer + SMTP OVH. QR code de réduction avec tracking. Template HTML email propre.
-
-### Phase 8 — Observabilité (PR8)
-
-Logs Pino structurés partout. Sentry frontend et backend. Dashboard de santé interface D. Events_log peuplé.
-
-### Phase 9 — Pilote terrain
-
-Provisioning d'un NUC réel. Installation chez le cinéma pilote. Runbook d'incident. Tests à blanc. Premier quizz live en conditions réelles.
-
-### Phase 10 (futur, hors MVP)
-
-Self-service annonceurs, multi-langues, app native, analytics avancés, marketplace.
+Les priorités, le backlog produit, les questions ouvertes business et la dette technique sont désormais suivis dans **`ROADMAP.md`** à la racine (source d'autorité pour ce qui reste à faire).
 
 ---
 
@@ -680,11 +666,11 @@ Self-service annonceurs, multi-langues, app native, analytics avancés, marketpl
 **En début de session Cursor / Claude Code :**
 
 ```
-Lis intégralement les fichiers PROJECT_REFERENCE.md et CURRENT_STATE.md à la racine du projet.
-PROJECT_REFERENCE.md fait autorité sur l'architecture cible et les conventions.
-CURRENT_STATE.md décrit l'existant qui sera réécrit (référence fonctionnelle, pas code à conserver).
+Lis intégralement PROJECT_REFERENCE.md (référence technique), APP_OVERVIEW.md (produit) et ROADMAP.md (priorités) à la racine du projet.
+PROJECT_REFERENCE.md fait autorité sur l'architecture et les conventions.
 Tu DOIS respecter les principes non négociables (section 2 du REFERENCE) et les conventions (section 6).
-Si tu vois un cas qu'ils ne couvrent pas, demande-moi avant d'inventer.
+Reste dans le périmètre de la tâche en cours ; note les idées hors périmètre dans ROADMAP.md (section Backlog).
+Si tu vois un cas que les docs ne couvrent pas, demande à Anzio avant d'inventer.
 ```
 
 **Pour une tâche spécifique :**

@@ -8,10 +8,10 @@ Monorepo Turborepo avec pnpm workspaces :
 
 ```
 apps/
-├── player/        → Écran cinéma (NUC)          → port 3001
-├── mobile/        → Interface joueur (téléphone) → port 3002
-├── console/       → Console projectionniste     → port 3003
-└── admin/         → Super-admin                 → port 3004
+├── player/        → Écran cinéma (NUC)
+├── mobile/        → Interface joueur (téléphone)
+├── console/       → Console projectionniste
+└── admin/         → Super-admin
 
 packages/
 ├── ui/            → Composants React partagés
@@ -22,6 +22,16 @@ packages/
 
 api/               → Backend Express + Socket.io + Prisma
 ```
+
+### Ports
+
+| Service | Dev (`pnpm dev`) | Prod (PM2, `ecosystem.config.js`) |
+| ------- | ---------------- | --------------------------------- |
+| api     | 3000             | 4000                              |
+| player  | 3001             | 4001                              |
+| mobile  | 3002             | 4002                              |
+| console | 3003             | 4003                              |
+| admin   | 3004             | 4004                              |
 
 ## Prérequis
 
@@ -84,6 +94,9 @@ Chaque namespace supporte un event de test `ping` → `pong` validé via Zod.
 
 ## Documentation
 
-- `PROJECT_REFERENCE.md` — Architecture cible et conventions
-- `MIGRATION_PLAN.md` — Plan d'exécution global
-- `CURRENT_STATE.md` — Audit du code existant
+- `APP_OVERVIEW.md` — Vue produit / stratégie
+- `PROJECT_REFERENCE.md` — Architecture et conventions (référence technique)
+- `ROADMAP.md` — Priorités, backlog produit et dette technique
+- `docs/nuc-deployment.md` — Déploiement et provisionnement des NUCs
+- `docs/runbook-cinema.md` — Runbook d'incident cinéma
+- `docs/archive/` — Historique de la réécriture v2 (plans, audits, résumés de PR)
