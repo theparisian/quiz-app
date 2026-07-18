@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import {
   type Icon,
+  ChartBar,
   FilmSlate,
   Gauge,
   EnvelopeSimple,
@@ -22,6 +23,7 @@ const NAV_ITEMS: { href: string; label: string; icon: Icon }[] = [
   { href: '/cinemas', label: 'Cinémas', icon: FilmSlate },
   { href: '/invitations', label: 'Invitations', icon: EnvelopeSimple },
   { href: '/quizzes', label: 'Quizz', icon: Question },
+  { href: '/reports', label: 'Rapports', icon: ChartBar },
   { href: '/ai/usage', label: 'IA', icon: Sparkle },
   { href: '/sponsors', label: 'Sponsors', icon: Megaphone },
   { href: '/avatars', label: 'Avatars', icon: Smiley },

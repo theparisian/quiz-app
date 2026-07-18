@@ -19,10 +19,18 @@ import {
 import { sessionsService } from './sessions.service.js';
 import { getOrchestrator } from './session-orchestrator.service.js';
 import { clearLobbyTimer } from './lobby-timer.service.js';
+import {
+  buildSessionReport,
+  listReportableSessions,
+  buildCinemaSessionsCsv,
+  resolveReportScope,
+  assertCinemaAccess,
+} from './session-report.service.js';
 
 const router = Router();
 
 const ADMIN_ROLES = ['super_admin', 'cinema_admin', 'projectionist'] as const;
+const REPORT_ROLES = ['super_admin', 'cinema_admin'] as const;
 
 function shapeSessionDetail(s: {
   id: bigint;
@@ -86,6 +94,33 @@ router.post('/', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
     }
 
     res.status(201).json(shapeSessionDetail(session));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/reports', requireAuth([...REPORT_ROLES]), async (req, res, next) => {
+  try {
+    const scope = resolveReportScope(req.user!);
+    const items = await listReportableSessions(scope);
+    res.json({ items });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:id/report', requireAuth([...REPORT_ROLES]), async (req, res, next) => {
+  try {
+    const id = BigInt(param(req, 'id'));
+    const session = await prisma.session.findUnique({
+      where: { id },
+      select: { screen: { select: { cinemaId: true } } },
+    });
+    if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
+    assertCinemaAccess(req.user!, session.screen.cinemaId);
+
+    const report = await buildSessionReport(id);
+    res.json(report);
   } catch (error) {
     next(error);
   }
@@ -369,6 +404,29 @@ sessionsNestedRouter.get(
         page: result.page,
         limit: result.limit,
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+sessionsNestedRouter.get(
+  '/cinemas/:slug/sessions/report.csv',
+  requireAuth([...REPORT_ROLES]),
+  async (req, res, next) => {
+    try {
+      const slug = param(req, 'slug');
+      const cinema = await prisma.cinema.findUnique({
+        where: { slug },
+        select: { id: true, slug: true },
+      });
+      if (!cinema) throw new AppError('Cinema not found', 404, 'CINEMA_NOT_FOUND');
+      assertCinemaAccess(req.user!, cinema.id);
+
+      const csv = await buildCinemaSessionsCsv(cinema.id);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="sessions-${cinema.slug}.csv"`);
+      res.send(csv);
     } catch (error) {
       next(error);
     }
