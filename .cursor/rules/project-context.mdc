@@ -1,27 +1,44 @@
 ---
-description: Contexte global du projet shh. À charger dans chaque conversation.
+description: Contexte global du projet Shh!. À charger dans chaque conversation.
 alwaysApply: true
 ---
 
-# Contexte du projet
+# Le projet
 
-Ce repo est en cours de réécriture from-scratch. Avant toute action, tu dois lire les fichiers suivants à la racine du projet, qui font autorité :
+**Shh!** est une plateforme multi-cinéma de quiz interactifs joués en live par le public d'une salle, affichés sur le grand écran en avant-séance, avec interaction via les téléphones des spectateurs.
 
-1. `PROJECT_REFERENCE.md` — architecture cible, conventions, principes non négociables. **Source de vérité**.
-2. `MIGRATION_PLAN.md` — plan d'exécution découpé en PRs.
-3. `CURRENT_STATE.md` — audit du code existant (référence fonctionnelle uniquement, pas du code à conserver).
+Monorepo Turborepo :
+
+- `api/` — Express + Socket.IO + Prisma/MySQL (REST + gateway temps réel).
+- `apps/player/` — écran cinéma sur NUC (grand écran).
+- `apps/mobile/` — joueur (téléphone).
+- `apps/console/` — projectionniste.
+- `apps/admin/` — super-admin.
+- `packages/` — code partagé (ui, socket-client, types, validation, design-tokens, observability).
+
+**Phase actuelle :** préparation du pilote terrain + itérations produit.
+
+# Sources d'autorité
+
+À lire en début de tâche, dans l'ordre :
+
+1. `PROJECT_REFERENCE.md` — référence technique (architecture, conventions, principes non négociables). **Source de vérité technique.**
+2. `APP_OVERVIEW.md` — vue produit / stratégie.
+3. `ROADMAP.md` — priorités, backlog produit et dette technique.
 
 # Règles strictes
 
-- Tu DOIS respecter les principes non négociables de la section 2 du `PROJECT_REFERENCE.md`.
-- Tu DOIS suivre les conventions de code de la section 6 du `PROJECT_REFERENCE.md`.
-- Tu NE TOUCHES PAS au code de l'ancien projet (fichiers `server.js`, `public/`, `config/`, `data/` à la racine). Le nouveau code va dans des dossiers neufs (`apps/`, `packages/`, `api/`).
-- Tu ne sors pas du périmètre de la PR en cours. Si tu identifies une bonne idée hors périmètre, note-la dans `IDEAS.md` mais n'implémente pas.
-- Tu ne committes jamais de secrets (`.env`, clés API, mots de passe).
-- En cas de doute sur un choix d'archi non couvert par les docs, tu demandes à Anzio avant d'inventer.
+- Tu DOIS respecter les principes non négociables et les conventions de code de `PROJECT_REFERENCE.md`.
+- Tu ne committes JAMAIS de secrets (`.env`, clés API, mots de passe).
+- Tu ne sors pas du périmètre de la tâche en cours. Si tu identifies une bonne idée hors périmètre, note-la dans `ROADMAP.md` (section Backlog) mais ne l'implémente pas.
+- En cas de doute sur un choix d'architecture non couvert par les docs, tu demandes à Anzio avant d'inventer.
+
+# Règle spéciale `deploy.yml`
+
+Toute modification de `.github/workflows/deploy.yml` doit **REMPLACER** les lignes concernées, jamais les dupliquer. Relis le diff intégral du fichier avant de committer.
 
 # Workflow
 
-- Une PR à la fois. Tu travailles sur la branche correspondante (ex: `rewrite/v2/pr-1-foundations`).
-- Tu commits régulièrement avec des messages clairs (ex: `feat(pr1): add prisma schema`).
-- À la fin d'une PR, tu génères un fichier `PRn_SUMMARY.md` à la racine résumant ce qui a été fait.
+- Une tâche à la fois, sur sa branche dédiée.
+- Tu commits régulièrement avec des messages clairs (ex: `feat(sessions): add auto-lobby timer`).
+- Pas de fichier de résumé de PR à générer : la description de la PR GitHub suffit.
