@@ -25,7 +25,15 @@ Le sponsor existe déjà en base (`sponsors`, `quizzes.sponsor_id`, branding) et
 
 ### 2) Rapport de session visuel côté super-admin
 
-Restituer visuellement le déroulé et les stats d'une session terminée (participation, scores, réponses par question, gagnants/lots) dans l'interface admin. **En cours, PR dédiée.**
+Restituer visuellement le déroulé et les stats d'une session terminée (participation, scores, réponses par question, gagnants/lots) dans l'interface admin. **Livré** : `GET /api/sessions/:id/report` (+ liste `/api/sessions/reports` et export `GET /api/cinemas/:slug/sessions/report.csv`), pages admin `Rapports` (liste filtrable + rapport détaillé « premium »).
+
+**Suites hors périmètre de la PR rapport (à prioriser plus tard)** :
+
+- Envoi automatique du rapport de session au cinéma par email.
+- Affichage d'un récapitulatif dans la console projectionniste (interface C).
+- Export PDF du rapport (le CSV couvre l'analyse externe, l'écran couvre le deck).
+- Comparaisons multi-sessions (évolution dans le temps, A/B de quiz).
+- Stats agrégées par sponsor (dashboard sponsor consolidé multi-sessions).
 
 ### 3) Fiabilisation du déploiement
 
