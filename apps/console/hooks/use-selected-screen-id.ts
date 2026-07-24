@@ -10,11 +10,6 @@ interface SessionScreenRef {
   screenId: string;
 }
 
-function screenIdFromSearchParams(): string | null {
-  if (typeof window === 'undefined') return null;
-  return new URLSearchParams(window.location.search).get('screenId');
-}
-
 export function useSelectedScreenId(): string | null {
   const pathname = usePathname();
   const { user } = useAuth();
@@ -22,7 +17,7 @@ export function useSelectedScreenId(): string | null {
 
   const screenFromPath = pathname.match(/^\/screens\/([^/]+)/)?.[1] ?? null;
   const sessionId = pathname.match(/^\/sessions\/([^/]+)/)?.[1];
-  const needsSessionLookup = !!sessionId && sessionId !== 'new';
+  const needsSessionLookup = !!sessionId;
   const fromActive = needsSessionLookup
     ? activeSessions?.find((s) => s.id === sessionId)
     : undefined;
@@ -38,10 +33,6 @@ export function useSelectedScreenId(): string | null {
   });
 
   if (screenFromPath) return screenFromPath;
-
-  if (pathname === '/sessions/new') {
-    return screenIdFromSearchParams();
-  }
 
   if (needsSessionLookup) {
     return fromActive?.screenId ?? data?.screenId ?? null;

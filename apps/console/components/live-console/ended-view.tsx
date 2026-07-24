@@ -6,10 +6,11 @@ import { SessionTop3Prizes } from './session-top3-prizes';
 
 interface EndedViewProps {
   sessionId: string;
-  screenId: string | null;
+  onExit: () => void;
+  exitLabel?: string;
 }
 
-export function EndedView({ sessionId, screenId }: EndedViewProps) {
+export function EndedView({ sessionId, onExit, exitLabel }: EndedViewProps) {
   const finalScoreboard = useLiveSessionStore((s) => s.finalScoreboard);
   const winnerPlayerId = useLiveSessionStore((s) => s.winnerPlayerId);
   const consolationPrizesClaimed = useLiveSessionStore((s) => s.consolationPrizesClaimed);
@@ -65,12 +66,13 @@ export function EndedView({ sessionId, screenId }: EndedViewProps) {
         >
           Voir le détail
         </Link>
-        <Link
-          href={screenId ? `/screens/${screenId}` : '/dashboard'}
+        <button
+          type="button"
+          onClick={onExit}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
-          Retour à la salle
-        </Link>
+          {exitLabel ?? 'Terminer'}
+        </button>
       </div>
     </div>
   );

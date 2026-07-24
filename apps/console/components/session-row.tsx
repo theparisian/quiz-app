@@ -39,13 +39,20 @@ function formatDate(iso: string) {
   });
 }
 
-export function SessionRow({ session }: { session: SessionListItem }) {
-  const href = isLive(session.state) ? `/sessions/${session.id}/live` : `/sessions/${session.id}`;
+export function SessionRow({
+  session,
+  screenId,
+}: {
+  session: SessionListItem;
+  screenId?: string;
+}) {
+  const href =
+    isLive(session.state) && screenId ? `/screens/${screenId}` : `/sessions/${session.id}`;
 
   return (
     <Link
       href={href}
-      className="grid grid-cols-[1fr_1fr_80px_110px] items-center gap-2 border-b px-4 py-3 text-sm hover:bg-gray-50"
+      className="grid grid-cols-[1fr_1fr_70px_100px] items-center gap-2 border-b px-4 py-3 text-sm hover:bg-gray-50"
     >
       <span className="text-gray-700">{formatDate(session.createdAt)}</span>
       <span className="truncate text-gray-700">{session.quizTitle}</span>
