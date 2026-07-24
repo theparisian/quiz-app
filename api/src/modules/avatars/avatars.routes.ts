@@ -51,7 +51,8 @@ function shapeLibrary(lib: {
   _count?: { avatars?: number; quizzes?: number };
 }) {
   const avatars = lib.avatars ?? [];
-  const hasDetailedAvatars = avatars.length > 0 && 'id' in avatars[0];
+  const firstAvatar = avatars[0];
+  const hasDetailedAvatars = firstAvatar !== undefined && 'id' in firstAvatar;
 
   return {
     id: lib.id.toString(),
