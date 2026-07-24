@@ -40,7 +40,12 @@ const STATE_COLOR: Record<string, string> = {
   aborted: 'bg-red-100 text-red-800',
 };
 
-export function LiveConsole({ sessionId, screenId, onExit, exitLabel }: LiveConsoleProps) {
+export function LiveConsole({
+  sessionId,
+  screenId,
+  onExit,
+  exitLabel = 'Terminer',
+}: LiveConsoleProps) {
   const queryClient = useQueryClient();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [abortModalOpen, setAbortModalOpen] = useState(false);
