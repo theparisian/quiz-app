@@ -46,7 +46,7 @@ export default function ScreenDetailPage() {
       </Link>
 
       {/* Mini dashboard de la salle : état & santé */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <div>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <span
@@ -110,7 +110,10 @@ export default function ScreenDetailPage() {
       {/* Split : gauche = console (launcher → live), droite = historique */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
-          <ScreenLivePanel screenId={screenId} liveSessionId={liveSession?.id ?? null} />
+          <h2 className="text-lg font-semibold text-gray-800">Session en cours</h2>
+          <div className="mt-3">
+            <ScreenLivePanel screenId={screenId} liveSessionId={liveSession?.id ?? null} />
+          </div>
         </section>
 
         <section>
