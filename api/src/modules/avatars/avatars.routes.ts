@@ -44,9 +44,15 @@ function shapeLibrary(lib: {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  avatars?: { id: bigint; imageUrl: string; label: string | null; position: number }[];
+  avatars?: (
+    | { imageUrl: string }
+    | { id: bigint; imageUrl: string; label: string | null; position: number }
+  )[];
   _count?: { avatars?: number; quizzes?: number };
 }) {
+  const avatars = lib.avatars ?? [];
+  const hasDetailedAvatars = avatars.length > 0 && 'id' in avatars[0];
+
   return {
     id: lib.id.toString(),
     slug: lib.slug,
@@ -57,7 +63,10 @@ function shapeLibrary(lib: {
     updatedAt: lib.updatedAt.toISOString(),
     avatarsCount: lib._count?.avatars,
     quizzesCount: lib._count?.quizzes,
-    ...(lib.avatars ? { avatars: lib.avatars.map(shapeAvatar) } : {}),
+    previewImageUrl: avatars[0]?.imageUrl ?? null,
+    ...(hasDetailedAvatars
+      ? { avatars: avatars.map((a) => shapeAvatar(a as Parameters<typeof shapeAvatar>[0])) }
+      : {}),
   };
 }
 

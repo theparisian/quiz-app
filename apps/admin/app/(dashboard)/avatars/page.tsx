@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Plus } from '@phosphor-icons/react';
+import { Plus, UserCircle } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
+import { resolveMediaUrl } from '../../../lib/media-url';
 
 interface AvatarLibraryRow {
   id: string;
@@ -15,6 +16,7 @@ interface AvatarLibraryRow {
   isActive: boolean;
   avatarsCount?: number;
   quizzesCount?: number;
+  previewImageUrl?: string | null;
 }
 
 interface ListResponse {
@@ -92,62 +94,56 @@ export default function AvatarLibrariesPage() {
 
       {isLoading ? (
         <p className="mt-6 text-gray-400">Chargement…</p>
+      ) : data?.items.length === 0 ? (
+        <p className="mt-6 rounded-lg border bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
+          Aucune bibliothèque. Créez-en une pour commencer.
+        </p>
       ) : (
-        <div className="mt-4 overflow-hidden rounded-lg border bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Bibliothèque
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Avatars
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  État
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Quizz
-                </th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {data?.items.map((lib) => (
-                <tr key={lib.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-medium text-gray-900">{lib.name}</div>
-                    <div className="text-xs text-gray-500">{lib.slug}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{lib.avatarsCount ?? 0}</td>
-                  <td className="px-4 py-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {data?.items.map((lib) => {
+            const preview = resolveMediaUrl(lib.previewImageUrl);
+            return (
+              <Link
+                key={lib.id}
+                href={`/avatars/${lib.slug}`}
+                className="group flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm transition-colors hover:border-blue-300 hover:shadow-md"
+              >
+                <div className="flex aspect-square items-center justify-center bg-gray-50 p-6">
+                  {preview ? (
+                    <img
+                      src={preview}
+                      alt=""
+                      className="aspect-square w-3/4 max-w-[160px] rounded-full border-4 border-white object-cover shadow-sm transition-transform group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex aspect-square w-3/4 max-w-[160px] items-center justify-center rounded-full border-4 border-white bg-gray-100 text-gray-300 shadow-sm">
+                      <UserCircle size={64} weight="duotone" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col border-t p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-gray-900 group-hover:text-blue-700">
+                      {lib.name}
+                    </h2>
                     <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                         lib.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                       }`}
                     >
                       {lib.isActive ? 'active' : 'inactive'}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{lib.quizzesCount ?? 0}</td>
-                  <td className="px-4 py-3 text-right text-sm">
-                    <Link
-                      href={`/avatars/${lib.slug}`}
-                      className="inline-flex items-center gap-1 text-blue-600 hover:underline"
-                    >
-                      Gérer
-                      <ArrowRight size={14} />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {data?.items.length === 0 && (
-            <p className="p-6 text-center text-sm text-gray-500">
-              Aucune bibliothèque. Créez-en une pour commencer.
-            </p>
-          )}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">{lib.slug}</p>
+                  <p className="mt-3 text-xs text-gray-500">
+                    {lib.avatarsCount ?? 0} avatar{(lib.avatarsCount ?? 0) !== 1 ? 's' : ''}
+                    {' · '}
+                    {lib.quizzesCount ?? 0} quizz
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

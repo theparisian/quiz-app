@@ -35,7 +35,14 @@ export const avatarsService = {
     return prisma.avatarLibrary.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { avatars: true, quizzes: true } } },
+      include: {
+        _count: { select: { avatars: true, quizzes: true } },
+        avatars: {
+          take: 1,
+          orderBy: { position: 'asc' },
+          select: { imageUrl: true },
+        },
+      },
     });
   },
 
