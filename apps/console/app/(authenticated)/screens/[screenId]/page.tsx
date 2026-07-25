@@ -2,7 +2,13 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ProjectorScreen, ArrowLeft, Users } from '@phosphor-icons/react';
+import {
+  Screencast,
+  ArrowLeft,
+  Users,
+  FrameCorners,
+  ClockCounterClockwise,
+} from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
 import { useSessionsByScreen } from '@/hooks/use-sessions';
@@ -54,7 +60,7 @@ export default function ScreenDetailPage() {
                 liveSession ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'
               }`}
             >
-              <ProjectorScreen size={24} weight="duotone" />
+              <Screencast size={24} weight="duotone" />
             </span>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{screen?.name ?? 'Salle'}</h1>
@@ -110,14 +116,20 @@ export default function ScreenDetailPage() {
       {/* Split : gauche = console (launcher → live), droite = historique */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
-          <h2 className="text-lg font-semibold text-gray-800">Session en cours</h2>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+            <FrameCorners size={20} weight="duotone" className="text-gray-500" />
+            Session en cours
+          </h2>
           <div className="mt-3">
             <ScreenLivePanel screenId={screenId} liveSessionId={liveSession?.id ?? null} />
           </div>
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-gray-800">Historique des sessions</h2>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+            <ClockCounterClockwise size={20} weight="duotone" className="text-gray-500" />
+            Historique des sessions
+          </h2>
 
           {isLoading ? (
             <p className="mt-4 text-gray-400">Chargement...</p>

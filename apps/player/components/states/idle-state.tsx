@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import { useNucStore } from '@/lib/stores/nuc-store';
 import { preloadBackground, playBackground } from '@/lib/audio';
 
-export default function IdleState() {
+interface IdleStateProps {
+  className?: string;
+}
+
+export default function IdleState({ className }: IdleStateProps) {
   const cinemaName = useNucStore((s) => s.cinemaName);
   const cinemaLogoUrl = useNucStore((s) => s.cinemaLogoUrl);
   const backgroundMusicUrl = useNucStore((s) => s.backgroundMusicUrl);
@@ -36,7 +40,7 @@ export default function IdleState() {
   }, [backgroundMusicUrl]);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-8">
+    <div className={`flex h-full flex-col items-center justify-center gap-8 ${className ?? ''}`}>
       {cinemaLogoUrl ? (
         <img
           src={cinemaLogoUrl}
@@ -49,7 +53,7 @@ export default function IdleState() {
         </div>
       )}
 
-      <div className="text-2xl text-gray-400">En attente de la prochaine session</div>
+      <div className="text-2xl text-gray-400">Votre séance démarrera dans quelques instants</div>
 
       <div className="mt-8 text-center">
         <div className="text-[clamp(48px,6vw,96px)] font-light tabular-nums">{time}</div>

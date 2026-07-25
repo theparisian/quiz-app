@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ProjectorScreen, Users } from '@phosphor-icons/react';
+import { Screencast, Users } from '@phosphor-icons/react';
 import { activeSessionByScreen, type ActiveSessionItem } from '@/hooks/use-active-sessions';
 
 interface SidebarScreen {
@@ -80,7 +80,7 @@ export function SidebarScreenList({
                 <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-blue-600" />
               )}
 
-              <ProjectorScreen
+              <Screencast
                 className={`mt-0.5 shrink-0 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`}
                 size={18}
                 weight={isSelected ? 'fill' : 'duotone'}

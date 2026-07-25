@@ -116,6 +116,10 @@ const config: Config = {
           '0%': { opacity: '1' },
           '100%': { opacity: '0' },
         },
+        'lobby-panel-in': {
+          '0%': { opacity: '0', transform: 'translateX(72px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
       },
       animation: {
         'glow-pulse': 'glow-pulse 1.5s ease-in-out infinite',
@@ -140,6 +144,7 @@ const config: Config = {
         'confetti-fall': 'confetti-fall 4s linear forwards',
         'correct-highlight': 'correct-highlight 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'content-fade-out': 'content-fade-out 0.5s ease-out forwards',
+        'lobby-panel-in': 'lobby-panel-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards',
       },
     },
   },

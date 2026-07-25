@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ProjectorScreen, Users, ArrowRight } from '@phosphor-icons/react';
+import { Screencast, Users, ArrowRight } from '@phosphor-icons/react';
 import type { ActiveSessionItem } from '@/hooks/use-active-sessions';
 
 interface ScreenCardProps {
@@ -63,7 +63,7 @@ export function ScreenCard({
               liveSession ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'
             }`}
           >
-            <ProjectorScreen size={22} weight="duotone" />
+            <Screencast size={22} weight="duotone" />
           </span>
           <h3 className="truncate text-lg font-semibold text-gray-900">{name}</h3>
         </div>
@@ -73,9 +73,7 @@ export function ScreenCard({
           }`}
           title={isOnline ? 'NUC connecté' : 'NUC hors ligne'}
         >
-          <span
-            className={`h-2 w-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}
-          />
+          <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
           {isOnline ? 'Online' : 'Offline'}
         </span>
       </div>

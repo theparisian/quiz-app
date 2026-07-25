@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProjectorScreen } from '@phosphor-icons/react';
+import { Screencast } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
 import { activeSessionByScreen, useActiveSessions } from '@/hooks/use-active-sessions';
@@ -28,7 +28,7 @@ export default function DashboardPage() {
   if (user.role === 'super_admin' && !cinemaSlug) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-        <ProjectorScreen className="text-gray-300" size={48} weight="duotone" />
+        <Screencast className="text-gray-300" size={48} weight="duotone" />
         <h1 className="mt-4 text-2xl font-bold text-gray-900">Console</h1>
         <p className="mt-2 max-w-sm text-sm text-gray-500">
           Connecté en super-admin. Sélectionne un cinéma depuis l&apos;interface admin pour accéder
@@ -49,7 +49,7 @@ export default function DashboardPage() {
   if (!screens || screens.length === 0) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-        <ProjectorScreen className="text-gray-300" size={48} weight="duotone" />
+        <Screencast className="text-gray-300" size={48} weight="duotone" />
         <h1 className="mt-4 text-2xl font-bold text-gray-900">Bienvenue</h1>
         <p className="mt-2 max-w-md text-sm text-gray-500">
           Aucune salle configurée pour ce cinéma.

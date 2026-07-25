@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Image as ImageIcon } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useLiveSession } from '@/hooks/use-live-session';
 import { useLiveSessionStore, type SessionFullResponse } from '@/lib/stores/live-session-store';
 import { LobbyView } from './lobby-view';
@@ -114,16 +116,32 @@ export function LiveConsole({
 
   const stateLabel = STATE_LABEL[state] ?? state.toUpperCase();
   const stateColor = STATE_COLOR[state] ?? 'bg-gray-100 text-gray-800';
+  const coverUrl = resolveMediaUrl(quiz?.coverImageUrl);
 
   return (
     <div className="rounded-xl border bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="min-w-0 truncate text-base font-bold text-gray-900">{quiz?.title}</h2>
-        <div className="flex shrink-0 items-center gap-2">
-          {slugShort && <span className="font-mono text-sm text-gray-500">{slugShort}</span>}
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stateColor}`}>
-            {stateLabel}
-          </span>
+      <div className="flex gap-4">
+        <div className="h-24 w-32 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+          {coverUrl ? (
+            <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-gray-300">
+              <ImageIcon size={32} weight="duotone" />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="min-w-0 truncate text-base font-bold text-gray-900">{quiz?.title}</h2>
+            <div className="flex shrink-0 items-center gap-2">
+              <SessionPrizesReminder />
+              {slugShort && <span className="font-mono text-sm text-gray-500">{slugShort}</span>}
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stateColor}`}>
+                {stateLabel}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -131,12 +149,10 @@ export function LiveConsole({
         <LiveConnectionBanner />
       </div>
 
-      <div className="mt-1">
-        <SessionPrizesReminder />
-      </div>
-
       {socketError && (
-        <div className="mt-3 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{socketError}</div>
+        <div className="mt-3 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">
+          {socketError}
+        </div>
       )}
 
       <div className="mt-4">

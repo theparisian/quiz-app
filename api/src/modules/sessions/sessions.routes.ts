@@ -165,6 +165,7 @@ router.get('/:id/full', requireAuth([...ADMIN_ROLES]), async (req, res, next) =>
         id: session.quiz.id.toString(),
         slug: session.quiz.slug,
         title: session.quiz.title,
+        coverImageUrl: session.quiz.coverImageUrl,
         questions: session.quiz.questions.map((q) => ({
           id: q.id.toString(),
           position: q.position,
