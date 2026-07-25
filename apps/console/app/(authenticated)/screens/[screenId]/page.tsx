@@ -2,13 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import {
-  Screencast,
-  ArrowLeft,
-  Users,
-  FrameCorners,
-  ClockCounterClockwise,
-} from '@phosphor-icons/react';
+import { Screencast, ArrowLeft, Users, Play, ClockCounterClockwise } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
 import { useSessionsByScreen } from '@/hooks/use-sessions';
@@ -117,7 +111,7 @@ export default function ScreenDetailPage() {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-            <FrameCorners size={20} weight="duotone" className="text-gray-500" />
+            <Play size={20} weight="regular" className="text-gray-500" />
             Session en cours
           </h2>
           <div className="mt-3">
