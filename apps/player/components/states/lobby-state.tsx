@@ -76,15 +76,15 @@ export default function LobbyState() {
 
       {/* Partie droite : panneau verre dépoli, neutre, qui s'adapte à n'importe quel fond. */}
       <aside className="custom-screen-lateral shadow-glass relative m-16 flex w-[26vw] min-w-[320px] max-w-[440px] flex-col items-center rounded-[2rem] border border-white/20 bg-white/[0.07] px-12 py-14 text-center ring-1 ring-inset ring-white/10 backdrop-blur-2xl lg:m-24">
-        <div className="flex w-[70%] flex-col items-center gap-7">
-          <div className="mb-6 flex flex-col items-center gap-3">
+        <div className="flex h-full w-[70%] flex-col justify-between">
+          <div className="flex flex-col items-center gap-3">
             <AppLogo className="h-14" variant="light" />
             <h1 className="text-[clamp(15px,1.3vw,22px)] font-bold leading-tight tracking-tight text-white/90 drop-shadow">
               C&apos;est l&apos;heure du quiz !
             </h1>
           </div>
 
-          <div className="relative flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-2">
               <PhoneIcon className="h-12 w-9 shrink-0 text-white/80" />
               <div className="text-left leading-[0.95]">
@@ -96,12 +96,44 @@ export default function LobbyState() {
             <div className="text-[clamp(28px,3.5vw,48px)] font-black tabular-nums leading-none tracking-[0.1em]">
               {slugShort}
             </div>
+
+            {lobbyPrizesEnabled && superPrize && (
+              <div className="w-full rounded-xl border border-yellow-400/40 bg-gradient-to-r from-yellow-500/20 to-amber-600/10 px-4 py-2.5">
+                <div className="text-sm font-bold tracking-wide text-yellow-300">
+                  🎰 Super lot ce soir : {superPrize.label}
+                </div>
+              </div>
+            )}
+
+            {lobbyPrizesEnabled && prizes?.all && (
+              <div className="w-full rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200">
+                🎁 Tous les joueurs gagnent : {prizes.all.label}
+              </div>
+            )}
+
+            {lobbyPrizesEnabled && !superPrize && hasPrizes && (
+              <div className="w-full rounded-xl bg-white/5 px-4 py-3">
+                <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/50">
+                  À gagner ce soir
+                </div>
+                <ul className="space-y-0.5 text-sm text-white/85">
+                  {RANK_META.map(({ key, medal }) => {
+                    const prize = prizes?.[key];
+                    if (!prize) return null;
+                    return (
+                      <li key={key}>
+                        {medal} {prize.label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
 
           <QrCode
             value={`${MOBILE_URL}/?s=${slugShort}`}
             size={160}
-            className="mb-6 mt-6 pb-8"
             caption={
               <>
                 Scannez le QR Code
@@ -111,39 +143,6 @@ export default function LobbyState() {
             }
             captionClassName="max-w-[14rem] text-center text-sm font-bold leading-tight text-gray-800"
           />
-
-          {lobbyPrizesEnabled && superPrize && (
-            <div className="w-full rounded-xl border border-yellow-400/40 bg-gradient-to-r from-yellow-500/20 to-amber-600/10 px-4 py-2.5">
-              <div className="text-sm font-bold tracking-wide text-yellow-300">
-                🎰 Super lot ce soir : {superPrize.label}
-              </div>
-            </div>
-          )}
-
-          {lobbyPrizesEnabled && prizes?.all && (
-            <div className="w-full rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200">
-              🎁 Tous les joueurs gagnent : {prizes.all.label}
-            </div>
-          )}
-
-          {lobbyPrizesEnabled && !superPrize && hasPrizes && (
-            <div className="w-full rounded-xl bg-white/5 px-4 py-3">
-              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/50">
-                À gagner ce soir
-              </div>
-              <ul className="space-y-0.5 text-sm text-white/85">
-                {RANK_META.map(({ key, medal }) => {
-                  const prize = prizes?.[key];
-                  if (!prize) return null;
-                  return (
-                    <li key={key}>
-                      {medal} {prize.label}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
         </div>
 
         {lobbyRemainingMs !== null && (
