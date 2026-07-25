@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { api } from '../../../../lib/api';
+import { PageHeader } from '../../../components/page-header';
+import { getNavItem } from '../../../../lib/nav-items';
 
 interface UsageBlock {
   generations: number;
@@ -104,10 +106,11 @@ export default function AiUsagePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Usage IA</h1>
-        <p className="mt-1 text-sm text-gray-500">Générations Claude et coûts estimés</p>
-      </div>
+      <PageHeader
+        icon={getNavItem('/ai/usage')!.icon}
+        title="Usage IA"
+        subtitle="Générations Claude et coûts estimés"
+      />
 
       {statsQ.data ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

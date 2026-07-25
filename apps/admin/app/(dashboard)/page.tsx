@@ -14,6 +14,8 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react';
 import { api } from '../../lib/api';
+import { PageHeader } from '../components/page-header';
+import { getNavItem } from '../../lib/nav-items';
 
 interface DashboardStats {
   cinemas: number;
@@ -221,10 +223,11 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">Vue d&apos;ensemble de la plateforme</p>
-        </div>
+        <PageHeader
+          icon={getNavItem('/')!.icon}
+          title="Dashboard"
+          subtitle="Vue d'ensemble de la plateforme"
+        />
         <span
           className={`rounded-full px-3 py-1 text-xs font-medium ${badge.className}`}
           title="Basé sur NUC hors ligne et journaux erreur / critique (7 derniers jours)"

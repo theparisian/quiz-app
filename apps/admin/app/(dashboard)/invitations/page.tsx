@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, XCircle } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
+import { PageHeader } from '../../components/page-header';
+import { getNavItem } from '../../../lib/nav-items';
 
 interface Invitation {
   id: string;
@@ -74,19 +76,20 @@ export default function InvitationsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Invitations</h1>
-          <p className="mt-1 text-sm text-gray-500">{data?.total ?? 0} invitation(s)</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <UserPlus size={16} weight="bold" />
-          Inviter un projectionniste
-        </button>
-      </div>
+      <PageHeader
+        icon={getNavItem('/invitations')!.icon}
+        title="Invitations"
+        subtitle={`${data?.total ?? 0} invitation(s)`}
+        actions={
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <UserPlus size={16} weight="bold" />
+            Inviter un projectionniste
+          </button>
+        }
+      />
 
       {showCreate && (
         <div className="mt-4 rounded-lg border bg-white p-4 shadow-sm">

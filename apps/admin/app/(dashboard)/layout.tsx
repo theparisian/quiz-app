@@ -3,31 +3,10 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import {
-  type Icon,
-  ChartBar,
-  FilmSlate,
-  Gauge,
-  EnvelopeSimple,
-  Megaphone,
-  Question,
-  SignOut,
-  Sparkle,
-  Smiley,
-} from '@phosphor-icons/react';
+import { SignOut } from '@phosphor-icons/react';
 import { AppLogo } from '@quiz-app/ui';
 import { useAuth } from '../../lib/auth';
-
-const NAV_ITEMS: { href: string; label: string; icon: Icon }[] = [
-  { href: '/', label: 'Dashboard', icon: Gauge },
-  { href: '/cinemas', label: 'Cinémas', icon: FilmSlate },
-  { href: '/invitations', label: 'Invitations', icon: EnvelopeSimple },
-  { href: '/quizzes', label: 'Quizz', icon: Question },
-  { href: '/reports', label: 'Rapports', icon: ChartBar },
-  { href: '/ai/usage', label: 'IA', icon: Sparkle },
-  { href: '/sponsors', label: 'Sponsors', icon: Megaphone },
-  { href: '/avatars', label: 'Avatars', icon: Smiley },
-];
+import { NAV_ITEMS } from '../../lib/nav-items';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();

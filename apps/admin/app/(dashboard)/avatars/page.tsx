@@ -7,6 +7,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, UserCircle } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 import { resolveMediaUrl } from '../../../lib/media-url';
+import { PageHeader } from '../../components/page-header';
+import { getNavItem } from '../../../lib/nav-items';
 
 interface AvatarLibraryRow {
   id: string;
@@ -47,20 +49,21 @@ export default function AvatarLibrariesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bibliothèques d&apos;avatars</h1>
-          <p className="mt-1 text-sm text-gray-500">{data?.items.length ?? 0} bibliothèque(s)</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <Plus size={16} weight="bold" />
-          Nouvelle bibliothèque
-        </button>
-      </div>
+      <PageHeader
+        icon={getNavItem('/avatars')!.icon}
+        title="Bibliothèques d'avatars"
+        subtitle={`${data?.items.length ?? 0} bibliothèque(s)`}
+        actions={
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus size={16} weight="bold" />
+            Nouvelle bibliothèque
+          </button>
+        }
+      />
 
       {showCreate && (
         <div className="mt-4 rounded-lg border bg-white p-4 shadow-sm">

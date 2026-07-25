@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, ChartBar } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
+import { PageHeader } from '../../components/page-header';
+import { getNavItem } from '../../../lib/nav-items';
 
 interface ReportableSession {
   id: string;
@@ -82,23 +84,21 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Rapports de session</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {filtered.length} session{filtered.length > 1 ? 's' : ''} terminée
-            {filtered.length > 1 ? 's' : ''}
-          </p>
-        </div>
-        {csvHref ? (
-          <a
-            href={csvHref}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Export CSV du cinéma
-          </a>
-        ) : null}
-      </div>
+      <PageHeader
+        icon={getNavItem('/reports')!.icon}
+        title="Rapports de session"
+        subtitle={`${filtered.length} session${filtered.length > 1 ? 's' : ''} terminée${filtered.length > 1 ? 's' : ''}`}
+        actions={
+          csvHref ? (
+            <a
+              href={csvHref}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Export CSV du cinéma
+            </a>
+          ) : undefined
+        }
+      />
 
       <div className="mt-5 flex flex-wrap gap-3">
         <select

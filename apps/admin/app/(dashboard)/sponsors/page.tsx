@@ -7,6 +7,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 import { resolveMediaUrl } from '../../../lib/media-url';
+import { PageHeader } from '../../components/page-header';
+import { getNavItem } from '../../../lib/nav-items';
 
 interface SponsorRow {
   id: string;
@@ -64,20 +66,21 @@ export default function SponsorsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sponsors</h1>
-          <p className="mt-1 text-sm text-gray-500">{data?.total ?? 0} sponsor(s)</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <Plus size={16} weight="bold" />
-          Créer un sponsor
-        </button>
-      </div>
+      <PageHeader
+        icon={getNavItem('/sponsors')!.icon}
+        title="Sponsors"
+        subtitle={`${data?.total ?? 0} sponsor(s)`}
+        actions={
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus size={16} weight="bold" />
+            Créer un sponsor
+          </button>
+        }
+      />
 
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <div className="relative w-full max-w-xs">
