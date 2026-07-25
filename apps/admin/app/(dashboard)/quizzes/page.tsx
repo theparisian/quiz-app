@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MagnifyingGlass, PencilSimple, Plus } from '@phosphor-icons/react';
+import { MagnifyingGlass, Image as ImageIcon, Plus } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
+import { resolveMediaUrl } from '../../../lib/media-url';
 
 interface QuizRow {
   id: string;
@@ -14,6 +15,7 @@ interface QuizRow {
   type: string;
   status: string;
   language: string;
+  coverImageUrl: string | null;
   createdAt: string;
   sponsor: { slug: string; name: string } | null;
   questionsCount: number;
@@ -37,6 +39,12 @@ const TYPE_OPTS = [
   { value: 'sponsored', label: 'Sponsorisé' },
   { value: 'custom', label: 'Custom' },
 ];
+
+const STATUS_STYLE: Record<string, { label: string; className: string }> = {
+  draft: { label: 'Brouillon', className: 'bg-yellow-100 text-yellow-800' },
+  published: { label: 'Publié', className: 'bg-green-100 text-green-800' },
+  archived: { label: 'Archivé', className: 'bg-gray-100 text-gray-600' },
+};
 
 function buildQuizzesQuery(params: {
   search: string;
@@ -218,54 +226,55 @@ export default function QuizzesPage() {
 
       {isLoading ? (
         <p className="mt-6 text-gray-400">Chargement…</p>
-      ) : (
-        <div className="mt-4 overflow-hidden rounded-lg border bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Titre
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Statut
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Type
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Sponsor
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                  Questions
-                </th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {data?.items.map((q) => (
-                <tr key={q.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{q.title}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{q.status}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{q.type}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{q.sponsor?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{q.questionsCount}</td>
-                  <td className="px-4 py-3 text-right text-sm">
-                    <Link
-                      href={`/quizzes/${q.slug}/edit`}
-                      className="inline-flex items-center gap-1 text-blue-600 hover:underline"
-                    >
-                      <PencilSimple size={14} />
-                      Éditer
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {data?.items.length === 0 && (
-            <p className="p-6 text-center text-sm text-gray-500">Aucun résultat.</p>
-          )}
+      ) : data && data.items.length > 0 ? (
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {data.items.map((q) => {
+            const coverUrl = resolveMediaUrl(q.coverImageUrl);
+            const statusStyle = STATUS_STYLE[q.status] ?? {
+              label: q.status,
+              className: 'bg-gray-100 text-gray-600',
+            };
+
+            return (
+              <Link
+                key={q.id}
+                href={`/quizzes/${q.slug}/edit`}
+                className="group overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:border-gray-300 hover:shadow-md"
+              >
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
+                  {coverUrl ? (
+                    <img
+                      src={coverUrl}
+                      alt=""
+                      className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-gray-300">
+                      <ImageIcon size={40} weight="duotone" />
+                    </div>
+                  )}
+                  <span
+                    className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle.className}`}
+                  >
+                    {statusStyle.label}
+                  </span>
+                </div>
+                <div className="p-3">
+                  <p className="line-clamp-2 text-sm font-semibold text-gray-900 group-hover:text-blue-600">
+                    {q.title}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+                    <span>{q.questionsCount} questions</span>
+                    <span className="capitalize">{q.type}</span>
+                    {q.sponsor && <span>{q.sponsor.name}</span>}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
+      ) : (
+        <p className="mt-6 text-center text-sm text-gray-500">Aucun résultat.</p>
       )}
     </div>
   );
