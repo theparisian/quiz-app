@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Socket } from 'socket.io-client';
@@ -10,6 +10,12 @@ import {
   parseDevPlayScreen,
   seedDevPlayScreen,
 } from '@/lib/dev-play-fixtures';
+import {
+  isDevPlayEnabled,
+  isDevPlayUnlocked,
+  tryUnlockFromQuery,
+} from '@/lib/dev-play-access';
+import { DevPlayGate } from '@/components/dev-play-gate';
 import LateWaitScreen from '@/components/late-wait-screen';
 import LobbyWaiting from '@/components/lobby-waiting';
 import QuestionScreen from '@/components/question-screen';
@@ -19,8 +25,6 @@ import PausedScreen from '@/components/paused-screen';
 import FinalScreen from '@/components/final-screen';
 import AbortedScreen from '@/components/aborted-screen';
 import { ScreenTransition } from '@/components/screen-transition';
-
-const IS_DEV = process.env.NODE_ENV === 'development';
 
 const DEV_SOCKET = { emit: () => undefined } as unknown as Socket;
 
@@ -53,24 +57,38 @@ function DevPlayContent() {
   const screen = useMemo(() => parseDevPlayScreen(params.get('screen')), [params]);
   const uiState = usePlayerStore((s) => s.uiState);
   const lateWaitTimerMs = usePlayerStore((s) => s.lateWaitTimerMs);
+  const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
-    if (!IS_DEV) return;
+    if (!isDevPlayEnabled()) return;
+    if (tryUnlockFromQuery(params.get('key'))) {
+      setUnlocked(true);
+      return;
+    }
+    setUnlocked(isDevPlayUnlocked());
+  }, [params]);
+
+  useEffect(() => {
+    if (!isDevPlayEnabled() || !unlocked) return;
     seedDevPlayScreen(screen);
-  }, [screen]);
+  }, [screen, unlocked]);
 
   useEffect(() => {
-    if (!IS_DEV) return;
+    if (!isDevPlayEnabled() || !unlocked) return;
     if (params.get('screen') === screen) return;
     router.replace(`/dev/play?screen=${screen}`);
-  }, [params, router, screen]);
+  }, [params, router, screen, unlocked]);
 
-  if (!IS_DEV) {
+  if (!isDevPlayEnabled()) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 text-center text-gray-400">
-        Mode démo indisponible en production.
+        Mode démo indisponible.
       </div>
     );
+  }
+
+  if (!unlocked) {
+    return <DevPlayGate onUnlock={() => setUnlocked(true)} />;
   }
 
   return (

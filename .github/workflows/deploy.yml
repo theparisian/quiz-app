@@ -52,6 +52,7 @@ jobs:
           NEXT_PUBLIC_SENTRY_DSN_CONSOLE: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN_CONSOLE }}
           NEXT_PUBLIC_SENTRY_DSN_PLAYER: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN_PLAYER }}
           NEXT_PUBLIC_SENTRY_DSN_MOBILE: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN_MOBILE }}
+          NEXT_PUBLIC_DEV_PLAY_PASSWORD: ${{ secrets.NEXT_PUBLIC_DEV_PLAY_PASSWORD }}
           SENTRY_ENVIRONMENT: ${{ secrets.SENTRY_ENVIRONMENT }}
           ADMIN_ALERT_EMAILS: ${{ secrets.ADMIN_ALERT_EMAILS }}
           HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
@@ -131,6 +132,7 @@ jobs:
             workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_CONSOLE "${NEXT_PUBLIC_SENTRY_DSN_CONSOLE:-}"
             workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_PLAYER "${NEXT_PUBLIC_SENTRY_DSN_PLAYER:-}"
             workflow_emit_optional_b64 NEXT_PUBLIC_SENTRY_DSN_MOBILE "${NEXT_PUBLIC_SENTRY_DSN_MOBILE:-}"
+            workflow_emit_optional_b64 NEXT_PUBLIC_DEV_PLAY_PASSWORD "${NEXT_PUBLIC_DEV_PLAY_PASSWORD:-}"
             workflow_emit_optional_b64 SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
             workflow_emit_optional_b64 ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
             workflow_emit_optional_b64 HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
@@ -196,6 +198,7 @@ jobs:
             workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_CONSOLE "${NEXT_PUBLIC_SENTRY_DSN_CONSOLE:-}"
             workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_PLAYER "${NEXT_PUBLIC_SENTRY_DSN_PLAYER:-}"
             workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_SENTRY_DSN_MOBILE "${NEXT_PUBLIC_SENTRY_DSN_MOBILE:-}"
+            workflow_emit_optional_decode_and_upsert NEXT_PUBLIC_DEV_PLAY_PASSWORD "${NEXT_PUBLIC_DEV_PLAY_PASSWORD:-}"
             workflow_emit_optional_decode_and_upsert SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
             workflow_emit_optional_decode_and_upsert ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
             workflow_emit_optional_decode_and_upsert HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
