@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useNucStore } from '@/lib/stores/nuc-store';
-import { preloadBackground, playBackground } from '@/lib/audio';
 
 interface IdleStateProps {
   className?: string;
@@ -11,7 +10,6 @@ interface IdleStateProps {
 export default function IdleState({ className }: IdleStateProps) {
   const cinemaName = useNucStore((s) => s.cinemaName);
   const cinemaLogoUrl = useNucStore((s) => s.cinemaLogoUrl);
-  const backgroundMusicUrl = useNucStore((s) => s.backgroundMusicUrl);
   const [time, setTime] = useState('');
   const [date, setDate] = useState('');
 
@@ -31,13 +29,6 @@ export default function IdleState({ className }: IdleStateProps) {
     const interval = setInterval(updateClock, 60_000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (backgroundMusicUrl) {
-      preloadBackground(backgroundMusicUrl);
-      playBackground();
-    }
-  }, [backgroundMusicUrl]);
 
   return (
     <div className={`flex h-full flex-col items-center justify-center gap-8 ${className ?? ''}`}>

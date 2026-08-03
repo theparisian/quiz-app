@@ -5,7 +5,7 @@ import {
   readLobbyPrizesEnabled,
   type AnswerDisplayStyle,
 } from '@quiz-app/design-tokens';
-import type { SessionPrizesDisplay } from '@quiz-app/validation';
+import type { ResolvedQuizAudio, SessionPrizesDisplay } from '@quiz-app/validation';
 
 export type NucUiState =
   | 'idle'
@@ -45,6 +45,17 @@ interface AnswerInfo {
   position: string;
   text: string;
 }
+
+/** Pseudo affiché brièvement quand un joueur répond. Une entrée = une occurrence. */
+export interface AnsweredFlash {
+  key: string;
+  playerId: string;
+  pseudo: string;
+  avatarUrl: string | null;
+}
+
+/** Au-delà, on laisse tomber les plus anciens : l'écran doit rester lisible. */
+const MAX_ANSWERED_FLASHES = 6;
 
 type QuizBackgroundMediaType = 'image' | 'video';
 
@@ -93,6 +104,9 @@ interface NucState {
   lobbyRemainingMs: number | null;
   scoreboard: ScoreEntry[];
   previousScoreboard: ScoreEntry[];
+  answeredFlashes: AnsweredFlash[];
+
+  audio: ResolvedQuizAudio | null;
 
   lastResults: {
     correctAnswerId: string | null;
@@ -130,6 +144,7 @@ interface NucState {
   applyEvent: (event: string, payload: Record<string, unknown>) => void;
   applySnapshot: (snap: Record<string, unknown>) => void;
   setConnectionStatus: (s: NucConnectionStatus) => void;
+  dismissAnsweredFlash: (key: string) => void;
   reset: () => void;
 }
 
@@ -147,6 +162,10 @@ const emptyQuizBackground: QuizBackgroundState = {
 
 function readPrizes(snap: Record<string, unknown>): SessionPrizesDisplay | null {
   return (snap.prizes as SessionPrizesDisplay | undefined) ?? null;
+}
+
+function readAudio(payload: Record<string, unknown>): ResolvedQuizAudio | null {
+  return (payload.audio as ResolvedQuizAudio | undefined) ?? null;
 }
 
 function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundState {
@@ -205,6 +224,9 @@ const initialState = {
   lobbyRemainingMs: null as number | null,
   scoreboard: [] as ScoreEntry[],
   previousScoreboard: [] as ScoreEntry[],
+  answeredFlashes: [] as AnsweredFlash[],
+
+  audio: null as ResolvedQuizAudio | null,
 
   lastResults: null as NucState['lastResults'],
   nextQuestionInMs: null as number | null,
@@ -243,6 +265,9 @@ export const useNucStore = create<NucState>((set, get) => ({
     }),
 
   setConnectionStatus: (s) => set({ connectionStatus: s }),
+
+  dismissAnsweredFlash: (key) =>
+    set({ answeredFlashes: get().answeredFlashes.filter((f) => f.key !== key) }),
 
   applySnapshot: (snap) => {
     const nuc = snap.nuc as
@@ -296,6 +321,8 @@ export const useNucStore = create<NucState>((set, get) => ({
         finalScoreboard: null,
         lastResults: null,
         prizes: null,
+        answeredFlashes: [],
+        audio: null,
         ...emptyQuizBackground,
       });
       return;
@@ -314,6 +341,8 @@ export const useNucStore = create<NucState>((set, get) => ({
       audioMuted,
       players,
       isPaused: session.state === 'paused',
+      audio: readAudio(snap),
+      answeredFlashes: [] as AnsweredFlash[],
     };
 
     if (session.state === 'lobby') {
@@ -453,6 +482,7 @@ export const useNucStore = create<NucState>((set, get) => ({
           uiState: 'lobby',
           totalQuestions: (payload.totalQuestions as number) ?? 0,
           lobbyRemainingMs: null,
+          audio: readAudio(payload) ?? state.audio,
           ...readQuizBackground(payload),
         });
         break;
@@ -507,6 +537,7 @@ export const useNucStore = create<NucState>((set, get) => ({
           answersSubmittedCount: 0,
           answersTotal: state.totalPlayers,
           previousScoreboard: state.scoreboard,
+          answeredFlashes: [],
         });
         break;
 
@@ -521,6 +552,21 @@ export const useNucStore = create<NucState>((set, get) => ({
         });
         break;
 
+      case 'session:player_answered': {
+        const playerId = payload.playerId as string;
+        const flash: AnsweredFlash = {
+          key: `${playerId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          playerId,
+          pseudo: (payload.pseudo as string) ?? '',
+          avatarUrl: (payload.avatarUrl as string | null) ?? null,
+        };
+        if (!flash.pseudo) break;
+        set({
+          answeredFlashes: [...state.answeredFlashes, flash].slice(-MAX_ANSWERED_FLASHES),
+        });
+        break;
+      }
+
       case 'session:question_ended': {
         const scoreboard = payload.scoreboard as ScoreEntry[];
         set({
@@ -532,6 +578,7 @@ export const useNucStore = create<NucState>((set, get) => ({
           },
           scoreboard,
           remainingMs: 0,
+          answeredFlashes: [],
         });
         break;
       }

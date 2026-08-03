@@ -3,6 +3,7 @@ import { sanitizeSvg } from './svg-sanitizer.js';
 
 export { createUploadMiddleware } from './multer-factory.js';
 export { sanitizeSvg } from './svg-sanitizer.js';
+export { sniffAudioMime } from './audio-sniffer.js';
 
 export interface UploadedFileShape {
   buffer: Buffer;

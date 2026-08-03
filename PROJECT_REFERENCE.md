@@ -253,6 +253,22 @@ Un joueur anonyme doit pouvoir terminer une partie et recevoir son lot par email
 - Affichage de l'avatar **devant le pseudo** partout où un pseudo apparaît : écran cinéma (A : lobby, scores, résultats finaux), mobile (B), console projectionniste (C).
 - Si les avatars sont désactivés sur la partie : comportement actuel inchangé (pas d'avatar).
 
+### 4.8 Audio de l'écran cinéma
+
+**Use case** : rythmer l'avant-séance par une bande-son (musiques de fond + effets ponctuels).
+
+**Principes non négociables** :
+
+- Le son sort **uniquement sur l'écran cinéma (interface A)**. Les téléphones des joueurs restent **toujours** silencieux.
+- Toute cue est décrite par un **slot** du registre `AUDIO_SLOTS` (`packages/validation/src/audio.ts`), source de vérité unique partagée API / admin / player. Ajouter un son = ajouter une entrée dans ce registre puis un `playSfx('<slot>')` dans le directeur audio du player ; le reste (DB, API, écran d'admin, résolution des URLs) est génarique et n'a pas à être touché.
+- L'audio est **non bloquant par construction** : un son supprimé, introuvable ou refusé par le navigateur retombe sur le son intégré au player puis sur le silence. **Aucune session ne doit échouer à cause de l'audio.**
+- Deux niveaux de stockage : des **bibliothèques de sons** réutilisables (interface D, menu _Audio_) et des **sons propres à un quiz** (onglet _Audio_ de l'éditeur), pour les cas non réutilisables.
+- Le contenu réel des fichiers uploadés est vérifié par **lecture de la signature binaire** (`sniffAudioMime`), le MIME déclaré par le navigateur n'étant pas fiable.
+- Slots musique (`lobbyMusic`, `gameMusic`, `scoresMusic`) : joués en boucle avec **fondu enchaîné** entre les phases. La case **« une seule musique, sans interruption »** fait jouer la piste du lobby du début à la fin, sans relance ni fondu.
+- Slots SFX : `questionStart`, `answerReveal` (rejoué à chaque réponse qui apparaît, calé sur `ANSWER_REVEAL_STAGGER_MS`), `lastSeconds` (calé sur `TIMER_URGENT_THRESHOLD_SEC`, donc synchrone avec l'animation du timer), `questionEnd`, `playerAnswered`, `final`.
+- Les volumes sont résolus **côté serveur** (volume du slot × volume général) et transmis au player en 0..1 : le player ne fait aucun calcul de mixage.
+- Quand un joueur répond, l'écran affiche son **pseudo éphémère** (arrivée par le bas, court affichage, disparition) synchronisé avec le SFX `playerAnswered`. L'event `session:player_answered` est diffusé **au seul namespace `/player`** et ne contient **jamais** la réponse choisie.
+
 ---
 
 ## 5. MODÈLE DE DONNÉES (MySQL via Prisma)
@@ -298,6 +314,8 @@ quizzes (gabarits réutilisables)
   lobby_background_overlay_opacity,
   branding_json (couleurs custom, logo si sponsorisé),
   prizes_config (JSON),
+  audio_config (JSON : enabled, continuousMusic, masterVolume,
+                slots { <slotKey>: { soundId, volume } }),
   status (draft|published|archived),
   avatars_enabled (bool, défaut false),
   avatar_library_id (nullable, FK avatar_libraries),
@@ -311,6 +329,16 @@ avatar_libraries (bibliothèques d'avatars prédéfinies par le super-admin)
 avatars (avatars d'une bibliothèque, PNG transparent carré 512x512)
   id, library_id (FK avatar_libraries), image_url, image_key (clé storage),
   label (nullable), position (ordre d'affichage), created_at
+
+sound_libraries (bibliothèques de sons réutilisables, gérées par le super-admin)
+  id, slug, name, description (nullable),
+  is_active (bool), created_at, updated_at
+
+sounds (un son appartient soit à une bibliothèque, soit à un quiz — jamais aux deux)
+  id, library_id (nullable, FK sound_libraries),
+  quiz_id (nullable, FK quizzes),
+  kind (music|sfx), audio_url, audio_key (clé storage),
+  label, mime_type, size_bytes, position, created_at, updated_at
 
 questions
   id, quiz_id, position (ordre), text, image_url (nullable),
@@ -487,6 +515,7 @@ Format `domain:action` snake_case :
 - `player:answer_ack` (serveur → mobile)
 - `player:resume`, `nuc:resume`, `console:resume`
 - `nuc:heartbeat`, `nuc:status_changed`
+- `session:player_answered` (serveur → `/player` uniquement : pseudo éphémère + SFX de l'écran cinéma)
 
 ### 7.4 Schéma des payloads
 

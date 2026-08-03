@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { quizAudioConfigSchema } from '@quiz-app/validation';
 
 const answerSchema = z.object({
   id: z.string().optional(),
@@ -45,6 +46,7 @@ export const saveFullEditSchema = z.object({
   lobbyBackgroundOverlayOpacity: z.number().int().min(0).max(100).optional(),
   avatarsEnabled: z.boolean().optional(),
   avatarLibraryId: z.string().nullable().optional(),
+  audioConfig: quizAudioConfigSchema.optional(),
   questions: z.array(questionSaveSchema),
 });
 
@@ -67,6 +69,7 @@ export const updateQuizSchema = createQuizSchema.partial().merge(
     lobbyBackgroundOverlayOpacity: z.number().int().min(0).max(100).optional(),
     avatarsEnabled: z.boolean().optional(),
     avatarLibraryId: z.string().nullable().optional(),
+    audioConfig: quizAudioConfigSchema.optional(),
   }),
 );
 

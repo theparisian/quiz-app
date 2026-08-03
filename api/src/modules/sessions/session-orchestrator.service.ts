@@ -6,6 +6,7 @@ import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { computeScore } from '../../shared/scoring/scoring.service.js';
 import { shapeQuizBackgroundPayload } from '../quizzes/quiz-background.js';
+import { resolveQuizAudioPayload } from '../quizzes/quiz-audio.js';
 import { assertTransition } from './session-state.service.js';
 import { resolvePrizeConfig } from '../prizes/prize-config.service.js';
 import { resolvePrizesPayload } from '../prizes/prize-display.service.js';
@@ -112,6 +113,12 @@ function broadcastToSession(sessionId: bigint, event: string, payload: unknown) 
   ioInstance.of('/player').to(room).emit(event, payload);
   ioInstance.of('/mobile').to(room).emit(event, payload);
   ioInstance.of('/console').to(room).emit(event, payload);
+}
+
+/** Réservé aux cues purement écran cinéma (audio, animations) : inutile ailleurs. */
+function broadcastToScreen(sessionId: bigint, event: string, payload: unknown) {
+  if (!ioInstance) return;
+  ioInstance.of('/player').to(`session:${sessionId}`).emit(event, payload);
 }
 
 function clearTimers(state: RunningSessionState) {
@@ -724,6 +731,7 @@ export function getOrchestrator() {
         sessionId: sessionId.toString(),
         totalQuestions: state.questions.length,
         quiz: shapeQuizBackgroundPayload(session.quiz),
+        audio: await resolveQuizAudioPayload(session.quiz),
       });
 
       broadcastToSession(sessionId, 'session:state_changed', {
@@ -939,7 +947,11 @@ export function getOrchestrator() {
 
       const player = await prisma.player.findUnique({
         where: { id: input.playerId },
-        select: { joinedQuestionPosition: true },
+        select: {
+          joinedQuestionPosition: true,
+          pseudo: true,
+          avatar: { select: { imageUrl: true } },
+        },
       });
       if (
         player?.joinedQuestionPosition != null &&
@@ -1013,6 +1025,15 @@ export function getOrchestrator() {
       broadcastToSession(input.sessionId, 'session:answer_submitted_count', {
         count: state.inMemoryAnswers.size,
         total: state.playerIds.size,
+      });
+
+      // Cue écran cinéma : pseudo éphémère + petit son. Jamais la réponse choisie,
+      // pour ne pas divulguer d'information avant la clôture de la question.
+      broadcastToScreen(input.sessionId, 'session:player_answered', {
+        playerId: input.playerId.toString(),
+        pseudo: player?.pseudo ?? '',
+        avatarUrl: player?.avatar?.imageUrl ?? null,
+        answeredCount: state.inMemoryAnswers.size,
       });
 
       return { timeToAnswerMs };

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { sessionPrizesDisplaySchema } from './prizes.js';
+import { resolvedQuizAudioSchema } from './audio.js';
 
 export const playerJoinStateSnapshotSchema = z.object({
   sessionState: z.string(),
@@ -34,6 +35,7 @@ export const nucStateSnapshotSchema = z
       .nullable()
       .optional(),
     prizes: sessionPrizesDisplaySchema.optional(),
+    audio: resolvedQuizAudioSchema.optional(),
   })
   .passthrough();
 

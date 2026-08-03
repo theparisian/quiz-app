@@ -14,6 +14,15 @@ const MIME_EXT: Record<string, string> = {
   'image/svg+xml': '.svg',
   'video/mp4': '.mp4',
   'video/webm': '.webm',
+  'audio/mpeg': '.mp3',
+  'audio/mp3': '.mp3',
+  'audio/ogg': '.ogg',
+  'audio/wav': '.wav',
+  'audio/x-wav': '.wav',
+  'audio/webm': '.weba',
+  'audio/mp4': '.m4a',
+  'audio/aac': '.aac',
+  'audio/flac': '.flac',
 };
 
 const EXT_MIME: Record<string, string> = {
@@ -24,6 +33,13 @@ const EXT_MIME: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.weba': 'audio/webm',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.flac': 'audio/flac',
 };
 
 function validateKeySegments(kind: string, id: string, filename: string): void {

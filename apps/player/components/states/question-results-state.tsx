@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useNucStore } from '@/lib/stores/nuc-store';
-import { playSound } from '@/lib/audio';
 import { ANSWER_COLORS } from '@quiz-app/design-tokens';
 import ScoreRow from '@/components/shared/score-row';
 import QuizBackground from '@/components/shared/quiz-background';
@@ -15,10 +14,6 @@ export default function QuestionResultsState() {
   const previousScoreboard = useNucStore((s) => s.previousScoreboard);
   const nextQuestionInMs = useNucStore((s) => s.nextQuestionInMs);
   const [countdown, setCountdown] = useState<number | null>(null);
-
-  useEffect(() => {
-    playSound('question-end');
-  }, [currentQuestionPosition]);
 
   useEffect(() => {
     if (!nextQuestionInMs) return;

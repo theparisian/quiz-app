@@ -15,3 +15,4 @@ export {
 } from './answer-display-style';
 export { readLateJoinQrEnabled } from './late-join-qr';
 export { readLobbyPrizesEnabled } from './lobby-prizes';
+export { TIMER_URGENT_THRESHOLD_SEC, TIMER_CRITICAL_THRESHOLD_SEC } from './timer';

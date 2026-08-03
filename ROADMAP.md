@@ -59,6 +59,18 @@ Quiz générés par IA puis validés manuellement, publiés en catalogue hebdoma
 
 Jonction sans friction : pseudo auto attribué immédiatement (éditable ensuite), pour maximiser le taux de participation. Ajouter un **classement du mois** par cinéma pour créer de la rétention multi-séances.
 
+### 9) Suites de l'audio écran cinéma
+
+Le socle audio est livré (bibliothèques de sons, sons propres au quiz, musiques lobby/partie/scores avec option sans interruption, SFX ouverture de question / apparition des réponses / dernières secondes / clôture / réponse d'un joueur / podium, pseudos éphémères à l'écran). Suites identifiées, hors périmètre de la PR audio :
+
+- Remplacer les trois sons intégrés placeholders de `apps/player/public/sounds/` par de vrais fichiers, ou les retirer du registre au profit du silence.
+- Prévisualisation du rendu sonore d'un quiz depuis l'admin (jouer la séquence complète sans lancer de session).
+- Ducking : baisser automatiquement la musique de fond pendant les SFX importants.
+- Points d'entrée/sortie de boucle par musique, pour les pistes qui ne bouclent pas proprement.
+- Normalisation du volume à l'upload (loudness), pour éviter les écarts entre sons d'origines différentes.
+- Réutilisation d'un son local à un quiz lors de la duplication (aujourd'hui les slots concernés sont vidés).
+- Contrôle du volume général depuis la console projectionniste (aujourd'hui seul le mute existe).
+
 ---
 
 ## 3. Questions ouvertes business

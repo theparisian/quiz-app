@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNucInit } from '@/hooks/use-nuc-init';
+import { useAudioDirector } from '@/hooks/use-audio-director';
 import { useNucStore } from '@/lib/stores/nuc-store';
+import AnsweredFlashes from '@/components/shared/answered-flashes';
 import IdleState from '@/components/states/idle-state';
 import LobbyState from '@/components/states/lobby-state';
 import QuestionState from '@/components/states/question-state';
@@ -17,6 +19,7 @@ const IDLE_FADE_MS = 500;
 
 export default function ScreenPage() {
   useNucInit();
+  useAudioDirector();
   const uiState = useNucStore((s) => s.uiState);
   const isPaused = useNucStore((s) => s.isPaused);
   const slugShort = useNucStore((s) => s.slugShort);
@@ -61,6 +64,7 @@ export default function ScreenPage() {
       {uiState === 'aborted' && <AbortedState />}
       {isPaused && <PausedOverlay />}
       {showLateJoinQr && <LateJoinQrBadge slugShort={slugShort} />}
+      <AnsweredFlashes />
     </div>
   );
 }

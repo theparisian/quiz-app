@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { sessionPrizesDisplaySchema } from './prizes.js';
+import { resolvedQuizAudioSchema } from './audio.js';
 
 // ─── Generic ──────────────────────────────────────────────
 
@@ -91,6 +92,7 @@ export const sessionStateChangedSchema = z.object({
 export const sessionStartedSchema = z.object({
   sessionId: z.string(),
   totalQuestions: z.number().int(),
+  audio: resolvedQuizAudioSchema.optional(),
 });
 
 export const sessionQuestionStartedSchema = z.object({
@@ -120,6 +122,14 @@ export const sessionLobbyTimerUpdateSchema = z.object({
 export const sessionAnswerSubmittedCountSchema = z.object({
   count: z.number().int(),
   total: z.number().int(),
+});
+
+/** Diffusé au seul namespace /player : alimente le pseudo éphémère + le SFX « joueur a répondu ». */
+export const sessionPlayerAnsweredSchema = z.object({
+  playerId: z.string(),
+  pseudo: z.string(),
+  avatarUrl: z.string().nullable().optional(),
+  answeredCount: z.number().int().optional(),
 });
 
 export const sessionQuestionEndedSchema = z.object({
@@ -260,6 +270,7 @@ export type SessionQuestionStartedPayload = z.infer<typeof sessionQuestionStarte
 export type SessionTimerUpdatePayload = z.infer<typeof sessionTimerUpdateSchema>;
 export type SessionLobbyTimerUpdatePayload = z.infer<typeof sessionLobbyTimerUpdateSchema>;
 export type SessionAnswerSubmittedCountPayload = z.infer<typeof sessionAnswerSubmittedCountSchema>;
+export type SessionPlayerAnsweredPayload = z.infer<typeof sessionPlayerAnsweredSchema>;
 export type SessionQuestionEndedPayload = z.infer<typeof sessionQuestionEndedSchema>;
 export type SessionNextQuestionInPayload = z.infer<typeof sessionNextQuestionInSchema>;
 export type SessionPausedPayload = z.infer<typeof sessionPausedSchema>;

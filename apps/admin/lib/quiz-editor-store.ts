@@ -6,9 +6,12 @@ import {
   type AnswerDisplayStyle,
 } from '@quiz-app/design-tokens';
 import {
+  defaultQuizAudioConfig,
   readLobbyTimerConfig,
+  readQuizAudioConfig,
   LOBBY_TIMER_DEFAULTS,
   type LobbyTimerConfig,
+  type QuizAudioConfig,
 } from '@quiz-app/validation';
 
 export type AnswerPos = 'A' | 'B' | 'C' | 'D';
@@ -69,6 +72,18 @@ export interface QuizApiDetail {
   lobbyBackgroundOverlayOpacity: number;
   avatarsEnabled: boolean;
   avatarLibraryId: string | null;
+  audioConfig?: unknown;
+  sounds?: {
+    id: string;
+    label: string;
+    kind: 'music' | 'sfx';
+    audioUrl: string;
+    mimeType: string;
+    sizeBytes: number;
+    position: number;
+    scope: 'library' | 'quiz';
+    createdAt: string;
+  }[];
   questions: {
     id: string;
     position: number;
@@ -148,6 +163,7 @@ export interface QuizEditorState {
   lobbyBackgroundOverlayOpacity: number;
   avatarsEnabled: boolean;
   avatarLibraryId: string | null;
+  audioConfig: QuizAudioConfig;
   questions: EditorQuestion[];
   expandedTempId: string | null;
   isDirty: boolean;
@@ -177,6 +193,7 @@ export interface QuizEditorState {
     lobbyBackgroundOverlayOpacity?: number;
     avatarsEnabled?: boolean;
     avatarLibraryId?: string | null;
+    audioConfig?: QuizAudioConfig;
   }) => void;
   addQuestion: () => void;
   updateQuestion: (
@@ -281,6 +298,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
   lobbyBackgroundOverlayOpacity: 0,
   avatarsEnabled: false,
   avatarLibraryId: null,
+  audioConfig: defaultQuizAudioConfig(),
   questions: [],
   expandedTempId: null,
   isDirty: false,
@@ -311,6 +329,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       lobbyBackgroundOverlayOpacity: api.lobbyBackgroundOverlayOpacity,
       avatarsEnabled: api.avatarsEnabled ?? false,
       avatarLibraryId: api.avatarLibraryId ?? null,
+      audioConfig: readQuizAudioConfig(api.audioConfig),
       questions: mapQuestionsFromApi(api),
       expandedTempId: null,
       isDirty: false,
@@ -479,6 +498,7 @@ export const useQuizEditorStore = create<QuizEditorState>((set, get) => ({
       lobbyBackgroundOverlayOpacity: s.lobbyBackgroundOverlayOpacity,
       avatarsEnabled: s.avatarsEnabled,
       avatarLibraryId: s.avatarLibraryId,
+      audioConfig: s.audioConfig,
       questions: ordered.map((q, idx) => ({
         id: q.id,
         position: idx,

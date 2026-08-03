@@ -1,10 +1,12 @@
 import { Prisma, type AnswerPosition, type QuizBackgroundMediaType } from '@prisma/client';
+import { readQuizAudioConfig, type QuizAudioConfig } from '@quiz-app/validation';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { extractKeyFromPublicUrl } from '../../shared/storage/storage-url.js';
 import type { StorageProvider } from '../../shared/storage/storage-provider.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
+import { audioService } from '../audio/audio.service.js';
 import type { CreateQuizInput, SaveFullEditInput, UpdateQuizInput } from './quizzes.schemas.js';
 
 function slugify(title: string): string {
@@ -72,6 +74,42 @@ async function ensureAvatarLibraryIfNeeded(id: bigint | null | undefined) {
   if (id == null) return;
   const lib = await prisma.avatarLibrary.findUnique({ where: { id } });
   if (!lib) throw new AppError('Avatar library not found', 404, 'AVATAR_LIBRARY_NOT_FOUND');
+}
+
+function referencedSoundIds(config: QuizAudioConfig): string[] {
+  return Object.values(config.slots)
+    .map((slot) => slot.soundId)
+    .filter((id): id is string => id !== null);
+}
+
+async function ensureAudioConfigUsable(
+  quizId: bigint,
+  config: QuizAudioConfig | undefined,
+): Promise<void> {
+  if (!config) return;
+  await audioService.assertSoundIdsUsableByQuiz(quizId, referencedSoundIds(config));
+}
+
+/**
+ * À la duplication, les sons de bibliothèque restent partagés mais les sons propres
+ * au quiz source ne le sont pas : leurs slots sont vidés plutôt que de pointer sur
+ * un fichier qui n'appartient pas à la copie.
+ */
+async function copyAudioConfigForDuplicate(sourceQuizId: bigint, raw: unknown) {
+  const config = readQuizAudioConfig(raw);
+  const localSounds = await prisma.sound.findMany({
+    where: { quizId: sourceQuizId },
+    select: { id: true },
+  });
+  if (localSounds.length > 0) {
+    const localIds = new Set(localSounds.map((s) => s.id.toString()));
+    for (const [key, slot] of Object.entries(config.slots)) {
+      if (slot.soundId && localIds.has(slot.soundId)) {
+        config.slots[key] = { ...slot, soundId: null };
+      }
+    }
+  }
+  return config as unknown as Prisma.InputJsonValue;
 }
 
 function collectPublishErrors(quiz: {
@@ -251,6 +289,7 @@ export const quizzesService = {
           include: { answers: true },
           orderBy: { position: 'asc' },
         },
+        sounds: { orderBy: [{ kind: 'asc' }, { position: 'asc' }] },
         _count: { select: { sessions: true } },
       },
     });
@@ -280,6 +319,7 @@ export const quizzesService = {
       'language',
       'avatarsEnabled',
       'avatarLibraryId',
+      'audioConfig',
     ]);
 
     if (quiz.status === 'published') {
@@ -301,8 +341,11 @@ export const quizzesService = {
     const avatarLibraryId = parseAvatarLibraryId(input.avatarLibraryId);
     if (avatarLibraryId !== undefined) await ensureAvatarLibraryIfNeeded(avatarLibraryId);
 
+    await ensureAudioConfigUsable(quiz.id, input.audioConfig);
+
     const data: Record<string, unknown> = {};
     if (input.title !== undefined) data.title = input.title;
+    if (input.audioConfig !== undefined) data.audioConfig = input.audioConfig;
     if (input.avatarsEnabled !== undefined) data.avatarsEnabled = input.avatarsEnabled;
     if (avatarLibraryId !== undefined) data.avatarLibraryId = avatarLibraryId;
     if (input.description !== undefined) data.description = input.description ?? null;
@@ -346,6 +389,8 @@ export const quizzesService = {
     const avatarLibraryId = parseAvatarLibraryId(payload.avatarLibraryId);
     if (avatarLibraryId !== undefined) await ensureAvatarLibraryIfNeeded(avatarLibraryId);
 
+    await ensureAudioConfigUsable(quizRow.id, payload.audioConfig);
+
     if (quizRow.status === 'published') {
       assertPublishedMetadataUnchanged(quizRow, payload);
       assertPublishedFullEditStructure(quizRow.questions, payload.questions);
@@ -377,6 +422,9 @@ export const quizzesService = {
       }
       if (avatarLibraryId !== undefined) {
         quizUpdate.avatarLibraryId = avatarLibraryId;
+      }
+      if (payload.audioConfig !== undefined) {
+        quizUpdate.audioConfig = payload.audioConfig as Prisma.InputJsonValue;
       }
       if (quizRow.status !== 'published') {
         quizUpdate.type = payload.type;
@@ -602,6 +650,7 @@ export const quizzesService = {
 
     const newTitle = `${quiz.title} (copie)`;
     const newSlug = await allocateUniqueQuizSlug(newTitle);
+    const duplicatedAudioConfig = await copyAudioConfigForDuplicate(quiz.id, quiz.audioConfig);
 
     await prisma.$transaction(async (tx) => {
       const dupe = await tx.quiz.create({
@@ -626,6 +675,7 @@ export const quizzesService = {
             quiz.brandingJson == null
               ? Prisma.JsonNull
               : (quiz.brandingJson as Prisma.InputJsonValue),
+          audioConfig: duplicatedAudioConfig,
           status: 'draft',
           aiGenerated: false,
           createdByUserId: userId,

@@ -16,6 +16,11 @@ import {
 import { quizzesService } from './quizzes.service.js';
 import { quizPrizesConfigService } from '../prizes/prize-catalog.service.js';
 import { updateQuizPrizesConfigBodySchema } from '../prizes/prizes.schemas.js';
+import { audioService } from '../audio/audio.service.js';
+import { soundUpload, storeUploadedSound } from '../audio/audio-upload.js';
+import { updateSoundSchema } from '../audio/audio.schemas.js';
+import { shapeSound, shapeSoundLibrary } from '../audio/audio.shapers.js';
+import { readQuizAudioConfig } from '@quiz-app/validation';
 
 const router = Router();
 
@@ -44,6 +49,14 @@ const questionImageUpload = createUploadMiddleware({
   maxSize: UPLOAD_MAX,
   allowedMimes: IMAGE_TYPES,
 });
+
+function parseSoundIdParam(raw: string): bigint {
+  try {
+    return BigInt(raw);
+  } catch {
+    throw new AppError('Invalid sound id', 400, 'INVALID_SOUND_ID');
+  }
+}
 
 function shapeSponsorLite(s: { id: bigint; slug: string; name: string; active: boolean } | null) {
   if (!s) return null;
@@ -154,6 +167,8 @@ function shapeQuizDetail(quiz: Awaited<ReturnType<typeof quizzesService.getBySlu
     lobbyBackgroundOverlayOpacity: quiz.lobbyBackgroundOverlayOpacity,
     avatarsEnabled: quiz.avatarsEnabled,
     avatarLibraryId: quiz.avatarLibraryId?.toString() ?? null,
+    audioConfig: readQuizAudioConfig(quiz.audioConfig),
+    sounds: quiz.sounds.map(shapeSound),
     avatarLibrary: quiz.avatarLibrary
       ? {
           id: quiz.avatarLibrary.id.toString(),
@@ -477,6 +492,60 @@ router.delete(
     }
   },
 );
+
+/** Sons sélectionnables pour ce quiz : bibliothèques actives + sons propres au quiz. */
+router.get('/:slug/sounds', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const quiz = await quizzesService.getBySlug(param(req, 'slug'));
+    const { libraries, quizSounds } = await audioService.listSelectableSounds(quiz.id);
+    res.json({
+      libraries: libraries.map((l) => shapeSoundLibrary(l)),
+      quizSounds: quizSounds.map(shapeSound),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:slug/sounds', requireAuth(['super_admin']), soundUpload, async (req, res, next) => {
+  try {
+    const slug = param(req, 'slug');
+    const quiz = await quizzesService.getBySlug(slug);
+    const params = await storeUploadedSound(req, quiz.slug);
+    await audioService.addQuizSound(quiz.id, params);
+    res.status(201).json(shapeQuizDetail(await quizzesService.getBySlug(slug)));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:slug/sounds/:soundId', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const slug = param(req, 'slug');
+    const quiz = await quizzesService.getBySlug(slug);
+    const soundId = parseSoundIdParam(param(req, 'soundId'));
+    if (!quiz.sounds.some((s) => s.id === soundId)) {
+      throw new AppError('Sound not found', 404, 'SOUND_NOT_FOUND');
+    }
+    const data = validate(updateSoundSchema, req.body);
+    await audioService.updateSound(soundId, data);
+    res.json(shapeQuizDetail(await quizzesService.getBySlug(slug)));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/:slug/sounds/:soundId', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const slug = param(req, 'slug');
+    const quiz = await quizzesService.getBySlug(slug);
+    const soundId = parseSoundIdParam(param(req, 'soundId'));
+    await audioService.removeSound(soundId, { quizId: quiz.id }, getStorage());
+    res.json(shapeQuizDetail(await quizzesService.getBySlug(slug)));
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get('/:slug', requireAuth(['super_admin']), async (req, res, next) => {
   try {

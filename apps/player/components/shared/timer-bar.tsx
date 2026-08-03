@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { TIMER_CRITICAL_THRESHOLD_SEC, TIMER_URGENT_THRESHOLD_SEC } from '@quiz-app/design-tokens';
 
 interface TimerBarProps {
   startedAt: number;
@@ -35,8 +36,8 @@ export default function TimerBar({ startedAt, totalMs }: TimerBarProps) {
     };
   }, [startedAt, totalMs]);
 
-  const isUrgent = remainingSec <= 5 && remainingSec > 0;
-  const isCritical = remainingSec <= 2 && remainingSec > 0;
+  const isUrgent = remainingSec <= TIMER_URGENT_THRESHOLD_SEC && remainingSec > 0;
+  const isCritical = remainingSec <= TIMER_CRITICAL_THRESHOLD_SEC && remainingSec > 0;
   const color = isCritical ? '#ef4444' : isUrgent ? '#f59e0b' : '#3b82f6';
   const dashOffset = CIRCUMFERENCE * (1 - progress);
 

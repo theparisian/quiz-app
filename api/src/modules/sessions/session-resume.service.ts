@@ -1,6 +1,7 @@
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { shapeQuizBackgroundPayload } from '../quizzes/quiz-background.js';
+import { resolveQuizAudioPayload } from '../quizzes/quiz-audio.js';
 import {
   getOrchestrator,
   getResultsDisplayMs,
@@ -438,6 +439,7 @@ export async function buildNucStateSnapshot(params: {
     session: baseSession,
     audioMuted: session.audioMuted,
     quiz: shapeQuizBackgroundPayload(session.quiz),
+    audio: await resolveQuizAudioPayload(session.quiz),
     players: players.map((p) => ({
       playerId: p.id.toString(),
       pseudo: p.pseudo,

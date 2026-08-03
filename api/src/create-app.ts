@@ -12,6 +12,7 @@ import { screensRouter } from './modules/screens/screens.routes.js';
 import { nucsRouter } from './modules/nucs/nucs.routes.js';
 import { sponsorsRouter } from './modules/sponsors/sponsors.routes.js';
 import { avatarsRouter } from './modules/avatars/avatars.routes.js';
+import { audioRouter } from './modules/audio/audio.routes.js';
 import { quizzesRouter } from './modules/quizzes/quizzes.routes.js';
 import { aiRouter } from './modules/ai/ai.routes.js';
 import { sessionsRouter, sessionsNestedRouter } from './modules/sessions/sessions.routes.js';
@@ -54,6 +55,7 @@ export function buildApp(): Express {
   app.use('/api', nucsRouter);
   app.use('/api/sponsors', sponsorsRouter);
   app.use('/api/avatar-libraries', avatarsRouter);
+  app.use('/api/sound-libraries', audioRouter);
   app.use('/api/quizzes', quizzesRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/dashboard', dashboardRouter);

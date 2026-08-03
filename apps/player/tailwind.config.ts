@@ -120,6 +120,13 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateX(72px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
         },
+        // Pseudo d'un joueur qui vient de répondre : monte, se montre, repart.
+        'answered-flash': {
+          '0%': { opacity: '0', transform: 'translateY(70px) scale(0.85)' },
+          '18%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+          '70%': { opacity: '1', transform: 'translateY(-6px) scale(1)' },
+          '100%': { opacity: '0', transform: 'translateY(-46px) scale(0.92)' },
+        },
       },
       animation: {
         'glow-pulse': 'glow-pulse 1.5s ease-in-out infinite',
@@ -145,6 +152,7 @@ const config: Config = {
         'correct-highlight': 'correct-highlight 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'content-fade-out': 'content-fade-out 0.5s ease-out forwards',
         'lobby-panel-in': 'lobby-panel-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'answered-flash': 'answered-flash 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards',
       },
     },
   },

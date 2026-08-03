@@ -5,6 +5,7 @@ import {
   FilmSlate,
   Gauge,
   Megaphone,
+  MusicNotes,
   SealQuestion,
   Smiley,
   Sparkle,
@@ -21,6 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/ai/usage', label: 'IA', icon: Sparkle },
   { href: '/sponsors', label: 'Sponsors', icon: Megaphone },
   { href: '/avatars', label: 'Avatars', icon: Smiley },
+  { href: '/audio', label: 'Audio', icon: MusicNotes },
 ];
 
 export function getNavItem(href: string): NavItem | undefined {

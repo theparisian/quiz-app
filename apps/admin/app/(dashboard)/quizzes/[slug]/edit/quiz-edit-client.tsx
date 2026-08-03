@@ -38,6 +38,7 @@ import { AiGenerateModal } from '../../../../components/ai-generate-modal';
 import type { AnswerPos, QuizApiDetail } from '../../../../../lib/quiz-editor-store';
 import { resolveMediaUrl } from '../../../../../lib/media-url';
 import { buildQuizSavePayload, useQuizEditorStore } from '../../../../../lib/quiz-editor-store';
+import { QuizAudioTab } from './quiz-audio-tab';
 import { QuizDesignTab } from './quiz-design-tab';
 import { QuizPrizesTab } from './quiz-prizes-tab';
 
@@ -89,13 +90,13 @@ function SortableQRow(props: {
   );
 }
 
-type EditTab = 'settings' | 'questions' | 'design' | 'music' | 'prizes';
+type EditTab = 'settings' | 'questions' | 'design' | 'audio' | 'prizes';
 
 const EDIT_TABS: { id: EditTab; label: string }[] = [
   { id: 'settings', label: 'Paramètres' },
   { id: 'questions', label: 'Questions' },
   { id: 'design', label: 'Design' },
-  { id: 'music', label: 'Musique' },
+  { id: 'audio', label: 'Audio' },
   { id: 'prizes', label: 'Lots' },
 ];
 
@@ -566,15 +567,7 @@ export function QuizEditClient({ slug }: { slug: string }) {
         <QuizDesignTab slug={slug} readOnly={readOnly} markSaved={markSaved} />
       )}
 
-      {activeTab === 'music' && (
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-800">Musique</h2>
-          <p className="mt-3 text-sm text-gray-600">
-            La musique d&apos;ambiance est configurée au niveau du cinéma (fichier MP3 sur le NUC).
-            La personnalisation musicale par quiz sera disponible prochainement.
-          </p>
-        </div>
-      )}
+      {activeTab === 'audio' && <QuizAudioTab slug={slug} readOnly={readOnly} />}
 
       {activeTab === 'prizes' && <QuizPrizesTab slug={slug} sponsorId={sponsorId} />}
 

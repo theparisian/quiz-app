@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useNucStore } from '@/lib/stores/nuc-store';
-import { pauseBackground, playSound } from '@/lib/audio';
 import { ANSWER_COLORS } from '@quiz-app/design-tokens';
 import AnswerCard from '@/components/shared/answer-card';
 import QuizBackground from '@/components/shared/quiz-background';
@@ -33,8 +32,6 @@ export default function QuestionState() {
 
   useEffect(() => {
     if (uiState === 'question') {
-      pauseBackground();
-      playSound('question-start');
       setPhase((prev) => {
         if (prev === 'split_done') return 'question';
         if (prev === 'split' || prev === 'split_fade_out') return 'split_fade_out';
@@ -46,7 +43,6 @@ export default function QuestionState() {
       } else {
         setPhase('reveal');
       }
-      playSound('question-end');
     }
   }, [uiState, currentQuestionPosition, currentQuestion, lastResults]);
 

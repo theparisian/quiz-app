@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { useNucStore } from '@/lib/stores/nuc-store';
-import { playSound, playBackground } from '@/lib/audio';
 import PlayerAvatar from '@/components/shared/player-avatar';
 import ConfettiBurst from '@/components/shared/confetti-burst';
 
@@ -78,11 +77,8 @@ export default function FinalResultsState() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    playSound('final');
-    const musicTimer = setTimeout(() => playBackground(), 5000);
     timerRef.current = setTimeout(() => reset(), 60_000);
     return () => {
-      clearTimeout(musicTimer);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [reset]);
