@@ -15,6 +15,7 @@ Tu vas aider à faire évoluer **Shh!**, une application de quiz live joué en s
 2. **Respecter les principes non négociables** (section 2). Ils priment sur toute considération de "code propre" ou de "best practice générique".
 3. **Demander avant de t'écarter.** Si tu vois un cas non couvert, propose à Anzio plutôt que d'inventer.
 4. **Rester dans le périmètre de la tâche en cours.** Les priorités et le backlog sont dans `ROADMAP.md` ; la vue produit/stratégie dans `APP_OVERVIEW.md`.
+5. **Respecter le workflow de livraison (§6.6).** Le travail est commité et poussé sur `master`, et il est validé sur le VPS, jamais en local. Ne propose jamais un plan de test qui suppose un environnement local qui tourne.
 
 ---
 
@@ -486,6 +487,19 @@ ai_generations (audit des générations IA)
 - Intégration sur les flux Socket.io critiques.
 - Pas de course au coverage. Tester ce qui est risqué.
 - Vitest partout.
+- Les tests qui touchent la base ne tournent pas sur le poste de dev (pas de MySQL local) : ils sont validés par la CI et sur le VPS. Un test unitaire utile doit donc rester exécutable sans base.
+
+### 6.6 Workflow de développement et de validation
+
+**Branche unique : `master`.** Tant que le projet est mené par une seule personne, tout est commité et poussé directement sur `master`. Pas de branche de feature, pas de pull request : en cas de problème, on revient en arrière avec un `git revert` du commit fautif. Les commits doivent donc rester petits, cohérents et clairement nommés, parce que le commit est la seule unité de rollback.
+
+**Aucun test en local.** Le porteur du projet change souvent de poste de travail : il n'y a ni base MySQL, ni environnement complet sur la machine de dev. La validation fonctionnelle se fait **uniquement sur le VPS**, après déploiement. Concrètement, pour toute IA travaillant sur le projet :
+
+- Ne jamais conclure une tâche par « lance `pnpm dev` et teste » : ce n'est pas possible.
+- Ce qui est vérifiable en local et doit l'être avant de pousser : `typecheck`, `lint`, `build`, et les tests unitaires sans base.
+- Ce qui est vérifiable seulement sur le VPS : parcours complet, Socket.io, uploads, migrations, rendu NUC. La fin de tâche doit donc décrire **quoi regarder sur le VPS**, pas comment lancer le projet en local.
+
+**Déploiement.** Un push sur `master` déclenche `.github/workflows/deploy.yml` : SSH sur le VPS, `pnpm install`, `db:generate`, `turbo build`, `db:migrate:deploy` puis `pm2 startOrReload`. Les migrations Prisma sont donc appliquées automatiquement — il ne faut jamais demander de les lancer à la main. Le déploiement peut aussi être rejoué sur une branche précise via `workflow_dispatch`.
 
 ---
 

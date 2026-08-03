@@ -39,6 +39,10 @@ Toute modification de `.github/workflows/deploy.yml` doit **REMPLACER** les lign
 
 # Workflow
 
-- Une tâche à la fois, sur sa branche dédiée.
-- Tu commits régulièrement avec des messages clairs (ex: `feat(sessions): add auto-lobby timer`).
-- Pas de fichier de résumé de PR à générer : la description de la PR GitHub suffit.
+- Une tâche à la fois, commitée et poussée **directement sur `master`**. Pas de branche de feature, pas de PR : le rollback se fait par `git revert` du commit fautif.
+- Tu commits régulièrement avec des messages clairs (ex: `feat(sessions): add auto-lobby timer`). Le commit étant l'unité de rollback, il doit rester petit et cohérent.
+- Pas de fichier de résumé de PR à générer.
+- **Anzio ne teste jamais en local** (il change souvent de poste, pas de MySQL ni d'environnement complet sur sa machine). Il valide toujours sur le VPS après déploiement.
+  - Avant de pousser, tu vérifies ce qui est vérifiable sans base : `typecheck`, `lint`, `build`, tests unitaires autonomes.
+  - Tu ne proposes JAMAIS « lance le projet en local et teste ». Tu termines en indiquant quoi vérifier sur le VPS.
+  - Le push sur `master` déclenche le déploiement, migrations Prisma incluses (`db:migrate:deploy`) : ne demande jamais de lancer une migration à la main.
