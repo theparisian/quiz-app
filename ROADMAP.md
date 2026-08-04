@@ -12,6 +12,8 @@ Checklist bloquante avant la première installation en salle réelle :
 - [ ] Provisionnement d'un NUC physique réel + installation chez le cinéma pilote.
 - [ ] Compléter les `[À COMPLÉTER]` de la doc : cinéma pilote, URL/instance d'hébergement prod, contacts du runbook (`docs/runbook-cinema.md`).
 - [ ] Configuration des secrets prod : SMTP, Sentry DSN, `PRIZE_HMAC_SECRET`, etc.
+- [ ] **Rotation complète des secrets suite à la compromission du VPS d'août 2026** (`JWT_SECRET`, `SESSION_SECRET`, `PRIZE_HMAC_SECRET`, mot de passe MySQL + `DATABASE_URL`, `SMTP_PASS`, `ANTHROPIC_API_KEY`, `HEALTH_CHECK_TOKEN`). Le serveur a été reconstruit mais le déploiement réinjecte les valeurs d'avant l'intrusion : elles restent exploitables. Procédure et ordre de priorité dans `PROJECT_REFERENCE.md` §8.3.
+- [ ] Audit post-incident : table `users` (comptes ou rôles ajoutés), dossier d'uploads (servi en statique, donc public), et arbitrage RGPD sur la notification CNIL (la base contient des emails de gagnants et des pseudos).
 
 ---
 
@@ -70,6 +72,17 @@ Le socle audio est livré (bibliothèques de sons, sons propres au quiz, musique
 - Normalisation du volume à l'upload (loudness), pour éviter les écarts entre sons d'origines différentes.
 - Réutilisation d'un son local à un quiz lors de la duplication (aujourd'hui les slots concernés sont vidés).
 - Contrôle du volume général depuis la console projectionniste (aujourd'hui seul le mute existe).
+
+### 10) Durcissement et cloisonnement du VPS
+
+Suite de l'incident d'août 2026 (n8n exposé sans authentification, serveur détourné pour une attaque DDoS sortante, VPS coupé par l'hébergeur). Les règles à respecter sont écrites dans `PROJECT_REFERENCE.md` §8.2 ; restent à mettre en œuvre :
+
+- **Sortir n8n du VPS de prod**, ou l'isoler strictement : utilisateur système dédié, binding `127.0.0.1`, aucun secret partagé avec le quiz. Aujourd'hui une faille dans l'un donne accès à l'autre.
+- Vérifier et figer la configuration `ufw` (`default deny incoming`, seuls 22/80/443 ouverts), en tenant compte du fait que Docker contourne `ufw` via `iptables`.
+- Script d'audit de la surface exposée (`ss -tlnp` + `ufw status`) à lancer manuellement ou en tâche planifiée, avec alerte si un port inattendu écoute sur `0.0.0.0`.
+- Sauvegardes vérifiées **hors VPS** : l'incident a montré que les dumps MySQL quotidiens et les uploads médias vivent sur la machine compromise.
+- Séparer l'utilisateur de déploiement GitHub Actions des droits `root`, et restreindre sa clé aux commandes nécessaires.
+- Mise à jour automatique des paquets de sécurité (`unattended-upgrades`).
 
 ---
 

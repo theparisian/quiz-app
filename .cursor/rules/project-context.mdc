@@ -30,6 +30,7 @@ Monorepo Turborepo :
 
 - Tu DOIS respecter les principes non négociables et les conventions de code de `PROJECT_REFERENCE.md`.
 - Tu ne committes JAMAIS de secrets (`.env`, clés API, mots de passe).
+- Tu n'exposes JAMAIS un service sur `0.0.0.0` sans authentification forte, et tu ne proposes pas d'installer un outil d'administration accessible publiquement. Le VPS a déjà été compromis par une instance n8n exposée sans auth (cf. `PROJECT_REFERENCE.md` §8.2). Par défaut : binding `127.0.0.1` + tunnel SSH.
 - Tu ne sors pas du périmètre de la tâche en cours. Si tu identifies une bonne idée hors périmètre, note-la dans `ROADMAP.md` (section Backlog) mais ne l'implémente pas.
 - En cas de doute sur un choix d'architecture non couvert par les docs, tu demandes à Anzio avant d'inventer.
 

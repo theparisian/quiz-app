@@ -559,6 +559,8 @@ const QuestionShowPayload = z.object({
 
 ## 8. SÉCURITÉ
 
+### 8.1 Sécurité applicative
+
 - HTTPS partout, même en dev sur les flux Socket.io de prod.
 - Secrets jamais committés. Variables d'env + GitHub Actions secrets.
 - Rate limiting (express-rate-limit) sur join session, magic link, AI generation.
@@ -567,6 +569,44 @@ const QuestionShowPayload = z.object({
 - NUC ne fait JAMAIS d'appel hors backend de l'app.
 - Audit régulier des dépendances.
 - Auth mutuelle NUC ↔ serveur : clé d'auth générée à l'install, stockée localement.
+
+### 8.2 Sécurité réseau et exposition de services
+
+> **Ces règles viennent d'un incident réel (août 2026).** Une instance n8n installée sur le VPS de prod, exposée publiquement et sans authentification, a permis l'exécution de commandes arbitraires sur le serveur. La machine a été détournée pour émettre une attaque DDoS sortante, et l'hébergeur a coupé le VPS : les quatre interfaces sont tombées. L'application elle-même n'était pas en cause — c'est un service voisin, installé « pour tester », qui a ouvert la porte.
+
+**1. Pare-feu actif sur tout serveur de prod.** `ufw` en `default deny incoming`, et uniquement les ports strictement nécessaires ouverts explicitement (typiquement 22, 80, 443). _Pourquoi :_ sans pare-feu, tout service qui écoute devient joignable depuis internet à la seconde où il démarre, souvent sans que personne l'ait décidé. Avant d'installer quoi que ce soit, la question à se poser est : « ce port doit-il vraiment être joignable depuis internet, ou seulement en local ? »
+
+**2. Aucun outil d'administration exposé publiquement sans authentification forte.** Cela vaut pour n8n, phpMyAdmin, les dashboards de monitoring, les interfaces internes. Par défaut on binde sur `127.0.0.1` et on y accède par tunnel SSH (`ssh -L 5678:127.0.0.1:5678 user@serveur`). L'exposition publique n'est acceptable qu'avec une authentification robuste devant (`auth_basic` nginx, OAuth, VPN). _Pourquoi :_ ces outils sont conçus pour exécuter des actions privilégiées ; un accès anonyme à l'un d'eux équivaut à un shell root.
+
+**3. Docker : toujours préfixer les bindings de port par `127.0.0.1`** quand le service ne doit pas être public — `-p 127.0.0.1:3001:3000` et non `-p 3001:3000`. _Pourquoi :_ la forme courte binde sur `0.0.0.0`, et Docker écrit ses propres règles directement dans `iptables`, en amont de `ufw` : un conteneur peut donc être exposé à internet alors que `ufw status` affiche le port comme fermé.
+
+**4. Un service installé « pour tester vite fait » doit être retiré tout de suite après le test**, ou sécurisé et documenté comme les autres. _Pourquoi :_ c'est exactement le scénario de l'incident. Un service temporaire ne fait l'objet d'aucune mise à jour et disparaît de la mémoire, mais reste exposé indéfiniment.
+
+**5. Vérification périodique de la surface exposée.** Deux commandes suffisent :
+
+```bash
+sudo ss -tlnp            # tout ce qui écoute, et quel process
+sudo ufw status verbose   # règles de filtrage réellement actives
+```
+
+Tout port en `LISTEN` sur `0.0.0.0` ou `*` sans règle `ufw` correspondant précisément à un besoin identifié doit être questionné, puis rebindé sur `127.0.0.1` ou fermé.
+
+**6. Signal d'alerte à connaître.** Si l'hébergeur place le VPS en _rescue mode_ avec un mail mentionnant du trafic sortant anormal (amplification DNS, NTP, memcached, DDoS), la cause la plus probable est un service exposé sans authentification et détourné pour attaquer un tiers — **pas** une intrusion par mot de passe SSH. Il faut donc inspecter en priorité les services exposés et les interfaces d'administration, avant de perdre du temps dans les logs d'authentification SSH.
+
+### 8.3 Réponse à une compromission du serveur
+
+Un accès non autorisé au VPS donne accès au `.env` de prod. Tous les secrets qu'il contient sont alors à considérer comme divulgués, **y compris après reconstruction de la machine** : le déploiement réinjecte les mêmes valeurs depuis les secrets GitHub. La remise en service n'est donc pas terminée tant que la rotation n'est pas faite.
+
+Ordre de rotation, du plus grave au moins grave :
+
+1. `JWT_SECRET` et `SESSION_SECRET` — permettent de forger une session super-admin sans mot de passe.
+2. `PRIZE_HMAC_SECRET` — permet de fabriquer des liens de récupération de lots valides.
+3. `DATABASE_URL` — contient le mot de passe MySQL (changer aussi le mot de passe côté base).
+4. `SMTP_PASS` — permet d'envoyer du mail depuis le domaine, avec le risque de réputation associé.
+5. `ANTHROPIC_API_KEY` — clé facturable.
+6. `HEALTH_CHECK_TOKEN` et les DSN Sentry.
+
+À contrôler en plus de la rotation : la table `users` (comptes ajoutés ou rôles modifiés), le dossier d'uploads (servi en statique par Express, donc tout fichier déposé y est public), et l'état RGPD — la base contient des données personnelles (emails de gagnants, pseudos), ce qui peut déclencher une obligation de notification à la CNIL sous 72 h en cas de fuite confirmée (cf. §9).
 
 ---
 
