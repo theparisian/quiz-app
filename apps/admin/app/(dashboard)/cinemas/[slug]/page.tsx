@@ -58,6 +58,8 @@ export default function CinemaDetailPage() {
   const [newScreenName, setNewScreenName] = useState('');
   const [newScreenCapacity, setNewScreenCapacity] = useState('');
   const [showAddScreen, setShowAddScreen] = useState(false);
+  const [editingScreenId, setEditingScreenId] = useState<string | null>(null);
+  const [editingScreenName, setEditingScreenName] = useState('');
   const [nucModal, setNucModal] = useState<NucCreateResponse | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -84,6 +86,16 @@ export default function CinemaDetailPage() {
   const deleteScreenMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/screens/${id}`),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cinema', slug] }),
+  });
+
+  const renameScreenMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch(`/api/screens/${id}`, { name }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['cinema', slug] });
+      setEditingScreenId(null);
+      setEditingScreenName('');
+    },
   });
 
   const addNucMutation = useMutation({
@@ -236,22 +248,81 @@ export default function CinemaDetailPage() {
         <div className="mt-3 space-y-4">
           {cinema.screens.map((screen) => (
             <div key={screen.id} className="rounded-lg border bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-gray-900">{screen.name}</h3>
-                  <p className="text-xs text-gray-500">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  {editingScreenId === screen.id ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        value={editingScreenName}
+                        onChange={(e) => setEditingScreenName(e.target.value)}
+                        className="min-w-0 flex-1 rounded border px-2 py-1 text-sm font-medium"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && editingScreenName.trim()) {
+                            renameScreenMutation.mutate({
+                              id: screen.id,
+                              name: editingScreenName.trim(),
+                            });
+                          }
+                          if (e.key === 'Escape') {
+                            setEditingScreenId(null);
+                            setEditingScreenName('');
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          if (!editingScreenName.trim()) return;
+                          renameScreenMutation.mutate({
+                            id: screen.id,
+                            name: editingScreenName.trim(),
+                          });
+                        }}
+                        disabled={!editingScreenName.trim() || renameScreenMutation.isPending}
+                        className="rounded bg-blue-600 px-3 py-1 text-xs text-white disabled:opacity-50"
+                      >
+                        Enregistrer
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingScreenId(null);
+                          setEditingScreenName('');
+                        }}
+                        className="text-xs text-gray-500"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  ) : (
+                    <h3 className="font-medium text-gray-900">{screen.name}</h3>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
                     {screen.capacity ? `${screen.capacity} places` : 'Capacité non définie'} —{' '}
                     {screen.status}
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    if (confirm('Supprimer cette salle ?')) deleteScreenMutation.mutate(screen.id);
-                  }}
-                  className="text-xs text-red-500 hover:underline"
-                >
-                  Supprimer
-                </button>
+                <div className="flex shrink-0 items-center gap-3">
+                  {editingScreenId !== screen.id && (
+                    <button
+                      onClick={() => {
+                        setEditingScreenId(screen.id);
+                        setEditingScreenName(screen.name);
+                      }}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Renommer
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (confirm('Supprimer cette salle ?'))
+                        deleteScreenMutation.mutate(screen.id);
+                    }}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </div>
 
               {/* NUCs */}
