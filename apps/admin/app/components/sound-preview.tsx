@@ -16,6 +16,14 @@ export function SoundPreview({ audioUrl, label, className }: SoundPreviewProps) 
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.pause();
+    audioRef.current = null;
+    setPlaying(false);
+  }, [audioUrl]);
+
+  useEffect(() => {
     return () => {
       audioRef.current?.pause();
       audioRef.current = null;
