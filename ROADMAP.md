@@ -1,6 +1,8 @@
 # ROADMAP — Shh!
 
 > Priorités et backlog du produit. La réécriture v2 (PR1 → PR10) est livrée et mergée sur master ; l'historique détaillé est dans `docs/archive/`. Ce document est la source d'autorité pour ce qui reste à faire.
+>
+> **16 novembre 2026** — Le projet est en phase de **test terrain et itérations produit**, pas encore en production commerciale ; les livraisons partent sur `master` et le VPS de test.
 
 ---
 
@@ -12,56 +14,87 @@ Checklist bloquante avant la première installation en salle réelle :
 - [ ] Provisionnement d'un NUC physique réel + installation chez le cinéma pilote.
 - [ ] Compléter les `[À COMPLÉTER]` de la doc : cinéma pilote, URL/instance d'hébergement prod, contacts du runbook (`docs/runbook-cinema.md`).
 - [ ] Configuration des secrets prod : SMTP, Sentry DSN, `PRIZE_HMAC_SECRET`, etc.
-- [ ] **Rotation complète des secrets suite à la compromission du VPS d'août 2026** (`JWT_SECRET`, `SESSION_SECRET`, `PRIZE_HMAC_SECRET`, mot de passe MySQL + `DATABASE_URL`, `SMTP_PASS`, `ANTHROPIC_API_KEY`, `HEALTH_CHECK_TOKEN`). Le serveur a été reconstruit mais le déploiement réinjecte les valeurs d'avant l'intrusion : elles restent exploitables. Procédure et ordre de priorité dans `PROJECT_REFERENCE.md` §8.3.
+- [x] **Rotation complète des secrets suite à la compromission du VPS d'août 2026** (`JWT_SECRET`, `SESSION_SECRET`, `PRIZE_HMAC_SECRET`, mot de passe MySQL + `DATABASE_URL`, `SMTP_PASS`, `ANTHROPIC_API_KEY`, `HEALTH_CHECK_TOKEN`). Traitée par Anzio après l'incident ; référence procédure et priorités dans `PROJECT_REFERENCE.md` §8.3.
 - [ ] Audit post-incident : table `users` (comptes ou rôles ajoutés), dossier d'uploads (servi en statique, donc public), et arbitrage RGPD sur la notification CNIL (la base contient des emails de gagnants et des pseudos).
+- [ ] Vérifier le contrat de régie publicitaire du cinéma pilote avant d'afficher un sponsor à l'écran.
 
 ---
 
-## 2. Backlog produit priorisé
+## 2. Plan de travail en cours
 
-Liste ordonnée. Chaque item est traité dans l'ordre sauf arbitrage explicite d'Anzio.
+Feuille de route technique structurée (indépendante du backlog produit ci-dessous). Les cases sont à cocher au fil des livraisons.
 
-### 1) Affichage sponsor sur player + mobile
+| N°  | Unité | Sujet                                                                                 | Modèle                 | État |
+| --- | ----- | ------------------------------------------------------------------------------------- | ---------------------- | ---- |
+| 01  | A1    | Cloisonnement entre cinémas                                                           | Composer               | [ ]  |
+| 02  | A2    | Protection du join, code court conservé                                               | Composer               | [ ]  |
+| 03  | A3    | Réponses : course, pause, compteur                                                    | Composer               | [ ]  |
+| 04  | A4    | Déploiement (CI obligatoire, garde session active, contrôle de santé, retour arrière) | Composer               | [ ]  |
+| 05  | B1    | Modèle de données Game / SessionRound / ScoreEvent                                    | Composer               | [ ]  |
+| 06  | B2-B4 | Moteur de jeu et protocole temps réel unifié, quiz migré                              | Opus 5.5 ou Sonnet 5.5 | [ ]  |
+| 07  | B5    | Sessions à plusieurs manches                                                          | Composer               | [ ]  |
+| 08  | B6    | Deuxième moteur : sondage                                                             | Composer               | [ ]  |
+| 09  | C1    | Catalogue de jeux (géré par le super-admin, lecture cinéma)                           | Composer               | [ ]  |
+| 10  | C2    | Programmation des salles par le cinéma                                                | Composer               | [ ]  |
+| 11  | C3    | Campagnes sponsor, preuve de diffusion, relevés                                       | Composer               | [ ]  |
+| 12  | C4    | Affichage du sponsor et portail sponsor                                               | Composer               | [ ]  |
+| 13  | C5    | Lots à codes partenaires et consentements email                                       | Composer               | [ ]  |
 
-Le sponsor existe déjà en base (`sponsors`, `quizzes.sponsor_id`, branding) et est présent dans le payload de session, mais il n'est **rendu nulle part côté spectateur** (ni sur le grand écran player, ni sur le mobile). C'est bloquant pour vendre du brand content : sans affichage visible du sponsor, il n'y a pas d'inventaire commercialisable. Rendre le logo/branding sponsor aux moments clés (lobby, question, résultats).
+Les prompts détaillés des unités sont tenus hors du dépôt.
 
-### 2) Rapport de session visuel côté super-admin
+---
 
-Restituer visuellement le déroulé et les stats d'une session terminée (participation, scores, réponses par question, gagnants/lots) dans l'interface admin. **Livré** : `GET /api/sessions/:id/report` (+ liste `/api/sessions/reports` et export `GET /api/cinemas/:slug/sessions/report.csv`), pages admin `Rapports` (liste filtrable + rapport détaillé « premium »).
+## 3. Décisions prises
 
-**Suites hors périmètre de la PR rapport (à prioriser plus tard)** :
+- Une session peut enchaîner plusieurs jeux (manches), score cumulé.
+- Le catalogue est un store maison : seul le super-admin ajoute, publie ou retire un jeu ; le cinéma choisit dans le catalogue et compose le programme de ses salles.
+- Les moteurs de jeu sont écrits en interne, pas de code tiers.
+- Un seul protocole temps réel pour tous les moteurs, quiz compris.
+- Les emails sont collectés et conservés par la plateforme ; ils ne sont transmis à un cinéma ou à un sponsor que si un accord est enregistré et que le joueur a coché la case correspondante.
+- On vend aux sponsors des séances diffusées et des participants, pas des « vues », tant qu'il n'y a pas de donnée de billetterie.
+- Le code à 4 chiffres reste disponible pour ceux qui ne scannent pas le QR.
+
+---
+
+## 4. Backlog produit priorisé
+
+Liste ordonnée. Chaque item est traité dans l'ordre sauf arbitrage explicite d'Anzio. Les chantiers absorbés par le plan de travail (§2) sont signalés par unité.
+
+### 1) Affichage sponsor sur player + mobile — _couvert par l'unité C4_
+
+Le sponsor existe en base (`sponsors`, `quizzes.sponsor_id`, branding) et dans le payload de session, mais il n'est **pas rendu côté spectateur** (ni player, ni mobile). Objectif inchangé : logo/branding aux moments clés (lobby, question, résultats).
+
+### 2) Rapport de session — suites
+
+**Livré** (cf. § Livré) : API + pages admin. Reste à prioriser :
 
 - Envoi automatique du rapport de session au cinéma par email.
 - Affichage d'un récapitulatif dans la console projectionniste (interface C).
 - Export PDF du rapport (le CSV couvre l'analyse externe, l'écran couvre le deck).
 - Comparaisons multi-sessions (évolution dans le temps, A/B de quiz).
-- Stats agrégées par sponsor (dashboard sponsor consolidé multi-sessions).
+- Stats agrégées par sponsor — _couvert par l'unité C4_ (dashboard sponsor consolidé multi-sessions).
 
-### 3) Fiabilisation du déploiement
+### 3) Fiabilisation du déploiement — _couvert par l'unité A4_
 
-Extraire la logique de `.github/workflows/deploy.yml` vers un `scripts/deploy.sh` versionné, ajouter un **health-check** post-déploiement et un **rollback** automatique en cas d'échec. Objectif : rendre le déploiement reproductible, testable localement et sûr.
+Extraire la logique de `.github/workflows/deploy.yml` vers un `scripts/deploy.sh` versionné, health-check post-déploiement et rollback automatique en cas d'échec.
 
 ### 4) Factorisation des `lib/` dupliquées
 
-Les 4 apps (player, mobile, console, admin) dupliquent du code `lib/` (notamment `lib/socket.ts`). Consolider dans les packages partagés (`packages/socket-client`) et **propager le backoff socket du player** (reconnexion avec backoff exponentiel) vers mobile et console, qui ne l'ont pas encore.
+Les 4 apps (player, mobile, console, admin) dupliquent du code `lib/` (notamment `lib/socket.ts`). Consolider dans les packages partagés (`packages/socket-client`) et **aligner le backoff de reconnexion** : aujourd'hui configuré dans `apps/player/lib/socket.ts` (délais 1200–45000 ms), absent des `lib/socket.ts` mobile et console alors que les bannières « reconnexion » existent.
 
-### 5) Lot de consolation systématique
+### 5) Mode session automatique
 
-Le champ `isConsolation` existe déjà sur `prizes` mais n'est pas exploité par défaut. Activer un lot de consolation systématique pour tous les joueurs : c'est un **pont vers la confiserie du cinéma** (chaque spectateur repart avec un bon), donc un argument de vente direct pour l'exploitant.
+**Partiellement livré** : lobby minuté avec lancement auto (`lobby-timer.service.ts`), enchaînement auto des questions et clôture de session dans l'orchestrateur. **Reste** : parcours « avant-séance sans personnel » de bout en bout (création / planification de session sans cabine, politique produit par défaut).
 
-### 6) Mode session automatique
+### 6) Catalogue de quiz hebdomadaire — _couvert par l'unité C1_
 
-Positionnement "avant-séance sans personnel" : lobby minuté, enchaînement automatique des questions, clôture automatique de la session, sans intervention du projectionniste. Permet de tourner en salle même quand personne n'est en cabine.
+Quiz générés par IA puis validés, publiés en catalogue, sélectionnables par les cinémas — à porter dans le modèle catalogue + programmation (C1/C2).
 
-### 7) Catalogue de quiz hebdomadaire
+### 7) Join zéro-saisie + classement du mois
 
-Quiz générés par IA puis validés manuellement, publiés en catalogue hebdomadaire, **sélectionnables par les cinémas** eux-mêmes. Résout le problème de production de contenu à l'échelle.
+**Partiellement livré** : pseudos suggérés (`pseudo-generator`, route `pseudo-suggestions`, cartes dans `pseudo-input.tsx`) ; le joueur doit encore valider « Jouer » (pas de join immédiat au scan seul). **Reste** : classement du mois par cinéma (aucune brique métier dédiée repérée dans le code).
 
-### 8) Join zéro-saisie + classement du mois
-
-Jonction sans friction : pseudo auto attribué immédiatement (éditable ensuite), pour maximiser le taux de participation. Ajouter un **classement du mois** par cinéma pour créer de la rétention multi-séances.
-
-### 9) Suites de l'audio écran cinéma
+### 8) Suites de l'audio écran cinéma
 
 Le socle audio est livré (bibliothèques de sons, sons propres au quiz, musiques lobby/partie/scores avec option sans interruption, SFX ouverture de question / apparition des réponses / dernières secondes / clôture / réponse d'un joueur / podium, pseudos éphémères à l'écran). Suites identifiées, hors périmètre de la PR audio :
 
@@ -73,7 +106,7 @@ Le socle audio est livré (bibliothèques de sons, sons propres au quiz, musique
 - Réutilisation d'un son local à un quiz lors de la duplication (aujourd'hui les slots concernés sont vidés).
 - Contrôle du volume général depuis la console projectionniste (aujourd'hui seul le mute existe).
 
-### 10) Durcissement et cloisonnement du VPS
+### 9) Durcissement et cloisonnement du VPS
 
 Suite de l'incident d'août 2026 (n8n exposé sans authentification, serveur détourné pour une attaque DDoS sortante, VPS coupé par l'hébergeur). Les règles à respecter sont écrites dans `PROJECT_REFERENCE.md` §8.2 ; restent à mettre en œuvre :
 
@@ -86,20 +119,26 @@ Suite de l'incident d'août 2026 (n8n exposé sans authentification, serveur dé
 
 ---
 
-## 3. Questions ouvertes business
+## 5. Livré (hors plan de travail §2)
+
+- **Lot de consolation** : résolution du lot `all` / drapeau `isConsolation` pour les joueurs hors podium lorsque la config cinéma, sponsor ou quiz le définit (`prize-config.service.ts`, `api/tests/prize-consolation.test.ts`).
+- **Rapport de session** : `GET /api/sessions/:id/report`, liste et export CSV, pages admin `apps/admin/app/(dashboard)/reports/` (liste + détail).
+- **Rattrapage des emails de lots** : `requeuePendingPrizeEmailsOnBoot` au démarrage de l'API (`api/src/server.ts`, `prize-email-queue.service.ts`).
+
+---
+
+## 6. Questions ouvertes business
 
 Points non tranchés, les plus utiles à challenger d'un point de vue produit/business.
 
 ### Business
 
 - **Modèle de facturation cinéma** : abonnement mensuel ? au nombre de séances ? freemium + commission sur lots ? Non décidé.
-- **Monétisation sponsors** : piste de revenu principale envisagée, mais le go-to-market (acquisition annonceurs, pricing, constitution d'un réseau de salles) est entièrement à construire.
-- **Proposition de valeur pour le cinéma** : engagement du public, données d'audience, upsell confiserie via les lots, image moderne ? Quel est l'argument qui déclenche l'achat ?
+- **Grille tarifaire sponsor et part reversée au cinéma** : non définies.
+- **Source des entrées par séance** : saisie manuelle en cabine ou raccordement billetterie — non décidé.
 
 ### Produit
 
-- **Lots & rétention** : au-delà du lot de consolation et du classement du mois (backlog), faut-il un compte joueur récurrent ? une vraie mécanique de fidélité multi-séances ?
-- **Contenu à l'échelle** : au-delà du catalogue IA hebdomadaire (backlog), faut-il une marketplace de quiz ? des quiz brandés produits par les distributeurs de films ?
 - **Mineurs** : l'exclusion actuelle (majeurs uniquement) limite l'audience cinéma (familles). À réévaluer après le pilote.
 
 ### Technique / scalabilité
@@ -107,11 +146,10 @@ Points non tranchés, les plus utiles à challenger d'un point de vue produit/bu
 - **Multi-langues** : hors périmètre aujourd'hui mais structurant en cas d'expansion.
 - **Stockage médias** : disque VPS aujourd'hui, S3/Scaleway prévu — à déclencher selon la volumétrie.
 - **App native** : web/PWA aujourd'hui ; une app native changerait l'acquisition et ouvrirait les notifications push.
-- **Analytics avancés** : seules des stats basiques existent (dashboard). Quelles métriques business prioriser ?
 
 ---
 
-## 4. Dette / nettoyages
+## 7. Dette / nettoyages
 
 ### Doublon REST `POST /api/players/join` vs socket `player:join`
 
@@ -126,12 +164,11 @@ Plan de retrait propre :
 2. remplacer les setups de `players.email` / `prizes.pr7` par un appel direct à `playersService.join` (ou un helper d'intégration) ;
 3. supprimer la route et le schéma associé.
 
-En attendant, les deux chemins (REST + socket) partagent le même helper de diffusion (`api/src/shared/sockets/session-broadcast.ts`), donc aucun chemin "silencieux" ne subsiste.
+En attendant, les deux chemins (REST + socket) partagent le même helper de diffusion (`api/src/shared/sockets/session-broadcast.ts`), donc aucun chemin « silencieux » ne subsiste.
 
 ### Autres chantiers de dette
 
 - Tests unitaires des stores front (`nuc-store`, `live-session-store`).
 - Test E2E Playwright du parcours session complet (création → lobby → questions → résultats → lot).
-- Balayage au boot des emails de lots non envoyés (rattrapage des `prizes` avec `email_sent_at` null).
 - Cron de cleanup des fichiers `ai-input` orphelins.
-- Découpage de `quiz-edit-client.tsx` (1251 lignes) avant toute nouvelle feature admin.
+- Découpage de `quiz-edit-client.tsx` (~796 lignes au compteur actuel, la roadmap mentionnait auparavant 1251) avant toute nouvelle feature admin.
