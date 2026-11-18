@@ -25,7 +25,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 02 | A2 Protection du join | A1 (sessions.routes) | 0019_session_join_token | fait (70e1162 + correctif IP) |
 | 03 | A3 Réponses | A2 (players.service) | — | fait (29d9c33 + correctif reprise) |
 | 04 | A4 Déploiement | — | — | fait (2cc96b7 + commit exact) |
-| 05 | B1 Game / Round / Score | A3 | 0020_games_rounds_scores | à faire |
+| 05 | B1 Game / Round / Score | A3 | 0020_games_rounds_scores | fait (1dec890) |
 | 06 | B2-B4 Moteur et protocole | B1 | — | à faire |
 | 07 | B5 Multi-manches | B2-B4 | 0021 | à faire |
 | 08 | B6 Sondage | B5 | — | à faire |
@@ -66,7 +66,12 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 8. **Reprise d'un joueur** : `player:resume` remet le joueur dans l'état en mémoire de la partie
    s'il n'y est pas (cas d'un `player:leave` au lobby). B2-B4 doit conserver ce comportement via
    `onPlayerJoined` et l'accompagner d'un test.
-9. Textes : tutoiement côté joueur, vouvoiement côté cinéma et sponsor.
+9. **Session sans manche** : des sessions créées hors de `sessionsService.create` (nombreux tests,
+   données anciennes) n'ont pas de ligne `session_rounds`. À partir de B2-B4, la plateforme crée
+   la manche 1 à la volée au `start` (et à la réhydratation) si elle manque, à partir du quiz de la
+   session. Jamais d'erreur visible pour ce cas.
+10. **Découpage de B2-B4** : un agent par commit de la « Méthode imposée », dans l'ordre, chacun vert.
+11. Textes : tutoiement côté joueur, vouvoiement côté cinéma et sponsor.
 
 ## Écarts relevés entre les prompts et le code
 
@@ -105,6 +110,9 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   le faire pendant une séance. Changer `HEALTH_CHECK_TOKEN` bloque le déploiement suivant (forcer).
 - A4 — Non vérifié sur le VPS réel : présence de `curl`, `pm2` pour l'utilisateur de déploiement,
   `known_hosts` avec `StrictHostKeyChecking=yes`.
+- B1 — Le schéma `createSessionSchema` (quizSlug | gameSlugs) reste dans `api/.../sessions.schemas.ts`
+  et n'est pas dans `packages/validation`.
+- B1 — Le jeu archivé d'un quiz supprimé garde son slug ; un nouveau quiz du même nom prend `-2`.
 
 ## Décisions
 
