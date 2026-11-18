@@ -21,7 +21,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 
 | N° | Unité | Dépend de | Migration | Avancement |
 | --- | --- | --- | --- | --- |
-| 01 | A1 Cloisonnement | — | — | à faire |
+| 01 | A1 Cloisonnement | — | — | fait (e5e1f54) |
 | 02 | A2 Protection du join | A1 (sessions.routes) | 0019_session_join_token | à faire |
 | 03 | A3 Réponses | A2 (players.service) | — | à faire |
 | 04 | A4 Déploiement | — | — | à faire |
@@ -77,6 +77,12 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 | C3 | « participants = joueurs ayant fait au moins une action » : aucune donnée générique ne le permet aujourd'hui (les ScoreEvent du quiz ne couvrent que les points > 0 ; le sondage n'attribue ses points qu'en fin de manche). | Convention 7. |
 | C4 | Le roadmap rappelle de vérifier le contrat de régie du cinéma pilote avant d'afficher un sponsor. | Hors code ; à garder en tête avant mise en prod de C4. |
 | Général | Deux schémas d'email joueur (`packages/validation/rest-api.ts` et `api/.../players.schemas.ts`). | C5 modifie celui réellement utilisé par la route, et aligne l'autre. |
+
+## Points ouverts (hors périmètre, à arbitrer plus tard)
+
+- A1 — `GET /api/sessions/:id/players` est public et renvoie pseudos, scores et statuts de
+  n'importe quelle session. À revoir (protéger par jeton joueur ou réduire les champs).
+- A1 — Le test existant « 403 for projectionist on another cinema » attendait 201 ; corrigé en 403.
 
 ## Décisions
 
