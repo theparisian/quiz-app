@@ -19,12 +19,19 @@ function getCountdownMs(): number {
 }
 const TIMER_TOLERANCE_MS = 500;
 const TIMER_BROADCAST_INTERVAL_MS = 1000;
+const ANSWER_COUNT_FLUSH_MS = 250;
 
 interface InMemoryAnswer {
   playerId: bigint;
   answerId: bigint;
   timeToAnswerMs: number;
   receivedAt: number;
+}
+
+export interface RunningPlayerMeta {
+  pseudo: string;
+  avatarUrl: string | null;
+  joinedQuestionPosition: number | null;
 }
 
 export interface RunningSessionState {
@@ -53,6 +60,8 @@ export interface RunningSessionState {
   inMemoryAnswers: Map<string, InMemoryAnswer>;
   questionEnded: boolean;
   playerIds: Set<string>;
+  playerMeta: Map<string, RunningPlayerMeta>;
+  answerCountFlushHandle: ReturnType<typeof setTimeout> | null;
 }
 
 type RehydrateSessionRow = Prisma.SessionGetPayload<{
@@ -134,7 +143,64 @@ function clearTimers(state: RunningSessionState) {
     clearInterval(state.broadcastInterval);
     state.broadcastInterval = null;
   }
+  if (state.answerCountFlushHandle) {
+    clearTimeout(state.answerCountFlushHandle);
+    state.answerCountFlushHandle = null;
+  }
   state.resultsPhaseStartedAt = null;
+}
+
+/** Joueurs actifs d'une session (une seule requête) : ids + méta utiles à la course aux réponses. */
+async function loadActivePlayers(
+  sessionId: bigint,
+): Promise<{ playerIds: Set<string>; playerMeta: Map<string, RunningPlayerMeta> }> {
+  const rows = await prisma.player.findMany({
+    where: { sessionId, status: 'active' },
+    select: {
+      id: true,
+      pseudo: true,
+      joinedQuestionPosition: true,
+      avatar: { select: { imageUrl: true } },
+    },
+  });
+  const playerMeta = new Map<string, RunningPlayerMeta>();
+  for (const p of rows) {
+    playerMeta.set(p.id.toString(), {
+      pseudo: p.pseudo,
+      avatarUrl: p.avatar?.imageUrl ?? null,
+      joinedQuestionPosition: p.joinedQuestionPosition,
+    });
+  }
+  return { playerIds: new Set(playerMeta.keys()), playerMeta };
+}
+
+function emitAnswerCount(sessionId: bigint, state: RunningSessionState) {
+  broadcastToSession(sessionId, 'session:answer_submitted_count', {
+    count: state.inMemoryAnswers.size,
+    total: state.playerIds.size,
+  });
+}
+
+/** Regroupe les émissions du compteur de réponses (au plus une toutes les 250 ms). */
+function scheduleAnswerCountFlush(sessionId: bigint, state: RunningSessionState) {
+  if (state.answerCountFlushHandle) return;
+  state.answerCountFlushHandle = setTimeout(() => {
+    state.answerCountFlushHandle = null;
+    emitAnswerCount(sessionId, state);
+  }, ANSWER_COUNT_FLUSH_MS);
+}
+
+function startTimerBroadcast(state: RunningSessionState, sessionId: bigint) {
+  state.broadcastInterval = setInterval(() => {
+    if (!state.currentQuestionStartedAt || state.currentQuestionPausedAt) return;
+    const elapsed = Date.now() - state.currentQuestionStartedAt;
+    const remaining = Math.max(0, state.currentQuestionTimeLimitMs - elapsed);
+    broadcastToSession(sessionId, 'session:timer_update', { remainingMs: remaining });
+    if (remaining <= 0 && state.broadcastInterval) {
+      clearInterval(state.broadcastInterval);
+      state.broadcastInterval = null;
+    }
+  }, TIMER_BROADCAST_INTERVAL_MS);
 }
 
 function getRunningState(sessionId: bigint): RunningSessionState {
@@ -282,11 +348,15 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
     });
   }
 
-  for (const update of scoreUpdates) {
-    await prisma.player.update({
-      where: { id: update.playerId },
-      data: { scoreTotal: { increment: update.points } },
-    });
+  if (scoreUpdates.length > 0) {
+    await prisma.$transaction(
+      scoreUpdates.map((update) =>
+        prisma.player.update({
+          where: { id: update.playerId },
+          data: { scoreTotal: { increment: update.points } },
+        }),
+      ),
+    );
   }
 
   scoreboardEntries.sort((a, b) => b.scoreTotal - a.scoreTotal);
@@ -300,6 +370,9 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
       currentQuestionPausedAt: null,
     },
   });
+
+  // Dernier compte exact (le flush regroupé a été annulé par clearTimers).
+  emitAnswerCount(sessionId, state);
 
   broadcastToSession(sessionId, 'session:question_ended', {
     correctAnswerId: correctAnswerId?.toString() ?? null,
@@ -375,16 +448,7 @@ async function nextQuestionInternal(sessionId: bigint) {
     void endQuestionInternal(sessionId, false);
   }, totalTimeMs);
 
-  state.broadcastInterval = setInterval(() => {
-    if (!state.currentQuestionStartedAt || state.currentQuestionPausedAt) return;
-    const elapsed = Date.now() - state.currentQuestionStartedAt;
-    const remaining = Math.max(0, state.currentQuestionTimeLimitMs - elapsed);
-    broadcastToSession(sessionId, 'session:timer_update', { remainingMs: remaining });
-    if (remaining <= 0 && state.broadcastInterval) {
-      clearInterval(state.broadcastInterval);
-      state.broadcastInterval = null;
-    }
-  }, TIMER_BROADCAST_INTERVAL_MS);
+  startTimerBroadcast(state, sessionId);
 
   logger.info(
     { sessionId: sessionId.toString(), questionPosition: question.position },
@@ -415,13 +479,15 @@ async function endSessionInternal(sessionId: bigint) {
     include: { avatar: { select: { imageUrl: true } } },
   });
 
-  let rank = 1;
-  for (const p of players) {
-    await prisma.player.update({
-      where: { id: p.id },
-      data: { rankFinal: rank },
-    });
-    rank++;
+  if (players.length > 0) {
+    await prisma.$transaction(
+      players.map((p, i) =>
+        prisma.player.update({
+          where: { id: p.id },
+          data: { rankFinal: i + 1 },
+        }),
+      ),
+    );
   }
 
   const winnerId = players[0]?.id ?? null;
@@ -513,10 +579,7 @@ async function rehydrateForceEndActiveQuestion(session: RehydrateSessionRow) {
     return;
   }
 
-  const activePlayers = await prisma.player.findMany({
-    where: { sessionId, status: 'active' },
-    select: { id: true },
-  });
+  const { playerIds, playerMeta } = await loadActivePlayers(sessionId);
 
   const state: RunningSessionState = {
     sessionId,
@@ -532,7 +595,9 @@ async function rehydrateForceEndActiveQuestion(session: RehydrateSessionRow) {
     audioMuted: session.audioMuted,
     inMemoryAnswers: new Map(),
     questionEnded: false,
-    playerIds: new Set(activePlayers.map((p) => p.id.toString())),
+    playerIds,
+    playerMeta,
+    answerCountFlushHandle: null,
   };
 
   runningSessions.set(sessionKey(sessionId), state);
@@ -543,10 +608,7 @@ async function rehydrateBetweenQuestionsOrBeforeFirst(session: RehydrateSessionR
   const sessionId = session.id;
   const questions = mapQuestionsFromPrisma(session.quiz.questions);
 
-  const activePlayers = await prisma.player.findMany({
-    where: { sessionId, status: 'active' },
-    select: { id: true },
-  });
+  const { playerIds, playerMeta } = await loadActivePlayers(sessionId);
 
   const pos = session.currentQuestionPosition;
   let currentQuestionIndex: number;
@@ -592,7 +654,9 @@ async function rehydrateBetweenQuestionsOrBeforeFirst(session: RehydrateSessionR
     audioMuted: session.audioMuted,
     inMemoryAnswers: new Map(),
     questionEnded,
-    playerIds: new Set(activePlayers.map((p) => p.id.toString())),
+    playerIds,
+    playerMeta,
+    answerCountFlushHandle: null,
   };
 
   runningSessions.set(sessionKey(sessionId), state);
@@ -703,10 +767,7 @@ export function getOrchestrator() {
         },
       });
 
-      const activePlayers = await prisma.player.findMany({
-        where: { sessionId, status: 'active' },
-        select: { id: true },
-      });
+      const { playerIds, playerMeta } = await loadActivePlayers(sessionId);
 
       const state: RunningSessionState = {
         sessionId,
@@ -722,7 +783,9 @@ export function getOrchestrator() {
         audioMuted: false,
         inMemoryAnswers: new Map(),
         questionEnded: false,
-        playerIds: new Set(activePlayers.map((p) => p.id.toString())),
+        playerIds,
+        playerMeta,
+        answerCountFlushHandle: null,
       };
 
       runningSessions.set(sessionKey(sessionId), state);
@@ -766,6 +829,10 @@ export function getOrchestrator() {
         state.currentQuestionPausedAt = Date.now();
       }
 
+      // Un compte regroupé en attente serait perdu par clearTimers : on l'émet tout de suite.
+      if (state.answerCountFlushHandle) {
+        emitAnswerCount(sessionId, state);
+      }
       clearTimers(state);
 
       const pauseAtMs = state.currentQuestionPausedAt;
@@ -813,16 +880,7 @@ export function getOrchestrator() {
             void endQuestionInternal(sessionId, false);
           }
 
-          state.broadcastInterval = setInterval(() => {
-            if (!state.currentQuestionStartedAt || state.currentQuestionPausedAt) return;
-            const el = Date.now() - state.currentQuestionStartedAt;
-            const rem = Math.max(0, state.currentQuestionTimeLimitMs - el);
-            broadcastToSession(sessionId, 'session:timer_update', { remainingMs: rem });
-            if (rem <= 0 && state.broadcastInterval) {
-              clearInterval(state.broadcastInterval);
-              state.broadcastInterval = null;
-            }
-          }, TIMER_BROADCAST_INTERVAL_MS);
+          startTimerBroadcast(state, sessionId);
         }
       }
 
@@ -936,8 +994,14 @@ export function getOrchestrator() {
     }) {
       const state = getRunningState(input.sessionId);
 
+      // Tous les contrôles et la réservation sont synchrones : aucun await entre le test
+      // et l'écriture en mémoire, donc deux envois simultanés ne peuvent pas passer tous les deux.
       if (state.questionEnded) {
         throw new AppError('Question already ended', 409, 'QUESTION_ALREADY_ENDED');
+      }
+
+      if (state.currentQuestionPausedAt != null) {
+        throw new AppError('Session is paused', 409, 'SESSION_PAUSED');
       }
 
       const currentQuestion = state.questions[state.currentQuestionIndex];
@@ -945,18 +1009,13 @@ export function getOrchestrator() {
         throw new AppError('Wrong question', 400, 'WRONG_QUESTION');
       }
 
-      const player = await prisma.player.findUnique({
-        where: { id: input.playerId },
-        select: {
-          joinedQuestionPosition: true,
-          pseudo: true,
-          avatar: { select: { imageUrl: true } },
-        },
-      });
-      if (
-        player?.joinedQuestionPosition != null &&
-        player.joinedQuestionPosition === currentQuestion.position
-      ) {
+      const pid = input.playerId.toString();
+      const meta = state.playerMeta.get(pid);
+      if (!meta) {
+        throw new AppError('Player not in session', 403, 'PLAYER_NOT_IN_SESSION');
+      }
+
+      if (meta.joinedQuestionPosition === currentQuestion.position) {
         throw new AppError(
           'Cannot answer current question after late join',
           403,
@@ -969,80 +1028,86 @@ export function getOrchestrator() {
         throw new AppError('Invalid answer', 400, 'INVALID_ANSWER');
       }
 
-      const pid = input.playerId.toString();
       if (state.inMemoryAnswers.has(pid)) {
         throw new AppError('Already answered', 409, 'ALREADY_ANSWERED');
       }
 
-      const existingRow = await prisma.playerAnswer.findUnique({
-        where: {
-          playerId_questionId: {
-            playerId: input.playerId,
-            questionId: input.questionId,
-          },
-        },
-      });
-      if (existingRow) {
-        throw new AppError('Already answered', 409, 'ALREADY_ANSWERED');
-      }
-
-      const timeToAnswerMs = state.currentQuestionStartedAt
-        ? Date.now() - state.currentQuestionStartedAt
-        : 0;
+      const receivedAt = Date.now();
+      const timeToAnswerMs = Math.max(
+        1,
+        receivedAt - (state.currentQuestionStartedAt ?? receivedAt),
+      );
 
       state.inMemoryAnswers.set(pid, {
         playerId: input.playerId,
         answerId: input.answerId,
         timeToAnswerMs,
-        receivedAt: Date.now(),
+        receivedAt,
       });
 
-      await prisma.playerAnswer.upsert({
-        where: {
-          playerId_questionId: {
+      // Persistance après réservation. En cas d'échec, la réponse en mémoire fait foi
+      // (endQuestionInternal réécrit les lignes de la question).
+      try {
+        await prisma.playerAnswer.upsert({
+          where: {
+            playerId_questionId: {
+              playerId: input.playerId,
+              questionId: input.questionId,
+            },
+          },
+          create: {
             playerId: input.playerId,
             questionId: input.questionId,
+            chosenAnswerId: input.answerId,
+            answeredAtServer: new Date(receivedAt),
+            timeToAnswerMs,
+            pointsAwarded: 0,
+            isCorrect: false,
           },
-        },
-        create: {
-          playerId: input.playerId,
-          questionId: input.questionId,
-          chosenAnswerId: input.answerId,
-          answeredAtServer: new Date(),
-          timeToAnswerMs,
-          pointsAwarded: 0,
-          isCorrect: false,
-        },
-        update: {
-          chosenAnswerId: input.answerId,
-          answeredAtServer: new Date(),
-          timeToAnswerMs,
-          pointsAwarded: 0,
-          isCorrect: false,
-        },
-      });
+          update: {
+            chosenAnswerId: input.answerId,
+            answeredAtServer: new Date(receivedAt),
+            timeToAnswerMs,
+            pointsAwarded: 0,
+            isCorrect: false,
+          },
+        });
+      } catch (err) {
+        logger.error(
+          {
+            err,
+            sessionId: input.sessionId.toString(),
+            playerId: pid,
+            questionId: input.questionId.toString(),
+          },
+          'Persisting player answer failed (kept in memory)',
+        );
+      }
 
-      broadcastToSession(input.sessionId, 'session:answer_submitted_count', {
-        count: state.inMemoryAnswers.size,
-        total: state.playerIds.size,
-      });
+      // L'état a pu être clos pendant l'écriture (fin de question, abandon) : pas de flush alors,
+      // endQuestionInternal émet lui-même le compte final.
+      if (!state.questionEnded && runningSessions.get(sessionKey(input.sessionId)) === state) {
+        scheduleAnswerCountFlush(input.sessionId, state);
+      }
 
       // Cue écran cinéma : pseudo éphémère + petit son. Jamais la réponse choisie,
       // pour ne pas divulguer d'information avant la clôture de la question.
       broadcastToScreen(input.sessionId, 'session:player_answered', {
-        playerId: input.playerId.toString(),
-        pseudo: player?.pseudo ?? '',
-        avatarUrl: player?.avatar?.imageUrl ?? null,
+        playerId: pid,
+        pseudo: meta.pseudo,
+        avatarUrl: meta.avatarUrl,
         answeredCount: state.inMemoryAnswers.size,
       });
 
       return { timeToAnswerMs };
     },
 
-    addPlayerToSession(sessionId: bigint, playerId: bigint) {
+    addPlayerToSession(sessionId: bigint, playerId: bigint, meta: RunningPlayerMeta) {
       const state = runningSessions.get(sessionKey(sessionId));
       if (state) {
-        state.playerIds.add(playerId.toString());
+        const pid = playerId.toString();
+        state.playerIds.add(pid);
+        state.playerMeta.set(pid, meta);
       }
     },
 

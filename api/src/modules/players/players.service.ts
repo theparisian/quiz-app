@@ -157,7 +157,11 @@ export const playersService = {
     });
 
     if (isLateJoin) {
-      getOrchestrator().addPlayerToSession(session.id, player.id);
+      getOrchestrator().addPlayerToSession(session.id, player.id, {
+        pseudo: player.pseudo,
+        avatarUrl,
+        joinedQuestionPosition,
+      });
       logEvent({
         level: 'info',
         eventType: 'player_late_joined',
