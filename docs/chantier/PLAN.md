@@ -12,8 +12,8 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
   pnpm --filter @quiz-app/mobile test` (la commande du LISEZ-MOI + les tests mobile, comme la CI).
 - Après chaque prompt : compte rendu (fichiers, migrations, tests, points ouverts) et mise à jour
   du tableau d'avancement ci-dessous.
-- Points d'arrêt avec validation humaine : après A4, après B1, après chacun des 4 commits de B2-B4,
-  après B5, après C2, après C4, en fin de chantier.
+- Points d'arrêt avec validation humaine : après B2-B4 (fin des 4 commits) et en fin de chantier.
+  Les points d'arrêt internes à B2-B4 sont levés (décision du 2026-11-18).
 - Exécution séquentielle. Seule exception prévue : A4 (déploiement, fichiers disjoints) peut être
   mené en parallèle de A1-A3.
 
@@ -68,10 +68,10 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 
 | Unité | Constat | Traitement proposé |
 | --- | --- | --- |
-| LISEZ-MOI | Demande la rotation des secrets avant A1 ; `ROADMAP.md` la marque déjà faite. | À confirmer (question 1). |
+| LISEZ-MOI | Demande la rotation des secrets avant A1 ; `ROADMAP.md` la marque déjà faite. | Faite (décision du 2026-11-18). |
 | A2 | Clé `socket.handshake.address` pour `player:join` = IP du proxy en prod : les 300 joins/min seraient partagés par toutes les salles. | Convention 2. |
 | A2 / B2-B4 | B2-B4 « nettoie » les payloads de plateforme ; risque de perdre `joinToken`. | Convention 4. |
-| B2-B4 | `console:force_end_question` devient `console:force_advance`, mais la route REST `POST /:id/force-end-question` n'est pas mentionnée. | La renommer `force-advance` dans le même commit (question 3). |
+| B2-B4 | `console:force_end_question` devient `console:force_advance`, mais la route REST `POST /:id/force-end-question` n'est pas mentionnée. | Renommée `force-advance` (décision du 2026-11-18). |
 | B6 / C1 | C1 propose « Modifier le contenu » vers l'éditeur de sondage, mais B6 ne crée que `/games/new-poll`. | Ajouter en B6 une page `/games/[slug]/edit-poll` qui réutilise le formulaire. |
 | B6 / C1 | Deux unités définissent `PATCH /api/games/:slug`. | Convention 6. |
 | C3 | « participants = joueurs ayant fait au moins une action » : aucune donnée générique ne le permet aujourd'hui (les ScoreEvent du quiz ne couvrent que les points > 0 ; le sondage n'attribue ses points qu'en fin de manche). | Convention 7. |
@@ -80,4 +80,9 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 
 ## Décisions
 
-_(vide, à remplir au fil du chantier)_
+- 2026-11-18 — Rotation des secrets : déjà faite (confirmé). A1 démarre sans prérequis.
+- 2026-11-18 — A4 est codé maintenant. Le secret GitHub `VPS_KNOWN_HOSTS` doit être ajouté par
+  l'utilisateur AVANT toute fusion dans `master`, sinon le déploiement échoue.
+- 2026-11-18 — La route REST `POST /api/sessions/:id/force-end-question` devient `force-advance`
+  dans le commit protocole de B2-B4, avec ses appelants.
+- 2026-11-18 — Validations humaines réduites au minimum : après B2-B4 et en fin de chantier.
