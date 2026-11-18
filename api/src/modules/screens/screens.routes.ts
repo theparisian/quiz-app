@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../../shared/auth/index.js';
+import { assertCanAccessCinema } from '../../shared/auth/tenant-scope.js';
 import { validate } from '../../shared/validation/index.js';
 import { param } from '../../shared/utils/index.js';
 import { createScreenSchema, updateScreenSchema } from './screens.schemas.js';
@@ -14,7 +15,13 @@ router.get(
   requireAuth(['super_admin', 'cinema_admin', 'projectionist']),
   async (req, res, next) => {
     try {
-      const screens = await screensService.listByCinemaSlug(param(req, 'cinemaSlug'));
+      const cinemaSlug = param(req, 'cinemaSlug');
+      const cinema = await prisma.cinema.findUnique({
+        where: { slug: cinemaSlug },
+        select: { id: true },
+      });
+      if (cinema) await assertCanAccessCinema(req.user!, cinema.id);
+      const screens = await screensService.listByCinemaSlug(cinemaSlug);
       res.json(
         screens.map((s) => ({
           id: s.id.toString(),

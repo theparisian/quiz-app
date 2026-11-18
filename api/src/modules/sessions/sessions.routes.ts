@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { pseudoSuggestionsResponseSchema } from '@quiz-app/validation';
 import { requireAuth } from '../../shared/auth/index.js';
+import {
+  assertCanAccessCinema,
+  assertCanAccessScreen,
+  assertCanAccessSession,
+} from '../../shared/auth/tenant-scope.js';
 import { validate } from '../../shared/validation/index.js';
 import { param } from '../../shared/utils/index.js';
 import { prisma } from '../../shared/db/index.js';
@@ -74,6 +79,7 @@ function shapeSessionDetail(s: {
 router.post('/', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const data = validate(createSessionSchema, req.body);
+    await assertCanAccessScreen(req.user!, BigInt(data.screenId));
     const session = await sessionsService.create(data, req.user!.id);
 
     const io = req.app.get('io') as import('socket.io').Server | undefined;
@@ -128,7 +134,9 @@ router.get('/:id/report', requireAuth([...REPORT_ROLES]), async (req, res, next)
 
 router.get('/:id', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
-    const session = await sessionsService.getById(BigInt(param(req, 'id')));
+    const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
+    const session = await sessionsService.getById(sessionId);
     res.json(shapeSessionDetail(session));
   } catch (error) {
     next(error);
@@ -137,7 +145,9 @@ router.get('/:id', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
 
 router.get('/:id/full', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
-    const session = await sessionsService.getById(BigInt(param(req, 'id')));
+    const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
+    const session = await sessionsService.getById(sessionId);
     const prizes = await prisma.prize.findMany({
       where: { sessionId: session.id },
       include: { player: { select: { id: true, emailForPrize: true } } },
@@ -316,6 +326,7 @@ router.get('/by-code/:slugShort/pseudo-suggestions', async (req, res, next) => {
 router.post('/:id/start', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
     clearLobbyTimer(sessionId);
     await getOrchestrator().start(sessionId);
     res.json({ message: 'Session started' });
@@ -327,6 +338,7 @@ router.post('/:id/start', requireAuth([...ADMIN_ROLES]), async (req, res, next) 
 router.post('/:id/pause', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
     await getOrchestrator().pauseSession(sessionId);
     res.json({ message: 'Session paused' });
   } catch (error) {
@@ -337,6 +349,7 @@ router.post('/:id/pause', requireAuth([...ADMIN_ROLES]), async (req, res, next) 
 router.post('/:id/resume', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
     await getOrchestrator().resumeSession(sessionId);
     res.json({ message: 'Session resumed' });
   } catch (error) {
@@ -347,6 +360,7 @@ router.post('/:id/resume', requireAuth([...ADMIN_ROLES]), async (req, res, next)
 router.post('/:id/force-end-question', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
     await getOrchestrator().forceEndQuestion(sessionId);
     res.json({ message: 'Question ended' });
   } catch (error) {
@@ -357,6 +371,7 @@ router.post('/:id/force-end-question', requireAuth([...ADMIN_ROLES]), async (req
 router.post('/:id/abort', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
     const body = validate(abortSessionSchema, req.body);
     clearLobbyTimer(sessionId);
     await getOrchestrator().abortSession(sessionId, body.reason);
@@ -369,6 +384,7 @@ router.post('/:id/abort', requireAuth([...ADMIN_ROLES]), async (req, res, next) 
 router.post('/:id/toggle-mute', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
     const muted = await getOrchestrator().toggleMute(sessionId);
     res.json({ muted });
   } catch (error) {
@@ -386,6 +402,7 @@ sessionsNestedRouter.get(
   async (req, res, next) => {
     try {
       const screenId = BigInt(param(req, 'screenId'));
+      await assertCanAccessScreen(req.user!, screenId);
       const query = validate(listSessionsQuerySchema, req.query);
       const result = await sessionsService.listByScreen(screenId, query);
       res.json({
@@ -439,8 +456,12 @@ sessionsNestedRouter.get(
   requireAuth([...ADMIN_ROLES]),
   async (req, res, next) => {
     try {
+      const slug = param(req, 'slug');
+      const cinema = await prisma.cinema.findUnique({ where: { slug }, select: { id: true } });
+      if (!cinema) throw new AppError('Cinema not found', 404, 'CINEMA_NOT_FOUND');
+      await assertCanAccessCinema(req.user!, cinema.id);
       const query = validate(listSessionsQuerySchema, req.query);
-      const result = await sessionsService.listByCinema(param(req, 'slug'), query);
+      const result = await sessionsService.listByCinema(slug, query);
       res.json({
         items: result.items.map((s) => ({
           id: s.id.toString(),

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../../shared/auth/index.js';
+import { assertCanAccessCinema } from '../../shared/auth/tenant-scope.js';
 import { validate } from '../../shared/validation/index.js';
 import { param } from '../../shared/utils/index.js';
 import {
@@ -48,6 +49,7 @@ router.get(
   async (req, res, next) => {
     try {
       const cinema = await cinemasService.getBySlug(param(req, 'slug'));
+      await assertCanAccessCinema(req.user!, cinema.id);
       res.json({
         id: cinema.id.toString(),
         slug: cinema.slug,

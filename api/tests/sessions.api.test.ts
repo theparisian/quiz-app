@@ -106,13 +106,11 @@ describe('sessions API (integration)', () => {
       cinemaId: otherCinema.id.toString(),
     });
 
-    // The session creation itself will succeed because we only check role on the route level
-    // Screen ownership validation can be done in service - for now the creation works but the
-    // screen belongs to a different cinema. Let's verify the route access is OK for projectionist.
+    // The screen belongs to another cinema: the tenant scope refuses the creation.
     const res = await authed(request(app).post('/api/sessions'), projToken)
       .send({ quizSlug, screenId: screenId.toString() })
-      .expect(201);
-    expect(res.body.state).toBe('lobby');
+      .expect(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
   });
 
   it('GET /sessions/by-code/:slugShort is public', async () => {

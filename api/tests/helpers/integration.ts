@@ -25,6 +25,24 @@ export async function createSuperAdminUser() {
   return { user, token };
 }
 
+export async function createCinemaUser(role: 'cinema_admin' | 'projectionist', cinemaId: bigint) {
+  const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.local`;
+  const user = await prisma.user.create({
+    data: {
+      email,
+      displayName: 'Test Cinema User',
+      role,
+      cinemaId,
+    },
+  });
+  const token = await signJwt({
+    userId: user.id.toString(),
+    role,
+    cinemaId: cinemaId.toString(),
+  });
+  return { user, token };
+}
+
 export function authed(agent: supertest.Test, token: string) {
   return agent.set('Cookie', [`token=${token}`]);
 }

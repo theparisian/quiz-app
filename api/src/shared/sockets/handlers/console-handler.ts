@@ -8,11 +8,37 @@ import { logger } from '../../logger/index.js';
 import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';
 import { authenticateJwtFromCookie, type SocketConsoleData } from '../socket-auth.js';
+import { assertCanAccessSession } from '../../auth/tenant-scope.js';
 import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.service.js';
 import { clearLobbyTimer } from '../../../modules/sessions/lobby-timer.service.js';
 import { buildConsoleStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 
 const CONSOLE_ROLES = new Set(['super_admin', 'cinema_admin', 'projectionist']);
+
+/**
+ * Vérifie l'accès au cinéma de la session. En cas de refus, émet l'erreur socket
+ * et renvoie false : l'appelant doit retourner sans rejoindre aucune room.
+ */
+async function checkConsoleSessionAccess(
+  socket: Socket,
+  auth: { role: string; cinemaId: bigint | null },
+  sessionId: bigint,
+): Promise<boolean> {
+  try {
+    await assertCanAccessSession({ role: auth.role, cinemaId: auth.cinemaId }, sessionId);
+    return true;
+  } catch (err: unknown) {
+    if (err instanceof AppError && err.code === 'FORBIDDEN') {
+      socket.emit('error', { code: 'FORBIDDEN', message: 'Not allowed for this session' });
+      return false;
+    }
+    if (err instanceof AppError) {
+      socket.emit('error', { code: err.code, message: err.message });
+      return false;
+    }
+    throw err;
+  }
+}
 
 export function setupConsoleHandlers(io: Server): void {
   const nsp = io.of('/console');
@@ -33,6 +59,7 @@ export function setupConsoleHandlers(io: Server): void {
         }
 
         const sessionId = BigInt(parsed.data.sessionId);
+        if (!(await checkConsoleSessionAccess(socket, auth, sessionId))) return;
 
         const sessionRow = await prisma.session.findUnique({
           where: { id: sessionId },
@@ -143,6 +170,8 @@ export function setupConsoleHandlers(io: Server): void {
         }
 
         const sessionId = BigInt(parsed.data.sessionId);
+        if (!(await checkConsoleSessionAccess(socket, auth, sessionId))) return;
+
         const session = await prisma.session.findUnique({
           where: { id: sessionId },
           include: { screen: true },
@@ -150,13 +179,6 @@ export function setupConsoleHandlers(io: Server): void {
         if (!session) {
           socket.emit('error', { code: 'SESSION_NOT_FOUND', message: 'Session not found' });
           return;
-        }
-
-        if (auth.role !== 'super_admin') {
-          if (!auth.cinemaId || session.screen.cinemaId !== auth.cinemaId) {
-            socket.emit('error', { code: 'FORBIDDEN', message: 'No access to this session' });
-            return;
-          }
         }
 
         const socketData: SocketConsoleData = {

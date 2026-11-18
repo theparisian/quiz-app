@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../../shared/auth/index.js';
+import { assertCanAccessSession } from '../../shared/auth/tenant-scope.js';
+import { prisma } from '../../shared/db/index.js';
 import { validate } from '../../shared/validation/index.js';
 import { param } from '../../shared/utils/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
@@ -77,6 +79,12 @@ router.post(
   async (req, res, next) => {
     try {
       const playerId = BigInt(param(req, 'id'));
+      const target = await prisma.player.findUnique({
+        where: { id: playerId },
+        select: { sessionId: true },
+      });
+      if (!target) throw new AppError('Player not found', 404, 'PLAYER_NOT_FOUND');
+      await assertCanAccessSession(req.user!, target.sessionId);
       const player = await playersService.kick(playerId);
 
       const io = req.app.get('io') as import('socket.io').Server | undefined;
