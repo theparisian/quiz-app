@@ -24,7 +24,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 01 | A1 Cloisonnement | — | — | fait (e5e1f54) |
 | 02 | A2 Protection du join | A1 (sessions.routes) | 0019_session_join_token | fait (70e1162 + correctif IP) |
 | 03 | A3 Réponses | A2 (players.service) | — | fait (29d9c33 + correctif reprise) |
-| 04 | A4 Déploiement | — | — | à faire |
+| 04 | A4 Déploiement | — | — | fait (2cc96b7 + commit exact) |
 | 05 | B1 Game / Round / Score | A3 | 0020_games_rounds_scores | à faire |
 | 06 | B2-B4 Moteur et protocole | B1 | — | à faire |
 | 07 | B5 Multi-manches | B2-B4 | 0021 | à faire |
@@ -97,6 +97,14 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   des 10 échecs.
 - A3 — Un joueur exclu ou parti reste dans l'état en mémoire pendant la partie et peut encore
   répondre (ses points ne sont pas comptés). Comportement antérieur ; à fermer en B2-B4.
+- A4 — À faire par l'utilisateur AVANT la première fusion dans `master` : secret GitHub
+  `VPS_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 <hôte>`, empreinte vérifiée sur le VPS) et
+  `HEALTH_CHECK_TOKEN` renseigné (sinon la garde « séance en cours » est sautée avec un simple
+  avertissement).
+- A4 — Le premier déploiement A4 n'a pas de garde (l'API en place n'a pas encore la route) : ne pas
+  le faire pendant une séance. Changer `HEALTH_CHECK_TOKEN` bloque le déploiement suivant (forcer).
+- A4 — Non vérifié sur le VPS réel : présence de `curl`, `pm2` pour l'utilisateur de déploiement,
+  `known_hosts` avec `StrictHostKeyChecking=yes`.
 
 ## Décisions
 
@@ -107,4 +115,7 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   dans le commit protocole de B2-B4, avec ses appelants.
 - 2026-11-18 — Clé IP des sockets : dernière valeur de `x-forwarded-for` (et non la première,
   falsifiable par le client). Corrigé après A2.
+- 2026-11-18 — Déploiement automatique : on déploie le commit exact validé par la CI
+  (`workflow_run.head_sha`), un seul déploiement à la fois, et jamais un commit plus ancien que la
+  version en place.
 - 2026-11-18 — Validations humaines réduites au minimum : après B2-B4 et en fin de chantier.

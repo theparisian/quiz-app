@@ -3,6 +3,8 @@
 #
 # Usage, depuis la racine du projet sur le VPS :
 #   BRANCH=master FORCE=0 bash scripts/deploy.sh
+#   TARGET_SHA=<commit> (optionnel) : déploie ce commit précis de la branche (celui validé par la
+#   CI) au lieu de sa tête.
 #
 # Étapes : garde « séance en cours » -> mise à jour du code -> install, build, migrations,
 # redémarrage PM2 -> contrôle de santé -> retour arrière automatique en cas d'échec.
@@ -172,6 +174,7 @@ rollback() {
 main() {
   BRANCH="${BRANCH:?BRANCH doit être défini (ex. BRANCH=master)}"
   FORCE="${FORCE:-0}"
+  TARGET_SHA="${TARGET_SHA:-}"
 
   PREV_SHA="$(git rev-parse HEAD)"
   log "Branche ${BRANCH}, version en place ${PREV_SHA}, FORCE=${FORCE}."
@@ -181,7 +184,20 @@ main() {
   # -f : écrase les modifications locales des fichiers suivis (remplace l'ancien git stash).
   git fetch origin "$BRANCH"
   git checkout -f "$BRANCH"
-  git reset --hard "origin/$BRANCH"
+  if [ -n "$TARGET_SHA" ]; then
+    # Une CI plus ancienne qui termine après une plus récente ne doit pas faire revenir en arrière.
+    if git merge-base --is-ancestor "$TARGET_SHA" "$PREV_SHA" 2>/dev/null; then
+      log "Commit ${TARGET_SHA} déjà inclus dans la version en place : rien à déployer."
+      exit 0
+    fi
+    if ! git merge-base --is-ancestor "$TARGET_SHA" "origin/$BRANCH"; then
+      log "Commit ${TARGET_SHA} absent de origin/${BRANCH} : déploiement annulé."
+      exit 1
+    fi
+    git reset --hard "$TARGET_SHA"
+  else
+    git reset --hard "origin/$BRANCH"
+  fi
   log "Code mis à jour : $(git rev-parse HEAD)."
 
   if ! build_and_restart; then

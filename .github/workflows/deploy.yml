@@ -24,6 +24,11 @@ on:
         type: boolean
         default: false
 
+# Un seul déploiement à la fois ; un déploiement en cours n'est jamais annulé.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: >-
@@ -90,6 +95,8 @@ jobs:
           # Paramètres du déploiement (passés par variables pour éviter toute injection dans le script)
           DEPLOY_BRANCH: ${{ github.event.inputs.branch || github.event.workflow_run.head_branch || github.ref_name }}
           DEPLOY_FORCE: ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '1' || '0' }}
+          # Commit validé par la CI (vide en déploiement manuel : tête de la branche).
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || '' }}
         run: |
           set -euo pipefail
 
@@ -138,6 +145,7 @@ jobs:
 
           BRANCH="$DEPLOY_BRANCH"
           FORCE="$DEPLOY_FORCE"
+          SHA="$DEPLOY_SHA"
           if [ "$FORCE" = "1" ]; then echo "::warning::Déploiement forcé : garde des sessions en cours désactivée."; fi
           {
             echo 'set -euo pipefail'
@@ -240,7 +248,7 @@ jobs:
             # scripts/deploy.sh n'existe sur le VPS qu'après le fetch : on récupère ce seul fichier.
             printf 'git fetch origin %q\n' "$BRANCH"
             printf 'git checkout %q -- scripts/deploy.sh\n' "origin/${BRANCH}"
-            printf 'BRANCH=%q FORCE=%q bash scripts/deploy.sh\n' "$BRANCH" "$FORCE"
+            printf 'BRANCH=%q FORCE=%q TARGET_SHA=%q bash scripts/deploy.sh\n' "$BRANCH" "$FORCE" "$SHA"
           } | ssh -o StrictHostKeyChecking=yes ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s || rc=$?
           rc="${rc:-0}"
           if [ "$rc" = "3" ]; then
