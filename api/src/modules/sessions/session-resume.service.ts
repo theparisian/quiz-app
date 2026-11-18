@@ -2,11 +2,12 @@ import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { shapeQuizBackgroundPayload } from '../quizzes/quiz-background.js';
 import { resolveQuizAudioPayload } from '../quizzes/quiz-audio.js';
+import { getSessionRuntime } from './session-runtime.service.js';
 import {
-  getOrchestrator,
+  QuizRound,
   getResultsDisplayMs,
-  type RunningSessionState,
-} from './session-orchestrator.service.js';
+  type QuizLegacyMemory,
+} from '../games/engines/quiz/quiz.engine.js';
 import { getLobbyTimerRemainingMs } from './lobby-timer.service.js';
 import {
   resolvePrizeConfig,
@@ -14,16 +15,22 @@ import {
 } from '../prizes/prize-config.service.js';
 import { resolvePrizesPayload } from '../prizes/prize-display.service.js';
 
-function resultsPhaseRemainingMs(mem: RunningSessionState): number {
+/** TEMPORAIRE (commit 1) : mémoire de la manche quiz active, en attendant round.snapshot(). */
+function quizMemory(sessionId: bigint): QuizLegacyMemory | undefined {
+  const round = getSessionRuntime().getActiveRound(sessionId);
+  return round instanceof QuizRound ? round.legacyMemory() : undefined;
+}
+
+function resultsPhaseRemainingMs(mem: QuizLegacyMemory): number {
   const start = mem.resultsPhaseStartedAt;
   if (start == null) return getResultsDisplayMs();
   return Math.max(0, getResultsDisplayMs() - (Date.now() - start));
 }
 
-/** remainingMs question courante (spec PR6) — mémoire orchestrator + état DB session. */
+/** remainingMs question courante (spec PR6) — mémoire de la manche + état DB session. */
 function questionRemainingMsFromMem(
   sessionState: string,
-  mem: RunningSessionState,
+  mem: QuizLegacyMemory,
   timeLimitMs: number,
 ): number {
   const started = mem.currentQuestionStartedAt;
@@ -82,7 +89,7 @@ async function loadSessionFull(sessionId: bigint) {
 
 function resolveJoinedQuestionPosition(
   session: { currentQuestionPosition: number | null; state: string },
-  mem: RunningSessionState | undefined,
+  mem: QuizLegacyMemory | undefined,
 ): number {
   const dbPos = session.currentQuestionPosition ?? 0;
   if (dbPos > 0) return dbPos;
@@ -110,7 +117,7 @@ export async function buildPlayerJoinSnapshot(
   }
 
   const totalQuestions = session.quiz.questions.length;
-  const mem = getOrchestrator().getRunningState(sessionId);
+  const mem = quizMemory(sessionId);
   const currentQuestionPosition = resolveJoinedQuestionPosition(session, mem);
 
   const base = {
@@ -189,7 +196,7 @@ export async function buildMobilePlayerStateSnapshot(
         : null;
 
   const totalActive = ranked.length;
-  const mem = getOrchestrator().getRunningState(sessionId);
+  const mem = quizMemory(sessionId);
 
   const base = {
     player: {
@@ -408,7 +415,7 @@ export async function buildNucStateSnapshot(params: {
   });
 
   const ranked = await activePlayersRanked(session.id);
-  const mem = getOrchestrator().getRunningState(session.id);
+  const mem = quizMemory(session.id);
 
   const scoreboard = ranked.slice(0, 5).map((p) => ({
     playerId: p.id.toString(),
@@ -556,7 +563,7 @@ export async function buildConsoleStateSnapshot(
     },
   });
 
-  const mem = getOrchestrator().getRunningState(session.id);
+  const mem = quizMemory(session.id);
 
   const quiz = {
     id: session.quiz.id.toString(),

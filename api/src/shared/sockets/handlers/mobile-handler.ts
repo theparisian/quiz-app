@@ -5,7 +5,7 @@ import { logger } from '../../logger/index.js';
 import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';
 import { playersService } from '../../../modules/players/players.service.js';
-import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.service.js';
+import { getSessionRuntime } from '../../../modules/sessions/session-runtime.service.js';
 import { buildMobilePlayerStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 import type { SocketPlayerData } from '../socket-auth.js';
 import { broadcastPlayerJoined, broadcastPlayerLeft } from '../session-broadcast.js';
@@ -196,7 +196,7 @@ export function setupMobileHandlers(io: Server): void {
 
       void (async () => {
         try {
-          await getOrchestrator().submitAnswer({
+          await getSessionRuntime().submitAnswer({
             sessionId: playerData.sessionId,
             playerId: playerData.playerId,
             questionId: BigInt(parsed.data.questionId),
@@ -255,21 +255,28 @@ export function setupMobileHandlers(io: Server): void {
           return;
         }
 
+        // Un joueur exclu ne revient pas dans la partie.
+        if (player.status === 'kicked') {
+          socket.emit('error', { code: 'PLAYER_KICKED', message: 'Player was kicked' });
+          return;
+        }
+
         const resumed = await prisma.player.update({
           where: { id: player.id },
           data: { status: 'active' },
           select: { avatar: { select: { imageUrl: true } } },
         });
 
-        // Un joueur reparti (player:leave) avant le lancement n'est pas dans l'état en mémoire
-        // de la partie : on l'y remet, sinon ses réponses seraient refusées.
-        const orchestrator = getOrchestrator();
-        if (!orchestrator.getRunningState(sessionId)?.playerMeta.has(player.id.toString())) {
-          orchestrator.addPlayerToSession(sessionId, player.id, {
-            pseudo: player.pseudo,
-            avatarUrl: resumed.avatar?.imageUrl ?? null,
-            joinedQuestionPosition: player.joinedQuestionPosition,
-          });
+        // Un joueur reparti (player:leave, déconnexion prolongée) n'est plus dans la partie
+        // en cours : on l'y remet (convention 8), sinon ses réponses seraient refusées.
+        const runtime = getSessionRuntime();
+        if (!runtime.hasPlayer(sessionId, player.id)) {
+          runtime.addPlayer(
+            sessionId,
+            player.id,
+            { pseudo: player.pseudo, avatarUrl: resumed.avatar?.imageUrl ?? null },
+            { rejoin: true },
+          );
         }
 
         const socketData: SocketPlayerData = {
@@ -308,7 +315,15 @@ export function setupMobileHandlers(io: Server): void {
       if (!playerData || playerData.type !== 'player') return;
 
       setTimeout(() => {
-        void playersService.leave(playerData.playerId).catch(() => {});
+        void (async () => {
+          // Reconnecté entre-temps sur un autre socket (player:resume) : il n'est pas parti.
+          const sockets = await nsp.in(`session:${playerData.sessionId}:players`).fetchSockets();
+          const stillHere = sockets.some(
+            (s) => (s.data as SocketPlayerData | undefined)?.playerId === playerData.playerId,
+          );
+          if (stillHere) return;
+          await playersService.leave(playerData.playerId);
+        })().catch(() => {});
       }, DISCONNECT_GRACE_MS);
     });
   });

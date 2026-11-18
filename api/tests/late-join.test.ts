@@ -7,10 +7,10 @@ import { signJwt } from '../src/shared/auth/jwt.js';
 import { buildApp } from '../src/create-app.js';
 import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
 import {
-  getOrchestrator,
+  getSessionRuntime,
   resetRunningSessionsForTests,
   setIoInstance,
-} from '../src/modules/sessions/session-orchestrator.service.js';
+} from '../src/modules/sessions/session-runtime.service.js';
 import {
   resetLobbyTimersForTests,
   setLobbyTimerIo,
@@ -289,7 +289,7 @@ describe('late-join', () => {
     });
     const correct = q2!.answers.find((a) => a.isCorrect)!;
 
-    await getOrchestrator().submitAnswer({
+    await getSessionRuntime().submitAnswer({
       sessionId: BigInt(session.id),
       playerId: BigInt(joinBody.player.id),
       questionId: q2!.id,

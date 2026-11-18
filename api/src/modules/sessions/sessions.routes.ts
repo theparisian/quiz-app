@@ -24,7 +24,7 @@ import {
   abortSessionSchema,
 } from './sessions.schemas.js';
 import { sessionsService } from './sessions.service.js';
-import { getOrchestrator } from './session-orchestrator.service.js';
+import { getSessionRuntime } from './session-runtime.service.js';
 import { clearLobbyTimer } from './lobby-timer.service.js';
 import {
   buildSessionReport,
@@ -351,7 +351,7 @@ router.post('/:id/start', requireAuth([...ADMIN_ROLES]), async (req, res, next) 
     const sessionId = BigInt(param(req, 'id'));
     await assertCanAccessSession(req.user!, sessionId);
     clearLobbyTimer(sessionId);
-    await getOrchestrator().start(sessionId);
+    await getSessionRuntime().start(sessionId);
     res.json({ message: 'Session started' });
   } catch (error) {
     next(error);
@@ -362,7 +362,7 @@ router.post('/:id/pause', requireAuth([...ADMIN_ROLES]), async (req, res, next) 
   try {
     const sessionId = BigInt(param(req, 'id'));
     await assertCanAccessSession(req.user!, sessionId);
-    await getOrchestrator().pauseSession(sessionId);
+    await getSessionRuntime().pauseSession(sessionId);
     res.json({ message: 'Session paused' });
   } catch (error) {
     next(error);
@@ -373,7 +373,7 @@ router.post('/:id/resume', requireAuth([...ADMIN_ROLES]), async (req, res, next)
   try {
     const sessionId = BigInt(param(req, 'id'));
     await assertCanAccessSession(req.user!, sessionId);
-    await getOrchestrator().resumeSession(sessionId);
+    await getSessionRuntime().resumeSession(sessionId);
     res.json({ message: 'Session resumed' });
   } catch (error) {
     next(error);
@@ -384,7 +384,7 @@ router.post('/:id/force-end-question', requireAuth([...ADMIN_ROLES]), async (req
   try {
     const sessionId = BigInt(param(req, 'id'));
     await assertCanAccessSession(req.user!, sessionId);
-    await getOrchestrator().forceEndQuestion(sessionId);
+    await getSessionRuntime().forceAdvance(sessionId);
     res.json({ message: 'Question ended' });
   } catch (error) {
     next(error);
@@ -397,7 +397,7 @@ router.post('/:id/abort', requireAuth([...ADMIN_ROLES]), async (req, res, next) 
     await assertCanAccessSession(req.user!, sessionId);
     const body = validate(abortSessionSchema, req.body);
     clearLobbyTimer(sessionId);
-    await getOrchestrator().abortSession(sessionId, body.reason);
+    await getSessionRuntime().abortSession(sessionId, body.reason);
     res.json({ message: 'Session aborted' });
   } catch (error) {
     next(error);
@@ -408,7 +408,7 @@ router.post('/:id/toggle-mute', requireAuth([...ADMIN_ROLES]), async (req, res, 
   try {
     const sessionId = BigInt(param(req, 'id'));
     await assertCanAccessSession(req.user!, sessionId);
-    const muted = await getOrchestrator().toggleMute(sessionId);
+    const muted = await getSessionRuntime().toggleMute(sessionId);
     res.json({ muted });
   } catch (error) {
     next(error);

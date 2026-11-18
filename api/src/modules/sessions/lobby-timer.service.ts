@@ -3,7 +3,7 @@ import { readLobbyTimerConfig, type LobbyTimerConfig } from '@quiz-app/validatio
 import { prisma } from '../../shared/db/index.js';
 import { logger } from '../../shared/logger/index.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
-import { getOrchestrator } from './session-orchestrator.service.js';
+import { getSessionRuntime } from './session-runtime.service.js';
 
 const BROADCAST_INTERVAL_MS = 1000;
 const SESSION_NAMESPACES = ['/player', '/console', '/mobile'] as const;
@@ -45,7 +45,7 @@ function computeRemainingMs(state: LobbyTimerState): number {
 async function fireAutoStart(sessionId: bigint): Promise<void> {
   clearLobbyTimer(sessionId);
   try {
-    await getOrchestrator().start(sessionId);
+    await getSessionRuntime().start(sessionId);
     logger.info({ sessionId: sessionId.toString() }, 'Lobby timer auto-started session');
     const session = await prisma.session.findUnique({
       where: { id: sessionId },

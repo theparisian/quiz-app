@@ -9,7 +9,7 @@ import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';
 import { authenticateJwtFromCookie, type SocketConsoleData } from '../socket-auth.js';
 import { assertCanAccessSession } from '../../auth/tenant-scope.js';
-import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.service.js';
+import { getSessionRuntime } from '../../../modules/sessions/session-runtime.service.js';
 import { clearLobbyTimer } from '../../../modules/sessions/lobby-timer.service.js';
 import { buildConsoleStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 
@@ -114,7 +114,7 @@ export function setupConsoleHandlers(io: Server): void {
       }
       try {
         clearLobbyTimer(cd.sessionId);
-        await getOrchestrator().start(cd.sessionId);
+        await getSessionRuntime().start(cd.sessionId);
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string };
         socket.emit('error', {
@@ -128,7 +128,7 @@ export function setupConsoleHandlers(io: Server): void {
       const cd = socket.data as SocketConsoleData | undefined;
       if (!cd || cd.type !== 'console') return;
       try {
-        await getOrchestrator().pauseSession(cd.sessionId);
+        await getSessionRuntime().pauseSession(cd.sessionId);
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string };
         socket.emit('error', {
@@ -142,7 +142,7 @@ export function setupConsoleHandlers(io: Server): void {
       const cd = socket.data as SocketConsoleData | undefined;
       if (!cd || cd.type !== 'console') return;
       try {
-        await getOrchestrator().resumeSession(cd.sessionId);
+        await getSessionRuntime().resumeSession(cd.sessionId);
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string };
         socket.emit('error', {
@@ -217,7 +217,7 @@ export function setupConsoleHandlers(io: Server): void {
       const cd = socket.data as SocketConsoleData | undefined;
       if (!cd || cd.type !== 'console') return;
       try {
-        await getOrchestrator().forceEndQuestion(cd.sessionId);
+        await getSessionRuntime().forceAdvance(cd.sessionId);
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string };
         socket.emit('error', {
@@ -234,7 +234,7 @@ export function setupConsoleHandlers(io: Server): void {
       const parsed = consoleAbortPayloadSchema.safeParse(data ?? {});
       try {
         clearLobbyTimer(cd.sessionId);
-        await getOrchestrator().abortSession(
+        await getSessionRuntime().abortSession(
           cd.sessionId,
           parsed.success ? parsed.data.reason : undefined,
         );
@@ -252,7 +252,7 @@ export function setupConsoleHandlers(io: Server): void {
       if (!cd || cd.type !== 'console') return;
       void (async () => {
         try {
-          await getOrchestrator().toggleMute(cd.sessionId);
+          await getSessionRuntime().toggleMute(cd.sessionId);
         } catch (err: unknown) {
           const error = err as { code?: string; message?: string };
           socket.emit('error', {

@@ -19,7 +19,7 @@ import { buildApp } from './create-app.js';
 import {
   rehydrateRunningSessions,
   setIoInstance,
-} from './modules/sessions/session-orchestrator.service.js';
+} from './modules/sessions/session-runtime.service.js';
 import { rehydrateLobbyTimers, setLobbyTimerIo } from './modules/sessions/lobby-timer.service.js';
 import { requeuePendingPrizeEmailsOnBoot } from './shared/email/prize-email-queue.service.js';
 import { startNucOfflineMonitor } from './shared/nuc-monitor/index.js';

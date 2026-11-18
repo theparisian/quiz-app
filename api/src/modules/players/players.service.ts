@@ -4,7 +4,7 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { containsBadWord } from '../../shared/moderation/bad-words.js';
-import { getOrchestrator } from '../sessions/session-orchestrator.service.js';
+import { getSessionRuntime } from '../sessions/session-runtime.service.js';
 import { notifyLobbyPlayerJoined } from '../sessions/lobby-timer.service.js';
 import { buildPlayerJoinSnapshot } from '../sessions/session-resume.service.js';
 import type { JoinSessionInput } from './players.schemas.js';
@@ -55,12 +55,7 @@ function resolveJoinedQuestionPositionAtJoin(
 ): number {
   const dbPos = session.currentQuestionPosition ?? 0;
   if (dbPos > 0) return dbPos;
-
-  const mem = getOrchestrator().getRunningState(sessionId);
-  if (mem && mem.currentQuestionIndex >= 0 && mem.currentQuestionIndex < mem.questions.length) {
-    return mem.questions[mem.currentQuestionIndex]!.position;
-  }
-  return 0;
+  return getSessionRuntime().getProgress(sessionId) ?? 0;
 }
 
 /**
@@ -157,11 +152,12 @@ export const playersService = {
     });
 
     if (isLateJoin) {
-      getOrchestrator().addPlayerToSession(session.id, player.id, {
-        pseudo: player.pseudo,
-        avatarUrl,
-        joinedQuestionPosition,
-      });
+      getSessionRuntime().addPlayer(
+        session.id,
+        player.id,
+        { pseudo: player.pseudo, avatarUrl },
+        { rejoin: false },
+      );
       logEvent({
         level: 'info',
         eventType: 'player_late_joined',
@@ -219,6 +215,8 @@ export const playersService = {
       where: { id: playerId },
       data: { status: 'disconnected' },
     });
+    // Un joueur parti ne peut plus agir pendant la manche (il y revient par player:resume).
+    getSessionRuntime().removePlayer(player.sessionId, playerId);
 
     logger.info({ playerId: playerId.toString() }, 'Player left');
 
@@ -241,6 +239,7 @@ export const playersService = {
       where: { id: playerId },
       data: { status: 'kicked' },
     });
+    getSessionRuntime().removePlayer(player.sessionId, playerId);
 
     logger.info({ playerId: playerId.toString() }, 'Player kicked');
     return player;

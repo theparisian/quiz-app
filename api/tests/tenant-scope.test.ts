@@ -7,7 +7,7 @@ import type { Express } from 'express';
 import { prisma } from '../src/shared/db/index.js';
 import { buildApp } from '../src/create-app.js';
 import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
-import { setIoInstance } from '../src/modules/sessions/session-orchestrator.service.js';
+import { setIoInstance } from '../src/modules/sessions/session-runtime.service.js';
 import { assertCanAccessCinema } from '../src/shared/auth/tenant-scope.js';
 import {
   authed,

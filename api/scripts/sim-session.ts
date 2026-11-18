@@ -6,7 +6,7 @@ import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
 import {
   rehydrateRunningSessions,
   setIoInstance,
-} from '../src/modules/sessions/session-orchestrator.service.js';
+} from '../src/modules/sessions/session-runtime.service.js';
 import { startNucOfflineMonitor } from '../src/shared/nuc-monitor/index.js';
 import { prisma } from '../src/shared/db/index.js';
 import { signJwt } from '../src/shared/auth/jwt.js';

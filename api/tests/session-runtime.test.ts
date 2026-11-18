@@ -7,13 +7,13 @@ import { signJwt } from '../src/shared/auth/jwt.js';
 import { buildApp } from '../src/create-app.js';
 import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
 import {
-  getOrchestrator,
+  getSessionRuntime,
   resetRunningSessionsForTests,
   setIoInstance,
-} from '../src/modules/sessions/session-orchestrator.service.js';
+} from '../src/modules/sessions/session-runtime.service.js';
 import { truncateQuizRelatedTables, minimalCinemaAndScreen } from './helpers/integration.js';
 
-describe('session-orchestrator (integration)', () => {
+describe('session-runtime (integration)', () => {
   let httpServer: HttpServer;
   let baseUrl: string;
   let adminToken: string;
@@ -270,7 +270,7 @@ describe('session-orchestrator (integration)', () => {
     const q = await startAndWaitFirstQuestion(session.id, socket);
 
     const [first, second] = q.answers;
-    const orch = getOrchestrator();
+    const orch = getSessionRuntime();
     const results = await Promise.allSettled([
       orch.submitAnswer({
         sessionId: BigInt(session.id),
@@ -316,7 +316,7 @@ describe('session-orchestrator (integration)', () => {
       questionId: BigInt(q.questionId),
       answerId: BigInt(q.answers[0]!.id),
     };
-    await expect(getOrchestrator().submitAnswer(input)).rejects.toMatchObject({
+    await expect(getSessionRuntime().submitAnswer(input)).rejects.toMatchObject({
       code: 'SESSION_PAUSED',
     });
 
@@ -326,7 +326,7 @@ describe('session-orchestrator (integration)', () => {
     });
     expect(resumeRes.ok).toBe(true);
 
-    const res = await getOrchestrator().submitAnswer(input);
+    const res = await getSessionRuntime().submitAnswer(input);
     expect(res.timeToAnswerMs).toBeGreaterThanOrEqual(1);
 
     const row = await prisma.playerAnswer.findUnique({
@@ -356,7 +356,7 @@ describe('session-orchestrator (integration)', () => {
 
     await Promise.all(
       players.map((p, i) =>
-        getOrchestrator().submitAnswer({
+        getSessionRuntime().submitAnswer({
           sessionId: BigInt(session.id),
           playerId: p.id,
           questionId: BigInt(q.questionId),
@@ -400,7 +400,7 @@ describe('session-orchestrator (integration)', () => {
       for (const [i, p] of players.entries()) {
         // Joueur 2 : faux à la première question, juste ensuite.
         const answer = i === 1 && index === 0 ? wrong : correct;
-        await getOrchestrator().submitAnswer({
+        await getSessionRuntime().submitAnswer({
           sessionId,
           playerId: p.id,
           questionId: BigInt(q.questionId),

@@ -8,7 +8,7 @@ import { prisma } from '../src/shared/db/index.js';
 import { signJwt } from '../src/shared/auth/jwt.js';
 import { buildApp } from '../src/create-app.js';
 import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
-import { setIoInstance } from '../src/modules/sessions/session-orchestrator.service.js';
+import { setIoInstance } from '../src/modules/sessions/session-runtime.service.js';
 import {
   NUC_OFFLINE_THRESHOLD_MS,
   scanStaleOnlineNucsAndMarkOffline,
