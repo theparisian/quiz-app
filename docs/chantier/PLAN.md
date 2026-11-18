@@ -22,7 +22,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | N° | Unité | Dépend de | Migration | Avancement |
 | --- | --- | --- | --- | --- |
 | 01 | A1 Cloisonnement | — | — | fait (e5e1f54) |
-| 02 | A2 Protection du join | A1 (sessions.routes) | 0019_session_join_token | à faire |
+| 02 | A2 Protection du join | A1 (sessions.routes) | 0019_session_join_token | fait (70e1162 + correctif IP) |
 | 03 | A3 Réponses | A2 (players.service) | — | à faire |
 | 04 | A4 Déploiement | — | — | à faire |
 | 05 | B1 Game / Round / Score | A3 | 0020_games_rounds_scores | à faire |
@@ -43,9 +43,10 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
    (créé en A1). Les copies locales existantes (`assertCinemaStaffCanAccessSlug` ×3 dans `prizes/`,
    `assertCinemaStaff` dans `cinemas.routes.ts`, `assertCinemaAccess` dans `session-report.service.ts`)
    ne sont pas refactorées pendant le chantier, mais aucun nouveau code ne les réutilise.
-2. **IP client** : derrière le proxy, `socket.handshake.address` vaut l'IP du proxy. Toute clé de
-   limitation socket utilise la première valeur de `x-forwarded-for`, sinon `handshake.address`
-   (comme `player-handler.ts` le fait déjà). Côté Express, `req.ip` après `trust proxy`.
+2. **IP client** : derrière le proxy, `socket.handshake.address` vaut l'IP du proxy.
+   La clé socket prend la DERNIÈRE valeur de `x-forwarded-for` (ajoutée par le proxy, non
+   falsifiable), helper `api/src/shared/sockets/client-ip.ts`. Côté Express, `req.ip` après
+   `trust proxy` 1, qui donne la même valeur.
 3. **Emplacements fixés pour B2-B4** (des prompts suivants y font référence) :
    - API : `api/src/modules/games/engine.types.ts`, `engine-registry.ts`, `engines/<clé>/`.
    - Validation : `packages/validation/src/games/<clé>.ts` ; schéma de manche nommé
@@ -84,6 +85,14 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   n'importe quelle session. À revoir (protéger par jeton joueur ou réduire les champs).
 - A1 — Le test existant « 403 for projectionist on another cinema » attendait 201 ; corrigé en 403.
 
+- A2 — `sessions.slug_short` est UNIQUE en base, mais le générateur n'évite que les codes des
+  sessions actives : la réutilisation d'un ancien code échoue (bug antérieur, à corriger).
+- A2 — Le plafond de joueurs est vérifié sans verrou : des joins simultanés peuvent le dépasser
+  de quelques unités.
+- A2 — `POST /api/players/join` ne transmet pas `avatarId` (bug antérieur).
+- A2 — Une session terminée renvoie 404 sur `/pseudo-suggestions`, ce qui compte dans la limite
+  des 10 échecs.
+
 ## Décisions
 
 - 2026-11-18 — Rotation des secrets : déjà faite (confirmé). A1 démarre sans prérequis.
@@ -91,4 +100,6 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   l'utilisateur AVANT toute fusion dans `master`, sinon le déploiement échoue.
 - 2026-11-18 — La route REST `POST /api/sessions/:id/force-end-question` devient `force-advance`
   dans le commit protocole de B2-B4, avec ses appelants.
+- 2026-11-18 — Clé IP des sockets : dernière valeur de `x-forwarded-for` (et non la première,
+  falsifiable par le client). Corrigé après A2.
 - 2026-11-18 — Validations humaines réduites au minimum : après B2-B4 et en fin de chantier.

@@ -60,7 +60,8 @@ describe('player:join protection (socket, A2)', () => {
   async function connect(forwardedFor: string): Promise<ClientSocket> {
     const s = ioClient(`${baseUrl}/mobile`, {
       transports: ['websocket'],
-      extraHeaders: { 'x-forwarded-for': `${forwardedFor}, 10.0.0.1` },
+      // Valeur forgée en tête, IP réelle ajoutée en dernier par le proxy.
+      extraHeaders: { 'x-forwarded-for': `198.51.100.7, ${forwardedFor}` },
     });
     sockets.push(s);
     await new Promise<void>((resolve) => s.on('connect', () => resolve()));
