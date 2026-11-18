@@ -1,9 +1,17 @@
 import { z } from 'zod';
+import { gameSlugsSchema } from '../games/games.schemas.js';
 
-export const createSessionSchema = z.object({
-  quizSlug: z.string().min(1),
-  screenId: z.string().min(1),
-});
+/** Une séance se crée SOIT par quizSlug (historique), SOIT par gameSlugs (1 à 5 jeux). */
+export const createSessionSchema = z
+  .object({
+    quizSlug: z.string().min(1).optional(),
+    gameSlugs: gameSlugsSchema.optional(),
+    screenId: z.string().min(1),
+  })
+  .refine((v) => (v.quizSlug === undefined) !== (v.gameSlugs === undefined), {
+    message: 'Provide either quizSlug or gameSlugs',
+    path: ['quizSlug'],
+  });
 
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
 

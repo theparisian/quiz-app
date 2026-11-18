@@ -7,6 +7,7 @@ import type { StorageProvider } from '../../shared/storage/storage-provider.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { audioService } from '../audio/audio.service.js';
+import { releaseGameOfDeletedQuiz, syncGameFromQuiz } from '../games/games.service.js';
 import type { CreateQuizInput, SaveFullEditInput, UpdateQuizInput } from './quizzes.schemas.js';
 
 function slugify(title: string): string {
@@ -37,8 +38,12 @@ async function allocateUniqueQuizSlug(title: string): Promise<string> {
   let candidate = base;
   let suffix = 2;
   for (;;) {
-    const exists = await prisma.quiz.findUnique({ where: { slug: candidate } });
-    if (!exists) return candidate;
+    // Le slug d'un quiz devient celui de son jeu : il doit être libre dans les deux tables.
+    const [exists, gameExists] = await Promise.all([
+      prisma.quiz.findUnique({ where: { slug: candidate } }),
+      prisma.game.findUnique({ where: { slug: candidate } }),
+    ]);
+    if (!exists && !gameExists) return candidate;
     candidate = `${base}-${suffix}`;
     suffix += 1;
   }
@@ -255,26 +260,30 @@ export const quizzesService = {
     const sponsorId = parseSponsorId(input.sponsorId);
     await ensureSponsorIfNeeded(sponsorId ?? undefined);
 
-    return prisma.quiz.create({
-      data: {
-        slug,
-        title: input.title,
-        description: input.description ?? null,
-        type: input.type,
-        sponsorId: sponsorId ?? null,
-        language: input.language,
-        durationEstimateSeconds: input.durationEstimateSeconds ?? null,
-        ...(input.brandingJson !== undefined
-          ? {
-              brandingJson:
-                input.brandingJson === null
-                  ? Prisma.JsonNull
-                  : (input.brandingJson as Prisma.InputJsonValue),
-            }
-          : {}),
-        createdByUserId: userId,
-        status: 'draft',
-      },
+    return prisma.$transaction(async (tx) => {
+      const quiz = await tx.quiz.create({
+        data: {
+          slug,
+          title: input.title,
+          description: input.description ?? null,
+          type: input.type,
+          sponsorId: sponsorId ?? null,
+          language: input.language,
+          durationEstimateSeconds: input.durationEstimateSeconds ?? null,
+          ...(input.brandingJson !== undefined
+            ? {
+                brandingJson:
+                  input.brandingJson === null
+                    ? Prisma.JsonNull
+                    : (input.brandingJson as Prisma.InputJsonValue),
+              }
+            : {}),
+          createdByUserId: userId,
+          status: 'draft',
+        },
+      });
+      await syncGameFromQuiz(quiz.id, tx);
+      return quiz;
     });
   },
 
@@ -363,9 +372,13 @@ export const quizzesService = {
       data.lobbyBackgroundOverlayOpacity = input.lobbyBackgroundOverlayOpacity;
     }
 
-    return prisma.quiz.update({
-      where: { id: quiz.id },
-      data,
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.quiz.update({
+        where: { id: quiz.id },
+        data,
+      });
+      await syncGameFromQuiz(quiz.id, tx);
+      return updated;
     });
   },
 
@@ -563,6 +576,8 @@ export const quizzesService = {
           }
         }
       }
+
+      await syncGameFromQuiz(quizRow.id, tx);
     });
 
     return quizzesService.getBySlug(slug);
@@ -587,7 +602,10 @@ export const quizzesService = {
       });
     }
 
-    await prisma.quiz.update({ where: { id: quiz.id }, data: { status: 'published' } });
+    await prisma.$transaction(async (tx) => {
+      await tx.quiz.update({ where: { id: quiz.id }, data: { status: 'published' } });
+      await syncGameFromQuiz(quiz.id, tx);
+    });
     logger.info({ quizSlug: slug, quizId: quiz.id.toString() }, 'Quiz published');
 
     logEvent({
@@ -604,7 +622,10 @@ export const quizzesService = {
     if (!quiz) throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
     if (quiz.status === 'archived')
       throw new AppError('Quiz is already archived', 403, 'QUIZ_INVALID_TRANSITION');
-    await prisma.quiz.update({ where: { id: quiz.id }, data: { status: 'archived' } });
+    await prisma.$transaction(async (tx) => {
+      await tx.quiz.update({ where: { id: quiz.id }, data: { status: 'archived' } });
+      await syncGameFromQuiz(quiz.id, tx);
+    });
     logger.info({ quizSlug: slug }, 'Quiz archived');
 
     logEvent({
@@ -621,7 +642,10 @@ export const quizzesService = {
     if (!quiz) throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
     if (quiz.status !== 'published')
       throw new AppError('Invalid status transition', 403, 'QUIZ_INVALID_TRANSITION');
-    await prisma.quiz.update({ where: { id: quiz.id }, data: { status: 'draft' } });
+    await prisma.$transaction(async (tx) => {
+      await tx.quiz.update({ where: { id: quiz.id }, data: { status: 'draft' } });
+      await syncGameFromQuiz(quiz.id, tx);
+    });
     logger.info({ quizSlug: slug }, 'Quiz unpublished');
     return quizzesService.getBySlug(slug);
   },
@@ -631,7 +655,10 @@ export const quizzesService = {
     if (!quiz) throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
     if (quiz.status !== 'archived')
       throw new AppError('Invalid status transition', 403, 'QUIZ_INVALID_TRANSITION');
-    await prisma.quiz.update({ where: { id: quiz.id }, data: { status: 'draft' } });
+    await prisma.$transaction(async (tx) => {
+      await tx.quiz.update({ where: { id: quiz.id }, data: { status: 'draft' } });
+      await syncGameFromQuiz(quiz.id, tx);
+    });
     logger.info({ quizSlug: slug }, 'Quiz unarchived');
     return quizzesService.getBySlug(slug);
   },
@@ -705,6 +732,7 @@ export const quizzesService = {
           });
         }
       }
+      await syncGameFromQuiz(dupe.id, tx);
     });
 
     logger.info({ fromSlug: slug, newSlug }, 'Quiz duplicated');
@@ -720,7 +748,10 @@ export const quizzesService = {
     if (quiz._count.sessions > 0) {
       throw new AppError('Quiz cannot be deleted: sessions exist', 409, 'QUIZ_HAS_SESSIONS');
     }
-    await prisma.quiz.delete({ where: { id: quiz.id } });
+    await prisma.$transaction(async (tx) => {
+      await releaseGameOfDeletedQuiz(quiz.id, tx);
+      await tx.quiz.delete({ where: { id: quiz.id } });
+    });
     logger.info({ quizSlug: slug }, 'Quiz deleted');
   },
 
@@ -729,7 +760,14 @@ export const quizzesService = {
     if (!quiz) throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
     if (quiz.status === 'archived')
       throw new AppError('Quiz is archived', 403, 'QUIZ_ARCHIVED_READONLY');
-    return prisma.quiz.update({ where: { id: quiz.id }, data: { coverImageUrl: url } });
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.quiz.update({
+        where: { id: quiz.id },
+        data: { coverImageUrl: url },
+      });
+      await syncGameFromQuiz(quiz.id, tx);
+      return updated;
+    });
   },
 
   async removeCoverImage(slug: string, storage: StorageProvider) {
@@ -740,7 +778,14 @@ export const quizzesService = {
     const base = storagePublicBase();
     const key = extractKeyFromPublicUrl(quiz.coverImageUrl, base);
     if (key) await storage.delete(key);
-    return prisma.quiz.update({ where: { id: quiz.id }, data: { coverImageUrl: null } });
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.quiz.update({
+        where: { id: quiz.id },
+        data: { coverImageUrl: null },
+      });
+      await syncGameFromQuiz(quiz.id, tx);
+      return updated;
+    });
   },
 
   async setBackgroundMedia(slug: string, _key: string, url: string, mime: string) {

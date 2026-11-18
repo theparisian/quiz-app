@@ -209,6 +209,15 @@ function getRunningState(sessionId: bigint): RunningSessionState {
   return state;
 }
 
+/** Manche en cours de la séance (une seule manche, position 1, à ce stade). */
+async function findCurrentRoundId(sessionId: bigint): Promise<bigint | null> {
+  const round = await prisma.sessionRound.findUnique({
+    where: { sessionId_position: { sessionId, position: 1 } },
+    select: { id: true },
+  });
+  return round?.id ?? null;
+}
+
 async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: string) {
   const state = getRunningState(sessionId);
   if (state.questionEnded) return;
@@ -236,7 +245,7 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
     isCorrect: boolean;
   }[] = [];
 
-  const scoreUpdates: { playerId: bigint; points: number }[] = [];
+  const scoreUpdates: { playerId: bigint; points: number; timeToAnswerMs: number }[] = [];
   const scoreboardEntries: {
     playerId: string;
     pseudo: string;
@@ -300,7 +309,11 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
       });
 
       if (points > 0) {
-        scoreUpdates.push({ playerId: submitted.playerId, points });
+        scoreUpdates.push({
+          playerId: submitted.playerId,
+          points,
+          timeToAnswerMs: submitted.timeToAnswerMs,
+        });
       }
 
       scoreboardEntries.push({
@@ -349,14 +362,40 @@ async function endQuestionInternal(sessionId: bigint, forced: boolean, reason?: 
   }
 
   if (scoreUpdates.length > 0) {
-    await prisma.$transaction(
-      scoreUpdates.map((update) =>
+    const roundId = await findCurrentRoundId(sessionId);
+    if (roundId === null) {
+      logger.warn(
+        { sessionId: sessionId.toString() },
+        'No session round: score events not recorded',
+      );
+    }
+    // Une seule transaction : incréments de Player.scoreTotal (valeur lue partout)
+    // et journal des ScoreEvent de la manche.
+    await prisma.$transaction([
+      ...scoreUpdates.map((update) =>
         prisma.player.update({
           where: { id: update.playerId },
           data: { scoreTotal: { increment: update.points } },
         }),
       ),
-    );
+      ...(roundId !== null
+        ? [
+            prisma.scoreEvent.createMany({
+              data: scoreUpdates.map((update) => ({
+                sessionId,
+                roundId,
+                playerId: update.playerId,
+                points: update.points,
+                reason: 'quiz_answer',
+                metaJson: {
+                  questionId: question.id.toString(),
+                  timeToAnswerMs: update.timeToAnswerMs,
+                },
+              })),
+            }),
+          ]
+        : []),
+    ]);
   }
 
   scoreboardEntries.sort((a, b) => b.scoreTotal - a.scoreTotal);
@@ -496,16 +535,22 @@ async function endSessionInternal(sessionId: bigint) {
   const durationMs =
     session.startedAt !== null ? endedAt.getTime() - session.startedAt.getTime() : 0;
 
-  await prisma.session.update({
-    where: { id: sessionId },
-    data: {
-      state: 'ended',
-      endedAt,
-      winnerPlayerId: winnerId,
-      currentQuestionStartedAt: null,
-      currentQuestionPausedAt: null,
-    },
-  });
+  await prisma.$transaction([
+    prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        state: 'ended',
+        endedAt,
+        winnerPlayerId: winnerId,
+        currentQuestionStartedAt: null,
+        currentQuestionPausedAt: null,
+      },
+    }),
+    prisma.sessionRound.updateMany({
+      where: { sessionId, state: { in: ['pending', 'running'] } },
+      data: { state: 'ended', endedAt },
+    }),
+  ]);
 
   const finalScoreboard = players.map((p, i) => ({
     playerId: p.id.toString(),
@@ -756,16 +801,23 @@ export function getOrchestrator() {
         throw new AppError('Quiz has no questions', 400, 'QUIZ_EMPTY');
       }
 
-      await prisma.session.update({
-        where: { id: sessionId },
-        data: {
-          state: 'running',
-          startedAt: new Date(),
-          currentQuestionStartedAt: null,
-          currentQuestionPausedAt: null,
-          audioMuted: false,
-        },
-      });
+      const startedAt = new Date();
+      await prisma.$transaction([
+        prisma.session.update({
+          where: { id: sessionId },
+          data: {
+            state: 'running',
+            startedAt,
+            currentQuestionStartedAt: null,
+            currentQuestionPausedAt: null,
+            audioMuted: false,
+          },
+        }),
+        prisma.sessionRound.updateMany({
+          where: { sessionId, position: 1 },
+          data: { state: 'running', startedAt },
+        }),
+      ]);
 
       const { playerIds, playerMeta } = await loadActivePlayers(sessionId);
 
@@ -944,15 +996,21 @@ export function getOrchestrator() {
 
       assertTransition(session.state, 'aborted');
 
-      await prisma.session.update({
-        where: { id: sessionId },
-        data: {
-          state: 'aborted',
-          endedAt: new Date(),
-          currentQuestionStartedAt: null,
-          currentQuestionPausedAt: null,
-        },
-      });
+      await prisma.$transaction([
+        prisma.session.update({
+          where: { id: sessionId },
+          data: {
+            state: 'aborted',
+            endedAt: new Date(),
+            currentQuestionStartedAt: null,
+            currentQuestionPausedAt: null,
+          },
+        }),
+        prisma.sessionRound.updateMany({
+          where: { sessionId, state: { in: ['pending', 'running'] } },
+          data: { state: 'skipped' },
+        }),
+      ]);
 
       broadcastToSession(sessionId, 'session:aborted', { reason: reason ?? null });
       broadcastToSession(sessionId, 'session:state_changed', {

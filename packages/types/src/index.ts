@@ -13,6 +13,9 @@ export type EventLevel = 'info' | 'warn' | 'error' | 'critical';
 export type AiGenerationStatus = 'success' | 'failed' | 'partial';
 export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 export type InvitationRole = 'projectionist' | 'cinema_admin';
+export type GameKind = 'internal' | 'sponsored';
+export type GameStatus = 'draft' | 'published' | 'archived';
+export type RoundState = 'pending' | 'running' | 'ended' | 'skipped';
 
 export interface HealthCheckResponse {
   status: 'ok';

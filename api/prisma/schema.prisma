@@ -119,6 +119,24 @@ enum InvitationRole {
   cinema_admin
 }
 
+enum GameKind {
+  internal
+  sponsored
+}
+
+enum GameStatus {
+  draft
+  published
+  archived
+}
+
+enum RoundState {
+  pending
+  running
+  ended
+  skipped
+}
+
 // ─── MODELS ─────────────────────────────────────────────────────────────────────
 
 model Cinema {
@@ -271,6 +289,7 @@ model Quiz {
   questions     Question[]
   sessions      Session[]
   sounds        Sound[]
+  game          Game?
 
   @@index([sponsorId])
   @@index([createdByUserId])
@@ -407,6 +426,8 @@ model Session {
   players       Player[]
   prizes        Prize[]
   events        EventLog[]
+  rounds        SessionRound[]
+  scoreEvents   ScoreEvent[]
 
   @@index([quizId])
   @@index([screenId])
@@ -436,6 +457,7 @@ model Player {
   avatar        Avatar?        @relation(fields: [avatarId], references: [id])
   playerAnswers PlayerAnswer[]
   prizes        Prize[]
+  scoreEvents   ScoreEvent[]
 
   @@index([sessionId])
   @@index([avatarId])
@@ -480,6 +502,7 @@ model Sponsor {
 
   quizzes        Quiz[]
   prizeTemplates PrizeTemplate[]
+  games          Game[]
 
   @@map("sponsors")
 }
@@ -559,6 +582,73 @@ model EventLog {
   @@index([eventType])
   @@index([createdAt])
   @@map("events_log")
+}
+
+/// Jeu jouable en séance (quiz ou autre moteur). Un jeu quiz reprend le slug de son quiz.
+model Game {
+  id                      BigInt     @id @default(autoincrement())
+  slug                    String     @unique @db.VarChar(100)
+  title                   String     @db.VarChar(255)
+  description             String?    @db.Text
+  engineKey               String     @map("engine_key") @db.VarChar(50)
+  configJson              Json?      @map("config_json")
+  quizId                  BigInt?    @unique @map("quiz_id")
+  kind                    GameKind   @default(internal)
+  sponsorId               BigInt?    @map("sponsor_id")
+  status                  GameStatus @default(draft)
+  coverImageUrl           String?    @map("cover_image_url") @db.VarChar(500)
+  durationEstimateSeconds Int?       @map("duration_estimate_seconds")
+  createdAt               DateTime   @default(now()) @map("created_at")
+  updatedAt               DateTime   @updatedAt @map("updated_at")
+
+  quiz    Quiz?          @relation(fields: [quizId], references: [id], onDelete: SetNull)
+  sponsor Sponsor?       @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+  rounds  SessionRound[]
+
+  @@index([sponsorId])
+  @@map("games")
+}
+
+/// Manche d'une séance : un jeu joué à une position donnée (à partir de 1).
+model SessionRound {
+  id        BigInt     @id @default(autoincrement())
+  sessionId BigInt     @map("session_id")
+  position  Int
+  gameId    BigInt     @map("game_id")
+  state     RoundState @default(pending)
+  startedAt DateTime?  @map("started_at")
+  endedAt   DateTime?  @map("ended_at")
+  stateJson Json?      @map("state_json")
+
+  session     Session      @relation(fields: [sessionId], references: [id])
+  game        Game         @relation(fields: [gameId], references: [id])
+  scoreEvents ScoreEvent[]
+
+  @@unique([sessionId, position])
+  @@index([sessionId])
+  @@index([gameId])
+  @@map("session_rounds")
+}
+
+/// Points gagnés par un joueur dans une manche (journal ; Player.scoreTotal reste la valeur lue).
+model ScoreEvent {
+  id        BigInt   @id @default(autoincrement())
+  sessionId BigInt   @map("session_id")
+  roundId   BigInt   @map("round_id")
+  playerId  BigInt   @map("player_id")
+  points    Int
+  reason    String   @db.VarChar(50)
+  metaJson  Json?    @map("meta_json")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session Session      @relation(fields: [sessionId], references: [id])
+  round   SessionRound @relation(fields: [roundId], references: [id])
+  player  Player       @relation(fields: [playerId], references: [id])
+
+  @@index([sessionId, playerId])
+  @@index([roundId])
+  @@index([playerId])
+  @@map("score_events")
 }
 
 model AiGeneration {

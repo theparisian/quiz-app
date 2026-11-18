@@ -376,4 +376,97 @@ describe('session-orchestrator (integration)', () => {
     expect(counts.length).toBeLessThan(20);
     expect(countBeforeEnd).toBe(20);
   }, 30_000);
+
+  it('full game: round running then ended, sum of ScoreEvent = scoreTotal per player', async () => {
+    const session = await createSessionWith3Questions();
+    const sessionId = BigInt(session.id);
+    const players = await seedPlayers(session.id, 2);
+    const socket = await listenAs(session.id, players[0]!);
+
+    const round0 = await prisma.sessionRound.findFirstOrThrow({ where: { sessionId } });
+    expect(round0.state).toBe('pending');
+
+    const ended = new Promise<void>((resolve) => {
+      socket.once('session:ended', () => resolve());
+    });
+    let questionIndex = 0;
+    const answerAll = async (q: {
+      questionId: string;
+      answers: { id: string; text: string }[];
+    }) => {
+      const correct = q.answers.find((a) => a.text === 'Correct')!;
+      const wrong = q.answers.find((a) => a.text === 'Wrong')!;
+      const index = questionIndex++;
+      for (const [i, p] of players.entries()) {
+        // Joueur 2 : faux à la première question, juste ensuite.
+        const answer = i === 1 && index === 0 ? wrong : correct;
+        await getOrchestrator().submitAnswer({
+          sessionId,
+          playerId: p.id,
+          questionId: BigInt(q.questionId),
+          answerId: BigInt(answer.id),
+        });
+      }
+    };
+    socket.on(
+      'session:question_started',
+      (q: { questionId: string; answers: { id: string; text: string }[] }) => {
+        if (questionIndex > 0) void answerAll(q);
+      },
+    );
+
+    const first = await startAndWaitFirstQuestion(session.id, socket);
+    const running = await prisma.sessionRound.findFirstOrThrow({ where: { sessionId } });
+    expect(running.state).toBe('running');
+    expect(running.startedAt).not.toBeNull();
+    await answerAll(first);
+
+    await Promise.race([
+      ended,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('session did not end')), 30_000),
+      ),
+    ]);
+
+    const round = await prisma.sessionRound.findFirstOrThrow({ where: { sessionId } });
+    expect(round.state).toBe('ended');
+    expect(round.endedAt).not.toBeNull();
+
+    const events = await prisma.scoreEvent.findMany({ where: { sessionId } });
+    expect(events.every((e) => e.roundId === round.id && e.reason === 'quiz_answer')).toBe(true);
+    expect(events.every((e) => e.points > 0)).toBe(true);
+    for (const p of players) {
+      const db = await prisma.player.findUniqueOrThrow({ where: { id: p.id } });
+      const sum = events.filter((e) => e.playerId === p.id).reduce((acc, e) => acc + e.points, 0);
+      expect(db.scoreTotal).toBeGreaterThan(0);
+      expect(sum).toBe(db.scoreTotal);
+    }
+    // 3 bonnes réponses pour le joueur 1, 2 pour le joueur 2.
+    expect(events.filter((e) => e.playerId === players[0]!.id)).toHaveLength(3);
+    expect(events.filter((e) => e.playerId === players[1]!.id)).toHaveLength(2);
+    const meta = events[0]!.metaJson as { questionId: string; timeToAnswerMs: number };
+    expect(typeof meta.questionId).toBe('string');
+    expect(typeof meta.timeToAnswerMs).toBe('number');
+  }, 60_000);
+
+  it('abort → round skipped', async () => {
+    const session = await createSessionWith3Questions();
+    const sessionId = BigInt(session.id);
+    const [player] = await seedPlayers(session.id, 1);
+    const socket = await listenAs(session.id, player!);
+    await startAndWaitFirstQuestion(session.id, socket);
+
+    const res = await fetch(`${baseUrl}/api/sessions/${session.id}/abort`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: `token=${adminToken}` },
+      body: JSON.stringify({ reason: 'test' }),
+    });
+    expect(res.ok).toBe(true);
+
+    const round = await prisma.sessionRound.findFirstOrThrow({ where: { sessionId } });
+    expect(round.state).toBe('skipped');
+    expect((await prisma.session.findUniqueOrThrow({ where: { id: sessionId } })).state).toBe(
+      'aborted',
+    );
+  }, 20_000);
 });
