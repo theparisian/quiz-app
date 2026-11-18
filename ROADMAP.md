@@ -74,7 +74,7 @@ Le sponsor existe en base (`sponsors`, `quizzes.sponsor_id`, branding) et dans l
 - Comparaisons multi-sessions (évolution dans le temps, A/B de quiz).
 - Stats agrégées par sponsor — _couvert par l'unité C4_ (dashboard sponsor consolidé multi-sessions).
 
-### 3) Fiabilisation du déploiement — _couvert par l'unité A4_
+### 3) [x] Fiabilisation du déploiement — _livré par l'unité A4_
 
 Extraire la logique de `.github/workflows/deploy.yml` vers un `scripts/deploy.sh` versionné, health-check post-déploiement et rollback automatique en cas d'échec.
 

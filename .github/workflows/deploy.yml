@@ -1,20 +1,35 @@
 name: Deploy to VPS
 
-# Déploiement automatique : pull, dépendances, migrations Prisma (monorepo), redémarrage PM2.
+# Déploiement : écrit le .env du VPS puis lance scripts/deploy.sh (garde « séance en cours »,
+# install, build, migrations Prisma, redémarrage PM2, contrôle de santé, retour arrière).
+# Automatique après une CI verte sur un push master ; manuel via workflow_dispatch.
 on:
-  push:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
     branches:
       - master
   workflow_dispatch:
     inputs:
       branch:
-        description: Branche à déployer (laisse vide pour utiliser la branche du push)
+        description: Branche à déployer (laisse vide pour utiliser la branche sélectionnée)
         required: false
         type: string
         default: ''
+      force:
+        description: Déployer même si des sessions sont en cours
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,6 +39,20 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust VPS host key
+        env:
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_KNOWN_HOSTS:-}" ]; then
+            echo "::error::Secret GitHub VPS_KNOWN_HOSTS manquant ou vide (sortie de ssh-keyscan du VPS)."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Deploy to VPS
         env:
@@ -58,6 +87,9 @@ jobs:
           HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
           # IA — obligatoire en prod (Anthropic)
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Paramètres du déploiement (passés par variables pour éviter toute injection dans le script)
+          DEPLOY_BRANCH: ${{ github.event.inputs.branch || github.event.workflow_run.head_branch || github.ref_name }}
+          DEPLOY_FORCE: ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '1' || '0' }}
         run: |
           set -euo pipefail
 
@@ -104,7 +136,9 @@ jobs:
           PRIZE_UNSUBSCRIBE_BASE_URL_B64="$(printf '%s' "$PRIZE_UNSUBSCRIBE_BASE_URL" | base64 -w0)"
           ANTHROPIC_API_KEY_B64="$(printf '%s' "$ANTHROPIC_API_KEY" | base64 -w0)"
 
-          BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
+          BRANCH="$DEPLOY_BRANCH"
+          FORCE="$DEPLOY_FORCE"
+          if [ "$FORCE" = "1" ]; then echo "::warning::Déploiement forcé : garde des sessions en cours désactivée."; fi
           {
             echo 'set -euo pipefail'
             echo "cd \"${{ secrets.PROJECT_PATH }}\""
@@ -202,26 +236,16 @@ jobs:
             workflow_emit_optional_decode_and_upsert SENTRY_ENVIRONMENT "${SENTRY_ENVIRONMENT:-}"
             workflow_emit_optional_decode_and_upsert ADMIN_ALERT_EMAILS "${ADMIN_ALERT_EMAILS:-}"
             workflow_emit_optional_decode_and_upsert HEALTH_CHECK_TOKEN "${HEALTH_CHECK_TOKEN:-}"
-            echo 'git stash'
-            echo "git fetch origin \"${BRANCH}\""
-            echo "git checkout \"${BRANCH}\""
-            echo "git pull --no-rebase origin \"${BRANCH}\""
-            echo 'if [ -f pnpm-workspace.yaml ]; then'
-            echo '  corepack enable'
-            echo '  corepack prepare pnpm@9.15.4 --activate'
-            echo '  pnpm install --frozen-lockfile'
-            echo '  pnpm --filter @quiz-app/api db:generate'
-            echo '  sed -i '"'"'s/\r$//'"'"' .env'
-            echo '  if [ -f api/.env ]; then sed -i '"'"'s/\r$//'"'"' api/.env; fi'
-            echo '  apply_ai_env'
-            echo '  source scripts/load-env.sh'
-            echo '  pnpm turbo build --concurrency=1'
-            echo '  pnpm --filter @quiz-app/api db:migrate:deploy'
-            echo '  pm2 startOrReload ecosystem.config.js --update-env'
-            echo '  pm2 save'
-            echo 'else'
-            echo '  npm install'
-            echo "  (pm2 restart quiz-app || pm2 start npm --name 'quiz-app' -- start)"
-            echo 'fi'
-            echo "echo \"Déploiement (${BRANCH}) terminé.\""
-          } | ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s
+            echo 'apply_ai_env'
+            # scripts/deploy.sh n'existe sur le VPS qu'après le fetch : on récupère ce seul fichier.
+            printf 'git fetch origin %q\n' "$BRANCH"
+            printf 'git checkout %q -- scripts/deploy.sh\n' "origin/${BRANCH}"
+            printf 'BRANCH=%q FORCE=%q bash scripts/deploy.sh\n' "$BRANCH" "$FORCE"
+          } | ssh -o StrictHostKeyChecking=yes ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s || rc=$?
+          rc="${rc:-0}"
+          if [ "$rc" = "3" ]; then
+            echo "::error::Déploiement refusé : session(s) en cours sur le VPS. Relancer via workflow_dispatch avec force=true si nécessaire."
+          elif [ "$rc" != "0" ]; then
+            echo "::error::Déploiement en échec (code $rc). Voir le journal ci-dessus (ROLLBACK éventuel)."
+          fi
+          exit "$rc"

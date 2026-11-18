@@ -15,6 +15,16 @@ export const pseudoSuggestionsResponseSchema = z.object({
   suggestions: z.tuple([z.string(), z.string(), z.string()]),
 });
 
+/** GET /health/active-sessions — garde du déploiement (scripts/deploy.sh). */
+export const activeSessionsHealthResponseSchema = z.object({
+  running: z.number().int().nonnegative(),
+  paused: z.number().int().nonnegative(),
+  lobbyWithPlayers: z.number().int().nonnegative(),
+  blocking: z.number().int().nonnegative(),
+});
+
+export type ActiveSessionsHealthResponse = z.infer<typeof activeSessionsHealthResponseSchema>;
+
 export type PlayerJoinStateSnapshot = z.infer<typeof playerJoinStateSnapshotSchema>;
 export type PseudoSuggestionsResponse = z.infer<typeof pseudoSuggestionsResponseSchema>;
 

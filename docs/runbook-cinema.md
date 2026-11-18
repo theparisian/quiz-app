@@ -108,3 +108,49 @@ Appelez si, après **redémarrage** + attente raisonnable décrite plus haut :
 2. Ne pas tirer sur les câbles réseau du calculateur ni du tableau pour déboguer seul.
 3. Ne pas brancher un clavier puis tester des commandes incomprises.
 4. Au‑delà du redémarrage standard et de la patience indiquée ici, éviter d’accumuler des manipulations hasardeuses : préférer l’appel prévu section **5**.
+
+---
+
+## 7. Déploiement (équipe technique uniquement)
+
+Cette section ne concerne pas le personnel du cinéma. Elle décrit le déploiement de la plateforme sur le VPS (`.github/workflows/deploy.yml` puis `scripts/deploy.sh`).
+
+### Fonctionnement normal
+
+- Un push sur `master` lance la CI. Le déploiement ne part que si la CI de ce push est **verte**.
+- Le déploiement est **refusé** (code 3, message « Déploiement refusé : N session(s) en cours ») si au moins une session est en cours : partie lancée, partie en pause, ou lobby de moins de 60 minutes avec au moins un joueur actif. Il ne coupe donc pas une séance.
+- Après redémarrage, le script vérifie pendant 60 s maximum que l’API répond 200 sur `/health` et que les quatre apps (ports 4001 à 4004) répondent sans erreur serveur. Sinon, ou si l’installation, la compilation, les migrations ou le redémarrage échouent, il revient automatiquement à la version précédente.
+
+### Prérequis avant le premier déploiement
+
+- Secret GitHub `VPS_KNOWN_HOSTS` : la clé d’hôte du VPS au format `known_hosts`, par exemple la sortie de `ssh-keyscan -t ed25519 <hôte du VPS>`, **vérifiée** contre l’empreinte affichée sur le VPS (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`). Sans ce secret, le déploiement s’arrête avant toute connexion.
+- Secret `HEALTH_CHECK_TOKEN` renseigné (il est écrit dans le `.env` du VPS). S’il est absent du `.env`, la garde des sessions en cours ne peut pas s’exécuter : le script affiche un avertissement et **déploie quand même**.
+
+### Cas où la garde est ignorée ou bloque
+
+- API qui ne répond pas (premier déploiement, API arrêtée) : la garde est ignorée et le déploiement continue.
+- Version en place sans la route `/health/active-sessions` (premier déploiement de cette fonctionnalité) : garde ignorée.
+- Autre réponse (401 par exemple, après un changement de `HEALTH_CHECK_TOKEN` : l’API en place connaît encore l’ancien jeton) : déploiement refusé. Vérifier qu’aucune séance n’est en cours, puis forcer.
+
+### Forcer un déploiement
+
+À réserver aux cas où aucune séance ne tourne réellement (lobby oublié, jeton changé) ou à une correction urgente acceptée en connaissance de cause : les séances en cours seront coupées.
+
+- Depuis GitHub : Actions → « Deploy to VPS » → « Run workflow », choisir la branche (ou la saisir dans « branch »), cocher **force**.
+- Sur le VPS, depuis la racine du projet : `BRANCH=master FORCE=1 bash scripts/deploy.sh`. Le `.env` n’est alors pas réécrit depuis les secrets GitHub.
+
+Le lancement manuel (`workflow_dispatch`) ne dépend pas de la CI : vérifier qu’elle est verte sur le commit visé avant de lancer.
+
+### Après un rollback
+
+Le journal se termine par « ROLLBACK effectué vers <sha> » (ou « ROLLBACK ÉCHOUÉ », voir plus bas), et le workflow est en échec.
+
+1. Vérifier que la version restaurée tourne : `pm2 status`, `curl -s http://127.0.0.1:4000/health`, et une page de chaque app.
+2. Lire la cause dans le journal GitHub Actions (étape de compilation, de migration ou contrôle de santé) et dans `pm2 logs`.
+3. Le dépôt du VPS est sur le commit restauré, mais `origin/master` contient toujours le commit fautif : corriger (ou `git revert`) sur `master`, puis laisser la CI redéployer.
+4. Les migrations déjà appliquées **ne sont pas annulées** : la base reste au nouveau schéma, utilisé par l’ancien code.
+5. Si le message est « ROLLBACK ÉCHOUÉ » ou si le contrôle de santé de la version restaurée échoue, intervenir à la main : `git log -1` pour voir la version présente, puis relancer les commandes de `scripts/deploy.sh` (install, build, `pm2 startOrReload ecosystem.config.js --update-env`).
+
+### Règle des migrations
+
+**Une migration doit rester compatible avec la version précédente du code.** Le rollback ne revient que sur le code, jamais sur la base : après une migration, l’ancienne version doit pouvoir tourner sur le nouveau schéma. Concrètement : ajouter des tables ou des colonnes (nullables ou avec valeur par défaut), ne pas supprimer ni renommer une colonne encore lue par la version en place ; une suppression se fait en deux déploiements (le code cesse de l’utiliser, puis une migration ultérieure la retire).

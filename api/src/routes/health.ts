@@ -3,7 +3,9 @@ import { readFileSync } from 'fs';
 import os from 'node:os';
 import { resolve } from 'path';
 import type { HealthCheckResponse } from '@quiz-app/types';
+import type { ActiveSessionsHealthResponse } from '@quiz-app/validation';
 import { prisma } from '../shared/db/index.js';
+import { AppError } from '../shared/errors/index.js';
 
 const router: RouterType = Router();
 
@@ -115,6 +117,49 @@ router.get('/detailed', async (_req, res) => {
       nucsOffline,
     },
   });
+});
+
+/** Fenêtre au-delà de laquelle un lobby est considéré abandonné (garde de déploiement). */
+const LOBBY_BLOCKING_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Sessions qui interdisent un redémarrage (lu par scripts/deploy.sh).
+ * Protégé par x-health-token comme /detailed, mais répond 401 si absent ou faux.
+ */
+router.get('/active-sessions', async (req, res, next) => {
+  const expected = process.env.HEALTH_CHECK_TOKEN;
+  const header = req.header('x-health-token');
+  const given = typeof header === 'string' ? header : '';
+
+  if (!expected || !given || given !== expected.trim()) {
+    next(new AppError('Invalid health token', 401, 'HEALTH_TOKEN_INVALID'));
+    return;
+  }
+
+  try {
+    const lobbySince = new Date(Date.now() - LOBBY_BLOCKING_WINDOW_MS);
+    const [running, paused, lobbyWithPlayers] = await Promise.all([
+      prisma.session.count({ where: { state: 'running' } }),
+      prisma.session.count({ where: { state: 'paused' } }),
+      prisma.session.count({
+        where: {
+          state: 'lobby',
+          createdAt: { gte: lobbySince },
+          players: { some: { status: 'active' } },
+        },
+      }),
+    ]);
+
+    const response: ActiveSessionsHealthResponse = {
+      running,
+      paused,
+      lobbyWithPlayers,
+      blocking: running + paused + lobbyWithPlayers,
+    };
+    res.json(response);
+  } catch (err) {
+    next(err);
+  }
 });
 
 export { router as healthRouter };
