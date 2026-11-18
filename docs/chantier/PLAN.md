@@ -23,7 +23,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | --- | --- | --- | --- | --- |
 | 01 | A1 Cloisonnement | — | — | fait (e5e1f54) |
 | 02 | A2 Protection du join | A1 (sessions.routes) | 0019_session_join_token | fait (70e1162 + correctif IP) |
-| 03 | A3 Réponses | A2 (players.service) | — | à faire |
+| 03 | A3 Réponses | A2 (players.service) | — | fait (29d9c33 + correctif reprise) |
 | 04 | A4 Déploiement | — | — | à faire |
 | 05 | B1 Game / Round / Score | A3 | 0020_games_rounds_scores | à faire |
 | 06 | B2-B4 Moteur et protocole | B1 | — | à faire |
@@ -63,7 +63,10 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
    joueurs dont au moins un `game:action` a été accepté, et le persiste dans
    `session_rounds.state_json` sous une clé de plateforme (pas de nouvelle table). À poser dès B2-B4
    pour que C3 n'ait pas à toucher l'interface moteur.
-8. Textes : tutoiement côté joueur, vouvoiement côté cinéma et sponsor.
+8. **Reprise d'un joueur** : `player:resume` remet le joueur dans l'état en mémoire de la partie
+   s'il n'y est pas (cas d'un `player:leave` au lobby). B2-B4 doit conserver ce comportement via
+   `onPlayerJoined` et l'accompagner d'un test.
+9. Textes : tutoiement côté joueur, vouvoiement côté cinéma et sponsor.
 
 ## Écarts relevés entre les prompts et le code
 
@@ -92,6 +95,8 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 - A2 — `POST /api/players/join` ne transmet pas `avatarId` (bug antérieur).
 - A2 — Une session terminée renvoie 404 sur `/pseudo-suggestions`, ce qui compte dans la limite
   des 10 échecs.
+- A3 — Un joueur exclu ou parti reste dans l'état en mémoire pendant la partie et peut encore
+  répondre (ses points ne sont pas comptés). Comportement antérieur ; à fermer en B2-B4.
 
 ## Décisions
 

@@ -255,10 +255,22 @@ export function setupMobileHandlers(io: Server): void {
           return;
         }
 
-        await prisma.player.update({
+        const resumed = await prisma.player.update({
           where: { id: player.id },
           data: { status: 'active' },
+          select: { avatar: { select: { imageUrl: true } } },
         });
+
+        // Un joueur reparti (player:leave) avant le lancement n'est pas dans l'état en mémoire
+        // de la partie : on l'y remet, sinon ses réponses seraient refusées.
+        const orchestrator = getOrchestrator();
+        if (!orchestrator.getRunningState(sessionId)?.playerMeta.has(player.id.toString())) {
+          orchestrator.addPlayerToSession(sessionId, player.id, {
+            pseudo: player.pseudo,
+            avatarUrl: resumed.avatar?.imageUrl ?? null,
+            joinedQuestionPosition: player.joinedQuestionPosition,
+          });
+        }
 
         const socketData: SocketPlayerData = {
           type: 'player',
