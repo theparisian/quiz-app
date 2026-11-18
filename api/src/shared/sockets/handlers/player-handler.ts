@@ -9,6 +9,7 @@ import { authenticateNuc, type SocketNucData } from '../socket-auth.js';
 import { buildNucStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 import { nucsService } from '../../../modules/nucs/nucs.service.js';
 import { broadcastNucStatusChanged } from '../../nuc-monitor/broadcast-nuc-status.js';
+import { socketClientIp } from '../client-ip.js';
 
 const nucJoinSchema = z.object({
   nucUid: z.string().min(1),
@@ -81,14 +82,11 @@ export function setupPlayerHandlers(io: Server): void {
 
         const activeSession = await prisma.session.findFirst({
           where: { screenId, state: { in: ['lobby', 'running', 'paused'] } },
-          select: { id: true, slugShort: true, state: true },
+          select: { id: true, slugShort: true, joinToken: true, state: true },
           orderBy: { createdAt: 'desc' },
         });
 
-        const ip =
-          (socket.handshake.headers['x-forwarded-for'] as string | undefined)
-            ?.split(',')[0]
-            ?.trim() ?? socket.handshake.address;
+        const ip = socketClientIp(socket);
         const onlineResult = await nucsService.markOnlineFromConnection(BigInt(jwt.nucId), ip);
         if (onlineResult?.cameOnline) {
           broadcastNucStatusChanged(io, {
@@ -105,6 +103,7 @@ export function setupPlayerHandlers(io: Server): void {
             ? {
                 sessionId: activeSession.id.toString(),
                 slugShort: activeSession.slugShort,
+                joinToken: activeSession.joinToken,
                 state: activeSession.state,
               }
             : null,

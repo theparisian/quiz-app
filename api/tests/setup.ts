@@ -2,6 +2,8 @@ import 'dotenv/config';
 import path from 'path';
 import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
+import { beforeEach } from 'vitest';
+import { allRateLimiters } from '../src/shared/rate-limit/limiters.js';
 
 /* Vitest : base dédiée via DATABASE_URL_TEST, ou substitution quiz_app_dev → quiz_app_test. */
 {
@@ -22,3 +24,8 @@ process.env.STORAGE_LOCAL_PATH = uploadTmp;
 process.env.STORAGE_PUBLIC_URL = 'http://localhost:3999/uploads';
 process.env.AI_PROVIDER = 'mock';
 process.env.PRIZE_HMAC_SECRET = 'test-prize-hmac-secret-32chars-min!!';
+
+/* Limiteurs en mémoire (A2) : remis à zéro avant chaque test (toutes les requêtes viennent de la même IP). */
+beforeEach(() => {
+  for (const limiter of allRateLimiters) limiter.reset();
+});

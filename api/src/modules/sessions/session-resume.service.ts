@@ -428,6 +428,7 @@ export async function buildNucStateSnapshot(params: {
   const baseSession = {
     sessionId: session.id.toString(),
     slugShort: session.slugShort,
+    joinToken: session.joinToken,
     state: session.state,
     totalQuestions: session.quiz.questions.length,
     totalPlayers: players.length,
@@ -583,6 +584,7 @@ export async function buildConsoleStateSnapshot(
     session: {
       sessionId: session.id.toString(),
       slugShort: session.slugShort,
+      joinToken: session.joinToken,
       state: session.state,
       totalQuestions: session.quiz.questions.length,
       totalPlayers: players.length,

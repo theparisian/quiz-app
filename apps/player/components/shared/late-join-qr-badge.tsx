@@ -1,18 +1,17 @@
 'use client';
 
 import { StyledQrCode } from '@/components/shared/qr-code';
-
-const MOBILE_URL =
-  process.env.NEXT_PUBLIC_MOBILE_URL || process.env.NEXT_PUBLIC_PLAY_URL || 'http://localhost:3002';
+import { buildJoinUrl } from '@/lib/join-url';
 
 const QR_SIZE = 88;
 
 interface LateJoinQrBadgeProps {
   slugShort: string;
+  joinToken: string | null;
 }
 
-export default function LateJoinQrBadge({ slugShort }: LateJoinQrBadgeProps) {
-  const joinUrl = `${MOBILE_URL}/?s=${slugShort}`;
+export default function LateJoinQrBadge({ slugShort, joinToken }: LateJoinQrBadgeProps) {
+  const joinUrl = buildJoinUrl({ joinToken, slugShort });
 
   return (
     <div

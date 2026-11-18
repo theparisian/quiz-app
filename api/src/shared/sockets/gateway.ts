@@ -1,6 +1,7 @@
 import { Server as HttpServer } from 'http';
 import { Server } from 'socket.io';
 import { logger } from '../logger/index.js';
+import { resolveCorsOrigins } from '../cors-origins.js';
 import { setupNamespace } from './namespace-handler.js';
 import { setupPlayerHandlers } from './handlers/player-handler.js';
 import { setupMobileHandlers } from './handlers/mobile-handler.js';
@@ -10,7 +11,7 @@ import { setupAdminHandlers } from './handlers/admin-handler.js';
 export function setupSocketGateway(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGINS?.split(',') ?? '*',
+      origin: resolveCorsOrigins(),
       methods: ['GET', 'POST'],
       credentials: true,
     },

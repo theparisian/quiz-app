@@ -7,6 +7,15 @@ import { param } from '../../shared/utils/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { joinSessionSchema, updateEmailSchema } from './players.schemas.js';
 import { playersService } from './players.service.js';
+import {
+  failureRateLimitMiddleware,
+  ipKey,
+  rateLimitMiddleware,
+} from '../../shared/rate-limit/sliding-window.js';
+import {
+  playerJoinIpLimiter,
+  sessionCodeFailureLimiter,
+} from '../../shared/rate-limit/limiters.js';
 import { prizesService } from '../prizes/prizes.service.js';
 import {
   broadcastPlayerJoined,
@@ -15,11 +24,20 @@ import {
 
 const router = Router();
 
+// Joins réussis : plafond haut (300 / min par IP, une salle entière partage la même IP).
+// Codes inconnus : 10 échecs (404) par minute par IP, comme les routes by-code.
+router.post(
+  '/join',
+  rateLimitMiddleware(playerJoinIpLimiter, ipKey),
+  failureRateLimitMiddleware(sessionCodeFailureLimiter, ipKey),
+);
+
 router.post('/join', async (req, res, next) => {
   try {
     const data = validate(joinSessionSchema, req.body);
     const result = await playersService.join({
       sessionSlugShort: data.sessionSlugShort,
+      joinToken: data.joinToken,
       pseudo: data.pseudo,
       pseudoSource: data.pseudoSource,
     });

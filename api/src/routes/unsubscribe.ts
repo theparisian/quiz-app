@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Router } from 'express';
 
 const router = Router();
@@ -6,6 +7,8 @@ const router = Router();
 router.get('/unsubscribe', (req, res) => {
   const code = typeof req.query.code === 'string' ? req.query.code : '';
   const sig = typeof req.query.sig === 'string' ? req.query.sig : '';
+  // Script inline autorisé par nonce (la CSP par défaut de helmet le bloquerait).
+  const nonce = randomBytes(16).toString('base64');
 
   const html = `<!DOCTYPE html>
 <html lang="fr">
@@ -23,7 +26,7 @@ router.get('/unsubscribe', (req, res) => {
 <body>
   <h1>Désinscription</h1>
   <p id="status" class="msg">Traitement en cours…</p>
-  <script>
+  <script nonce="${nonce}">
     (function () {
       var code = ${JSON.stringify(code)};
       var sig = ${JSON.stringify(sig)};
@@ -60,6 +63,10 @@ router.get('/unsubscribe', (req, res) => {
 </body>
 </html>`;
 
+  res.setHeader(
+    'Content-Security-Policy',
+    `default-src 'self'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'; object-src 'none'`,
+  );
   res.status(200).type('html').send(html);
 });
 

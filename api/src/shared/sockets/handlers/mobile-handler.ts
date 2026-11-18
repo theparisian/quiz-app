@@ -9,6 +9,8 @@ import { getOrchestrator } from '../../../modules/sessions/session-orchestrator.
 import { buildMobilePlayerStateSnapshot } from '../../../modules/sessions/session-resume.service.js';
 import type { SocketPlayerData } from '../socket-auth.js';
 import { broadcastPlayerJoined, broadcastPlayerLeft } from '../session-broadcast.js';
+import { socketClientIp } from '../client-ip.js';
+import { playerJoinIpLimiter, sessionCodeFailureLimiter } from '../../rate-limit/limiters.js';
 
 const playerJoinSchema = playerJoinPayloadSchema;
 
@@ -30,6 +32,21 @@ export function setupMobileHandlers(io: Server): void {
 
   nsp.on('connection', (socket: Socket) => {
     socket.on('player:join', async (data: unknown, callback?: (res: unknown) => void) => {
+      // 300 joins / min par IP (salle entière derrière une IP) ; codes inconnus : 10 échecs / min.
+      const clientIp = socketClientIp(socket);
+      if (
+        !sessionCodeFailureLimiter.peek(clientIp).allowed ||
+        !playerJoinIpLimiter.check(clientIp).allowed
+      ) {
+        const payload = { code: 'RATE_LIMITED', message: 'Too many requests' };
+        if (typeof callback === 'function') {
+          callback({ ok: false, ...payload });
+        } else {
+          socket.emit('error', payload);
+        }
+        return;
+      }
+
       const parsed = playerJoinSchema.safeParse(data);
       if (!parsed.success) {
         const msg = parsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
@@ -44,6 +61,7 @@ export function setupMobileHandlers(io: Server): void {
       try {
         const result = await playersService.join({
           sessionSlugShort: parsed.data.sessionSlugShort,
+          joinToken: parsed.data.joinToken,
           pseudo: parsed.data.pseudo,
           pseudoSource: parsed.data.pseudoSource,
           avatarId: parsed.data.avatarId,
@@ -91,6 +109,7 @@ export function setupMobileHandlers(io: Server): void {
         );
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string; statusCode?: number };
+        if (error.code === 'SESSION_NOT_FOUND') sessionCodeFailureLimiter.check(clientIp);
         const payload = {
           code: error.code ?? 'INTERNAL_ERROR',
           message: error.message ?? 'Failed to join',

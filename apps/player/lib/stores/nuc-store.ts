@@ -85,6 +85,8 @@ interface NucState {
 
   sessionId: string | null;
   slugShort: string | null;
+  /** Jeton long encodé dans le QR code (null pour une session antérieure à sa création). */
+  joinToken: string | null;
   totalQuestions: number;
   currentQuestionPosition: number | null;
   currentQuestion: {
@@ -140,7 +142,11 @@ interface NucState {
     cinemaLogoUrl?: string | null;
     backgroundMusicUrl?: string | null;
   }) => void;
-  setSessionContext: (ctx: { sessionId: string; slugShort: string }) => void;
+  setSessionContext: (ctx: {
+    sessionId: string;
+    slugShort: string;
+    joinToken?: string | null;
+  }) => void;
   applyEvent: (event: string, payload: Record<string, unknown>) => void;
   applySnapshot: (snap: Record<string, unknown>) => void;
   setConnectionStatus: (s: NucConnectionStatus) => void;
@@ -210,6 +216,7 @@ const initialState = {
 
   sessionId: null as string | null,
   slugShort: null as string | null,
+  joinToken: null as string | null,
   totalQuestions: 0,
   currentQuestionPosition: null as number | null,
   currentQuestion: null as NucState['currentQuestion'],
@@ -257,6 +264,7 @@ export const useNucStore = create<NucState>((set, get) => ({
     set({
       sessionId: ctx.sessionId,
       slugShort: ctx.slugShort,
+      joinToken: ctx.joinToken ?? null,
       uiState: 'lobby',
       players: [],
       totalPlayers: 0,
@@ -296,6 +304,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       | {
           sessionId: string;
           slugShort: string;
+          joinToken?: string | null;
           state: string;
           totalQuestions: number;
           totalPlayers: number;
@@ -309,6 +318,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       set({
         sessionId: null,
         slugShort: null,
+        joinToken: null,
         uiState: 'idle',
         isPaused: false,
         audioMuted,
@@ -335,6 +345,7 @@ export const useNucStore = create<NucState>((set, get) => ({
     const base = {
       sessionId: session.sessionId,
       slugShort: session.slugShort,
+      joinToken: session.joinToken ?? null,
       totalQuestions: session.totalQuestions,
       totalPlayers: session.totalPlayers,
       lobbyRemainingMs: null as number | null,

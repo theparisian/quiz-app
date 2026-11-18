@@ -11,6 +11,8 @@ import {
   nucHeartbeatCookieSchema,
 } from './nucs.schemas.js';
 import { nucsService } from './nucs.service.js';
+import { ipKey, rateLimitMiddleware } from '../../shared/rate-limit/sliding-window.js';
+import { nucAuthIpLimiter, nucHeartbeatIpLimiter } from '../../shared/rate-limit/limiters.js';
 import type { Request } from 'express';
 
 const router = Router();
@@ -18,6 +20,10 @@ const router = Router();
 function getIo(req: Request): SocketIoServer | undefined {
   return req.app.get('io');
 }
+
+// Points d'entrée NUC publics : 30 par minute par IP.
+router.post('/nuc/heartbeat', rateLimitMiddleware(nucHeartbeatIpLimiter, ipKey));
+router.post('/nucs/auth', rateLimitMiddleware(nucAuthIpLimiter, ipKey));
 
 router.get('/screens/:screenId/nucs', requireAuth(['super_admin']), async (req, res, next) => {
   try {

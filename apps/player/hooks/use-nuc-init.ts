@@ -41,7 +41,12 @@ export function useNucInit(): void {
     function requestResumeAfterScreen(response: {
       ok: boolean;
       screenId: string;
-      currentSession?: { sessionId: string; slugShort: string; state: string } | null;
+      currentSession?: {
+        sessionId: string;
+        slugShort: string;
+        joinToken?: string | null;
+        state: string;
+      } | null;
     }) {
       const sid =
         useNucStore.getState().sessionId ??
@@ -57,7 +62,12 @@ export function useNucInit(): void {
         (response: {
           ok: boolean;
           screenId: string;
-          currentSession?: { sessionId: string; slugShort: string; state: string } | null;
+          currentSession?: {
+            sessionId: string;
+            slugShort: string;
+            joinToken?: string | null;
+            state: string;
+          } | null;
         }) => {
           if (!response?.ok) {
             requestResume();
@@ -73,8 +83,10 @@ export function useNucInit(): void {
           void loadCinemaInfo(response.screenId);
 
           if (response.currentSession) {
-            const { sessionId, slugShort } = response.currentSession;
-            useNucStore.getState().setSessionContext({ sessionId, slugShort });
+            const { sessionId, slugShort, joinToken } = response.currentSession;
+            useNucStore
+              .getState()
+              .setSessionContext({ sessionId, slugShort, joinToken: joinToken ?? null });
 
             sock.emit('nuc:join', { sessionId }, () => {});
           }
@@ -102,15 +114,19 @@ export function useNucInit(): void {
       setConnectionStatus('reconnecting');
     });
 
-    sock.on('screen:session_started', (payload: { sessionId: string; slugShort: string }) => {
-      useNucStore.getState().setSessionContext({
-        sessionId: payload.sessionId,
-        slugShort: payload.slugShort,
-      });
+    sock.on(
+      'screen:session_started',
+      (payload: { sessionId: string; slugShort: string; joinToken?: string | null }) => {
+        useNucStore.getState().setSessionContext({
+          sessionId: payload.sessionId,
+          slugShort: payload.slugShort,
+          joinToken: payload.joinToken ?? null,
+        });
 
-      sock.emit('nuc:join', { sessionId: payload.sessionId }, () => {});
-      sock.emit('nuc:resume', { nucUid, sessionId: payload.sessionId });
-    });
+        sock.emit('nuc:join', { sessionId: payload.sessionId }, () => {});
+        sock.emit('nuc:resume', { nucUid, sessionId: payload.sessionId });
+      },
+    );
 
     startHeartbeat(() => {
       router.replace('/error?reason=heartbeat_failed');

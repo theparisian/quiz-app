@@ -18,12 +18,25 @@ export type PongPayload = z.infer<typeof pongSchema>;
 
 // ─── Client → Server: Mobile (joueurs) ───────────────────
 
-export const playerJoinPayloadSchema = z.object({
-  pseudo: z.string().min(2).max(30),
-  sessionSlugShort: z.string().regex(/^\d{4}$/),
-  pseudoSource: z.enum(['SUGGESTED', 'CUSTOM']).optional(),
-  avatarId: z.string().min(1).optional(),
-});
+/** Jeton long de session encodé dans le QR code (nanoid(20) côté API). */
+export const sessionJoinTokenSchema = z.string().min(10).max(32);
+
+/** Rejoindre par code à 4 chiffres OU par jeton du QR : exactement l'un des deux. */
+export const playerJoinPayloadSchema = z
+  .object({
+    pseudo: z.string().min(2).max(30),
+    sessionSlugShort: z
+      .string()
+      .regex(/^\d{4}$/)
+      .optional(),
+    joinToken: sessionJoinTokenSchema.optional(),
+    pseudoSource: z.enum(['SUGGESTED', 'CUSTOM']).optional(),
+    avatarId: z.string().min(1).optional(),
+  })
+  .refine((d) => (d.sessionSlugShort === undefined) !== (d.joinToken === undefined), {
+    message: 'Provide exactly one of sessionSlugShort or joinToken',
+    path: ['joinToken'],
+  });
 
 export const playerSubmitAnswerPayloadSchema = z.object({
   questionId: z.string().min(1),
@@ -221,6 +234,7 @@ export type NucJoinSessionPayload = z.infer<typeof nucJoinSessionPayloadSchema>;
 export const screenSessionStartedSchema = z.object({
   sessionId: z.string(),
   slugShort: z.string(),
+  joinToken: z.string().nullable(),
 });
 
 export const nucJoinScreenResponseSchema = z.object({
@@ -230,6 +244,7 @@ export const nucJoinScreenResponseSchema = z.object({
     .object({
       sessionId: z.string(),
       slugShort: z.string(),
+      joinToken: z.string().nullable(),
       state: z.string(),
     })
     .nullable(),

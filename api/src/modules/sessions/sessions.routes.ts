@@ -15,6 +15,8 @@ import {
   checkPseudoSuggestionsRateLimit,
   clientKeyFromRequest,
 } from '../../shared/rate-limit/pseudo-suggestions.rate-limit.js';
+import { failureRateLimitMiddleware, ipKey } from '../../shared/rate-limit/sliding-window.js';
+import { sessionCodeFailureLimiter } from '../../shared/rate-limit/limiters.js';
 import { PSEUDO_MAX_LENGTH } from '../players/players.schemas.js';
 import {
   createSessionSchema,
@@ -33,6 +35,12 @@ import {
 } from './session-report.service.js';
 
 const router = Router();
+
+// Routes publiques par code / jeton : seules les réponses 404 (code inconnu) comptent,
+// 10 échecs par minute par IP, puis 429 pendant la fenêtre.
+const unknownCodeLimit = failureRateLimitMiddleware(sessionCodeFailureLimiter, ipKey);
+router.use('/by-code', unknownCodeLimit);
+router.use('/by-token', unknownCodeLimit);
 
 const ADMIN_ROLES = ['super_admin', 'cinema_admin', 'projectionist'] as const;
 const REPORT_ROLES = ['super_admin', 'cinema_admin'] as const;
@@ -87,6 +95,7 @@ router.post('/', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
       const payload = {
         sessionId: session.id.toString(),
         slugShort: session.slugShort,
+        joinToken: session.joinToken,
       };
       const playerNsp = io.of('/player');
       playerNsp.to(`screen:${session.screen.id}`).emit('screen:session_started', payload);
@@ -207,33 +216,47 @@ router.get('/:id/full', requireAuth([...ADMIN_ROLES]), async (req, res, next) =>
   }
 });
 
+/** Réponse publique commune à by-code et by-token (sans questions ni réponses). */
+function shapePublicSession(session: Awaited<ReturnType<typeof sessionsService.getBySlugShort>>) {
+  const quiz = session.quiz as {
+    title: string;
+    type: string;
+    brandingJson: Record<string, unknown> | null;
+    coverImageUrl: string | null;
+    sponsor: { name: string; logoUrl: string | null } | null;
+  };
+  return {
+    sessionId: session.id.toString(),
+    slugShort: session.slugShort,
+    state: session.state,
+    cinema: {
+      name: session.screen.cinema.name,
+      logoUrl: (session.screen.cinema as { logoUrl?: string | null }).logoUrl ?? null,
+    },
+    quiz: {
+      title: quiz.title,
+      type: quiz.type,
+      brandingJson: quiz.brandingJson,
+      coverImageUrl: quiz.coverImageUrl,
+      sponsor: quiz.sponsor ? { name: quiz.sponsor.name, logoUrl: quiz.sponsor.logoUrl } : null,
+    },
+    totalPlayers: session.totalPlayers,
+  };
+}
+
 router.get('/by-code/:slugShort', async (req, res, next) => {
   try {
     const session = await sessionsService.getBySlugShort(param(req, 'slugShort'));
-    const quiz = session.quiz as {
-      title: string;
-      type: string;
-      brandingJson: Record<string, unknown> | null;
-      coverImageUrl: string | null;
-      sponsor: { name: string; logoUrl: string | null } | null;
-    };
-    res.json({
-      sessionId: session.id.toString(),
-      slugShort: session.slugShort,
-      state: session.state,
-      cinema: {
-        name: session.screen.cinema.name,
-        logoUrl: (session.screen.cinema as { logoUrl?: string | null }).logoUrl ?? null,
-      },
-      quiz: {
-        title: quiz.title,
-        type: quiz.type,
-        brandingJson: quiz.brandingJson,
-        coverImageUrl: quiz.coverImageUrl,
-        sponsor: quiz.sponsor ? { name: quiz.sponsor.name, logoUrl: quiz.sponsor.logoUrl } : null,
-      },
-      totalPlayers: session.totalPlayers,
-    });
+    res.json(shapePublicSession(session));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/by-token/:joinToken', async (req, res, next) => {
+  try {
+    const session = await sessionsService.getByJoinToken(param(req, 'joinToken'));
+    res.json(shapePublicSession(session));
   } catch (error) {
     next(error);
   }

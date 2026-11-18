@@ -383,6 +383,7 @@ model Answer {
 model Session {
   id                      BigInt       @id @default(autoincrement())
   slugShort               String       @unique @map("slug_short") @db.VarChar(10)
+  joinToken               String?      @unique @map("join_token") @db.VarChar(32)
   quizId                  BigInt       @map("quiz_id")
   screenId                BigInt       @map("screen_id")
   projectionistUserId     BigInt?      @map("projectionist_user_id")

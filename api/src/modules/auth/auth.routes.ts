@@ -2,6 +2,12 @@ import { Router } from 'express';
 import { validate } from '../../shared/validation/index.js';
 import { magicLinkRequestSchema, magicLinkVerifySchema } from './auth.schemas.js';
 import { authService } from './auth.service.js';
+import { ipKey, rateLimitMiddleware } from '../../shared/rate-limit/sliding-window.js';
+import {
+  magicLinkRequestEmailLimiter,
+  magicLinkRequestIpLimiter,
+  magicLinkVerifyIpLimiter,
+} from '../../shared/rate-limit/limiters.js';
 
 const router = Router();
 
@@ -12,6 +18,19 @@ const COOKIE_OPTIONS = {
   maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   path: '/',
 };
+
+function emailKey(req: { body?: unknown }): string | null {
+  const email = (req.body as { email?: unknown } | undefined)?.email;
+  return typeof email === 'string' && email.trim().length > 0 ? email.trim().toLowerCase() : null;
+}
+
+// Limites : 5 / 15 min par IP et 3 / 15 min par email (request), 20 / 15 min par IP (verify).
+router.post(
+  '/magic-link/request',
+  rateLimitMiddleware(magicLinkRequestIpLimiter, ipKey),
+  rateLimitMiddleware(magicLinkRequestEmailLimiter, emailKey),
+);
+router.post('/magic-link/verify', rateLimitMiddleware(magicLinkVerifyIpLimiter, ipKey));
 
 router.post('/magic-link/request', async (req, res, next) => {
   try {

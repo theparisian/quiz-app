@@ -31,14 +31,18 @@ function HomeContent() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    const t = params.get('t');
+
     const s = params.get('s');
 
-    if (s) {
-      void checkAndRedirect(s);
+    if (t) {
+      void checkAndRedirect({ joinToken: t });
+    } else if (s) {
+      void checkAndRedirect({ code: s });
     }
   }, [params]);
 
-  async function checkAndRedirect(code: string) {
+  async function checkAndRedirect(target: { code: string } | { joinToken: string }) {
     setLoading(true);
 
     setError(null);
@@ -48,7 +52,13 @@ function HomeContent() {
     const storedToken = localStorage.getItem('quiz_resume_token');
 
     try {
-      const session = await api.get<SessionInfo>(`/api/sessions/by-code/${code}`);
+      // QR code : jeton long (?t=) ; secours : code à 4 chiffres (?s= ou saisie).
+      const session =
+        'joinToken' in target
+          ? await api.get<SessionInfo>(
+              `/api/sessions/by-token/${encodeURIComponent(target.joinToken)}`,
+            )
+          : await api.get<SessionInfo>(`/api/sessions/by-code/${target.code}`);
 
       if (storedSessionId === session.sessionId && storedToken) {
         router.push(`/play/${storedSessionId}`);
@@ -64,11 +74,17 @@ function HomeContent() {
         return;
       }
 
-      router.push(`/join/${code}`);
+      router.push(
+        'joinToken' in target
+          ? `/join/${session.slugShort}?t=${encodeURIComponent(target.joinToken)}`
+          : `/join/${target.code}`,
+      );
     } catch (err: unknown) {
-      const e = err as { code?: string; message?: string };
+      const e = err as { code?: string; message?: string; status?: number };
 
-      if (e.code === 'SESSION_NOT_FOUND') {
+      if (e.status === 429) {
+        setError("Trop d'essais, réessaie dans une minute");
+      } else if (e.code === 'SESSION_NOT_FOUND') {
         setError('Code session invalide.');
       } else {
         setError(e.message ?? 'Erreur de connexion.');
@@ -79,7 +95,7 @@ function HomeContent() {
   }
 
   function handleSubmit(code: string) {
-    void checkAndRedirect(code);
+    void checkAndRedirect({ code });
   }
 
   return (

@@ -23,6 +23,7 @@ export default function ScreenPage() {
   const uiState = useNucStore((s) => s.uiState);
   const isPaused = useNucStore((s) => s.isPaused);
   const slugShort = useNucStore((s) => s.slugShort);
+  const joinToken = useNucStore((s) => s.joinToken);
   const lateJoinQrEnabled = useNucStore((s) => s.lateJoinQrEnabled);
   const prevUiStateRef = useRef(uiState);
   const [idleFadingOut, setIdleFadingOut] = useState(false);
@@ -63,7 +64,7 @@ export default function ScreenPage() {
       {uiState === 'final_results' && <FinalResultsState />}
       {uiState === 'aborted' && <AbortedState />}
       {isPaused && <PausedOverlay />}
-      {showLateJoinQr && <LateJoinQrBadge slugShort={slugShort} />}
+      {showLateJoinQr && <LateJoinQrBadge slugShort={slugShort} joinToken={joinToken} />}
       <AnsweredFlashes />
     </div>
   );

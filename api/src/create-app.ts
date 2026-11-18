@@ -1,8 +1,10 @@
 import express, { type Express } from 'express';
 import path from 'path';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './shared/errors/index.js';
+import { resolveCorsOrigins } from './shared/cors-origins.js';
 import { healthRouter } from './routes/health.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
@@ -26,10 +28,14 @@ import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
 
 export function buildApp(): Express {
   const app = express();
+  const corsOrigins = resolveCorsOrigins();
 
+  // Derrière le reverse proxy : req.ip = IP client (x-forwarded-for, un saut).
+  app.set('trust proxy', 1);
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(
     cors({
-      origin: process.env.CORS_ORIGINS?.split(',') ?? '*',
+      origin: corsOrigins,
       credentials: true,
     }),
   );

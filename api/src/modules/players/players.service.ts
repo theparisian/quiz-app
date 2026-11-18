@@ -63,16 +63,35 @@ function resolveJoinedQuestionPositionAtJoin(
   return 0;
 }
 
+/**
+ * Plafond de joueurs (non kickés) d'une session : max(50, ceil(capacité × 1,5)),
+ * ou 400 si la capacité de la salle n'est pas renseignée.
+ */
+export function maxPlayersForCapacity(capacity: number | null): number {
+  if (capacity == null || capacity <= 0) return 400;
+  return Math.max(50, Math.ceil(capacity * 1.5));
+}
+
+const JOIN_SESSION_INCLUDE = {
+  screen: { select: { cinemaId: true, capacity: true } },
+  quiz: { select: { avatarsEnabled: true, avatarLibraryId: true } },
+} as const;
+
 export const playersService = {
   async join(input: JoinSessionInput & { userId?: bigint }) {
-    const session = await prisma.session.findFirst({
-      where: { slugShort: input.sessionSlugShort },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        screen: { select: { cinemaId: true } },
-        quiz: { select: { avatarsEnabled: true, avatarLibraryId: true } },
-      },
-    });
+    // Par jeton du QR (prioritaire) ou par code court à 4 chiffres.
+    const session = input.joinToken
+      ? await prisma.session.findUnique({
+          where: { joinToken: input.joinToken },
+          include: JOIN_SESSION_INCLUDE,
+        })
+      : input.sessionSlugShort
+        ? await prisma.session.findFirst({
+            where: { slugShort: input.sessionSlugShort },
+            orderBy: { createdAt: 'desc' },
+            include: JOIN_SESSION_INCLUDE,
+          })
+        : null;
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
 
     if (session.state === 'ended' || session.state === 'aborted') {
@@ -99,6 +118,9 @@ export const playersService = {
       },
       select: { pseudo: true },
     });
+    if (existingPlayers.length >= maxPlayersForCapacity(session.screen.capacity)) {
+      throw new AppError('Session is full', 409, 'SESSION_FULL');
+    }
     const duplicate = existingPlayers.some((p) => p.pseudo.toLowerCase() === pseudo.toLowerCase());
     if (duplicate)
       throw new AppError('Pseudo already taken in this session', 409, 'PSEUDO_DUPLICATE');

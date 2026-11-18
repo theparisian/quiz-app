@@ -42,10 +42,21 @@ export default function JoinPage() {
   const [joining, setJoining] = useState(false);
   const [exiting, setExiting] = useState(false);
   const joinedRef = useRef(false);
+  /** Jeton du QR (?t=) transmis par l'accueil ; absent quand on vient du code à 4 chiffres. */
+  const [joinToken, setJoinToken] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
+    setJoinToken(new URLSearchParams(window.location.search).get('t'));
+  }, []);
+
+  useEffect(() => {
+    if (joinToken === undefined) return;
     api
-      .get<SessionInfo>(`/api/sessions/by-code/${slugShort}`)
+      .get<SessionInfo>(
+        joinToken
+          ? `/api/sessions/by-token/${encodeURIComponent(joinToken)}`
+          : `/api/sessions/by-code/${slugShort}`,
+      )
       .then((s) => {
         const storedSessionId = localStorage.getItem('quiz_session_id');
         const storedToken = localStorage.getItem('quiz_resume_token');
@@ -60,8 +71,13 @@ export default function JoinPage() {
         }
         setSession(s);
       })
-      .catch(() => setError('Session introuvable.'));
-  }, [slugShort, router]);
+      .catch((err: unknown) => {
+        const e = err as { status?: number };
+        setError(
+          e.status === 429 ? "Trop d'essais, réessaie dans une minute" : 'Session introuvable.',
+        );
+      });
+  }, [slugShort, joinToken, router]);
 
   useEffect(() => {
     return () => {
@@ -76,6 +92,8 @@ export default function JoinPage() {
     if (code === 'PSEUDO_DUPLICATE') return 'Ce pseudo est déjà pris.';
     if (code === 'SESSION_FINISHED') return 'Cette partie est terminée — à la prochaine séance !';
     if (code === 'SESSION_NOT_FOUND') return 'Session introuvable.';
+    if (code === 'SESSION_FULL') return 'La partie est complète';
+    if (code === 'RATE_LIMITED') return "Trop d'essais, réessaie dans une minute";
     return message ?? 'Erreur lors de la connexion.';
   }
 
@@ -113,7 +131,7 @@ export default function JoinPage() {
     sock.emit(
       'player:join',
       {
-        sessionSlugShort: slugShort,
+        ...(joinToken ? { joinToken } : { sessionSlugShort: slugShort }),
         pseudo,
         pseudoSource,
         ...(avatarId ? { avatarId } : {}),

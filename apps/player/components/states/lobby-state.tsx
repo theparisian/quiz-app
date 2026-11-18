@@ -4,6 +4,7 @@ import { AppLogo } from '@quiz-app/ui';
 import { useNucStore } from '@/lib/stores/nuc-store';
 import QrCode from '@/components/shared/qr-code';
 import PlayerPill from '@/components/shared/player-pill';
+import { buildJoinUrl } from '@/lib/join-url';
 
 const MOBILE_URL =
   process.env.NEXT_PUBLIC_MOBILE_URL || process.env.NEXT_PUBLIC_PLAY_URL || 'http://localhost:3002';
@@ -38,6 +39,7 @@ function PhoneIcon({ className }: { className?: string }) {
 
 export default function LobbyState() {
   const slugShort = useNucStore((s) => s.slugShort);
+  const joinToken = useNucStore((s) => s.joinToken);
   const players = useNucStore((s) => s.players);
   const prizes = useNucStore((s) => s.prizes);
   const lobbyRemainingMs = useNucStore((s) => s.lobbyRemainingMs);
@@ -96,8 +98,9 @@ export default function LobbyState() {
             <div className="flex items-center gap-2">
               <PhoneIcon className="h-12 w-9 shrink-0 text-white/80" />
               <div className="text-left leading-[0.95]">
-                <p className="text-base text-white/80">Connectez-vous sur</p>
+                <p className="text-base text-white/80">Pas de QR ? Va sur</p>
                 <p className="-mt-1 text-lg font-bold text-white">{mobileHost}</p>
+                <p className="text-base text-white/80">et tape ce code</p>
               </div>
             </div>
 
@@ -144,7 +147,7 @@ export default function LobbyState() {
             style={{ animationDelay: LOBBY_ZONE_DELAYS[2] }}
           >
             <QrCode
-              value={`${MOBILE_URL}/?s=${slugShort}`}
+              value={buildJoinUrl({ joinToken, slugShort })}
               size={160}
               caption={
                 <>

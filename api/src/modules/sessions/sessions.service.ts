@@ -1,3 +1,5 @@
+import { nanoid } from 'nanoid';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
@@ -7,6 +9,24 @@ import { generateUniqueSessionCode } from './session-code.service.js';
 import { startLobbyTimer } from './lobby-timer.service.js';
 import { assertTransition, isActive } from './session-state.service.js';
 import type { CreateSessionInput, ListSessionsQuery } from './sessions.schemas.js';
+
+/** Champs exposés par les routes publiques by-code / by-token. */
+const PUBLIC_SESSION_INCLUDE = {
+  quiz: {
+    select: {
+      title: true,
+      type: true,
+      brandingJson: true,
+      coverImageUrl: true,
+      sponsor: { select: { name: true, logoUrl: true } },
+    },
+  },
+  screen: {
+    include: {
+      cinema: { select: { name: true, slug: true, logoUrl: true } },
+    },
+  },
+} satisfies Prisma.SessionInclude;
 
 export const sessionsService = {
   async create(input: CreateSessionInput, projectionistUserId: bigint) {
@@ -37,10 +57,13 @@ export const sessionsService = {
     }
 
     const slugShort = await generateUniqueSessionCode();
+    // Jeton long encodé dans le QR code (le code à 4 chiffres reste le secours).
+    const joinToken = nanoid(20);
 
     const session = await prisma.session.create({
       data: {
         slugShort,
+        joinToken,
         quizId: quiz.id,
         screenId,
         projectionistUserId: projectionistUserId,
@@ -120,23 +143,17 @@ export const sessionsService = {
   async getBySlugShort(slug: string) {
     const session = await prisma.session.findFirst({
       where: { slugShort: slug },
-      include: {
-        quiz: {
-          select: {
-            title: true,
-            type: true,
-            brandingJson: true,
-            coverImageUrl: true,
-            sponsor: { select: { name: true, logoUrl: true } },
-          },
-        },
-        screen: {
-          include: {
-            cinema: { select: { name: true, slug: true, logoUrl: true } },
-          },
-        },
-      },
+      include: PUBLIC_SESSION_INCLUDE,
       orderBy: { createdAt: 'desc' },
+    });
+    if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
+    return session;
+  },
+
+  async getByJoinToken(joinToken: string) {
+    const session = await prisma.session.findUnique({
+      where: { joinToken },
+      include: PUBLIC_SESSION_INCLUDE,
     });
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
     return session;
