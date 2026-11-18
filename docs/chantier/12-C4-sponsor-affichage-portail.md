@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -30,19 +29,17 @@ Règles obligatoires :
 ## Ta mission
 
 OBJECTIF
-
-1. Montrer le sponsor au public aux bons moments. 2) Donner au sponsor un accès en lecture seule à
-   ses chiffres agrégés. Il ne voit jamais de pseudo ni d'email.
+1) Montrer le sponsor au public aux bons moments. 2) Donner au sponsor un accès en lecture seule à
+ses chiffres agrégés. Il ne voit jamais de pseudo ni d'email.
 
 À LIRE
 packages/validation/src/socket-events.ts (roundInfoSchema), apps/player/components/states/lobby-state.tsx,
-final-results-state.tsx, apps/player/games/_, apps/mobile/components/lobby-waiting.tsx, final-screen.tsx,
-apps/mobile/games/_, packages/design-tokens, api/src/modules/auth/_, invitations/_,
+final-results-state.tsx, apps/player/games/*, apps/mobile/components/lobby-waiting.tsx, final-screen.tsx,
+apps/mobile/games/*, packages/design-tokens, api/src/modules/auth/*, invitations/*,
 api/src/shared/auth/middleware.ts, packages/types, apps/console/lib/auth.tsx,
 apps/console/app/(authenticated)/layout.tsx, api/src/modules/sessions/session-report.service.ts.
 
 À FAIRE — Affichage public
-
 1. Crée un composant SponsorBadge dans apps/player et apps/mobile : « Présenté par » + logo (hauteur
    fixe, fond neutre arrondi pour rester lisible quel que soit le logo), nom en texte si pas de logo.
    Source : round.game.sponsor (événement round:started, unité B2-B4) ; au lobby, le sponsor de la première manche
@@ -54,26 +51,30 @@ apps/console/app/(authenticated)/layout.tsx, api/src/modules/sessions/session-re
 3. Couleur : brandColorPrimary n'est utilisée que pour un liseré du carton d'ouverture, jamais pour
    le texte ni les boutons de réponse.
 
-À FAIRE — Rôle sponsor (migration 0025) 4. UserRole : ajoute 'sponsor' (Prisma + packages/types). users.sponsor_id BigInt? (relation).
-InvitationRole : ajoute 'sponsor' ; invitations.sponsor_id BigInt?, et cinema_id devient nullable
-(une invitation porte soit un cinéma, soit un sponsor). L'acceptation crée un user role sponsor.
-apps/admin, fiche sponsor : bloc « Accès » pour inviter un contact par email et révoquer. 5. Vérifie CHAQUE requireAuth existant : le rôle sponsor ne doit entrer dans aucune liste de rôles
-existante. Ajoute dans tenant-scope.ts assertCanAccessSponsor(user, sponsorId).
+À FAIRE — Rôle sponsor (migration 0025)
+4. UserRole : ajoute 'sponsor' (Prisma + packages/types). users.sponsor_id BigInt? (relation).
+   InvitationRole : ajoute 'sponsor' ; invitations.sponsor_id BigInt?, et cinema_id devient nullable
+   (une invitation porte soit un cinéma, soit un sponsor). L'acceptation crée un user role sponsor.
+   apps/admin, fiche sponsor : bloc « Accès » pour inviter un contact par email et révoquer.
+5. Vérifie CHAQUE requireAuth existant : le rôle sponsor ne doit entrer dans aucune liste de rôles
+   existante. Ajoute dans tenant-scope.ts assertCanAccessSponsor(user, sponsorId).
 
-À FAIRE — Portail (dans apps/console, pas de nouvelle app) 6. API, rôles sponsor (le sien) et super_admin :
-GET /api/sponsor-portal/campaigns → campagnes du sponsor avec totaux.
-GET /api/sponsor-portal/campaigns/:id?from=&to= → { sessionsPlayed, billableSessions,
-participants, finishers, completionRate, prizesIssued, prizesRedeemed (null si inconnu),
-attendanceKnownSessions, attendanceTotal, participationRate (participants / entrées, sur les seules
-séances où les entrées sont saisies), amountCents, byDay: [...], byCinema: [{ cinemaName, city,
-sessions, participants }] }. Aucune donnée individuelle. GET .../export.csv : une ligne par séance
-(date, cinéma, ville, salle, participants, finishers, lots, facturable). 7. apps/console : groupe de routes /sponsor avec sa propre mise en page (pas de barre latérale
-cinéma). Après connexion, un rôle sponsor est redirigé vers /sponsor et toute autre route le
-renvoie vers /access-denied ; un rôle cinéma ne peut pas ouvrir /sponsor.
-Pages : liste des campagnes ; détail avec 5 tuiles (séances diffusées, participants, taux de
-complétion, lots gagnés, taux de participation), courbe des participants par jour, tableau par
-cinéma, sélecteur de période, bouton d'export CSV. Sous la tuile « taux de participation » :
-« Calculé sur N séances dont les entrées sont connues ».
+À FAIRE — Portail (dans apps/console, pas de nouvelle app)
+6. API, rôles sponsor (le sien) et super_admin :
+   GET /api/sponsor-portal/campaigns → campagnes du sponsor avec totaux.
+   GET /api/sponsor-portal/campaigns/:id?from=&to= → { sessionsPlayed, billableSessions,
+   participants, finishers, completionRate, prizesIssued, prizesRedeemed (null si inconnu),
+   attendanceKnownSessions, attendanceTotal, participationRate (participants / entrées, sur les seules
+   séances où les entrées sont saisies), amountCents, byDay: [...], byCinema: [{ cinemaName, city,
+   sessions, participants }] }. Aucune donnée individuelle. GET .../export.csv : une ligne par séance
+   (date, cinéma, ville, salle, participants, finishers, lots, facturable).
+7. apps/console : groupe de routes /sponsor avec sa propre mise en page (pas de barre latérale
+   cinéma). Après connexion, un rôle sponsor est redirigé vers /sponsor et toute autre route le
+   renvoie vers /access-denied ; un rôle cinéma ne peut pas ouvrir /sponsor.
+   Pages : liste des campagnes ; détail avec 5 tuiles (séances diffusées, participants, taux de
+   complétion, lots gagnés, taux de participation), courbe des participants par jour, tableau par
+   cinéma, sélecteur de période, bouton d'export CSV. Sous la tuile « taux de participation » :
+   « Calculé sur N séances dont les entrées sont connues ».
 
 TESTS
 Sponsor A ne lit pas la campagne de sponsor B ; rôle sponsor refusé sur un échantillon de 10 routes

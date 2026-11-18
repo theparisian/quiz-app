@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -41,21 +40,20 @@ api/src/modules/sessions/session-orchestrator.service.ts (endQuestionInternal, e
 api/tests/helpers/integration.ts, packages/types/src/index.ts.
 
 À FAIRE
-
 1. Prisma + migration SQL 0020_games_rounds_scores :
    enum GameKind { internal sponsored }
    enum GameStatus { draft published archived }
    enum RoundState { pending running ended skipped }
    model Game (table games) : id BigInt, slug unique VarChar(100), title VarChar(255),
-   description Text?, engineKey VarChar(50) (map engine_key), configJson Json?,
-   quizId BigInt? UNIQUE (relation vers Quiz), kind GameKind défaut internal,
-   sponsorId BigInt? (relation Sponsor), status GameStatus défaut draft,
-   coverImageUrl VarChar(500)?, durationEstimateSeconds Int?, createdAt, updatedAt.
+     description Text?, engineKey VarChar(50) (map engine_key), configJson Json?,
+     quizId BigInt? UNIQUE (relation vers Quiz), kind GameKind défaut internal,
+     sponsorId BigInt? (relation Sponsor), status GameStatus défaut draft,
+     coverImageUrl VarChar(500)?, durationEstimateSeconds Int?, createdAt, updatedAt.
    model SessionRound (table session_rounds) : id, sessionId, position Int (à partir de 1),
-   gameId, state RoundState défaut pending, startedAt?, endedAt?, stateJson Json?,
-   @@unique([sessionId, position]), index sessionId et gameId.
+     gameId, state RoundState défaut pending, startedAt?, endedAt?, stateJson Json?,
+     @@unique([sessionId, position]), index sessionId et gameId.
    model ScoreEvent (table score_events) : id, sessionId, roundId, playerId, points Int,
-   reason VarChar(50), metaJson Json?, createdAt ; index (sessionId, playerId) et roundId.
+     reason VarChar(50), metaJson Json?, createdAt ; index (sessionId, playerId) et roundId.
    Ajoute les relations inverses. Ne rends PAS Session.quizId nullable dans ce prompt.
 2. Dans la même migration, reprise des données en SQL :
    - un Game par Quiz : slug = quiz.slug, title, description, cover, durée copiés,
@@ -63,12 +61,12 @@ api/tests/helpers/integration.ts, packages/types/src/index.ts.
      kind = 'sponsored' si quiz.type = 'sponsored' sinon 'internal', status = quiz.status.
    - un SessionRound par Session : position 1, game_id du jeu de son quiz, state = 'ended' si la
      session est ended, 'skipped' si aborted, 'running' si running/paused, sinon 'pending'.
-     Pas de reprise pour score_events.
+   Pas de reprise pour score_events.
 3. Crée le module api/src/modules/games (games.service.ts, games.schemas.ts) avec :
    - syncGameFromQuiz(quizId, tx?) : crée ou met à jour le Game lié (mêmes règles que la reprise).
-     Appelle-la dans quizzes.service.ts après chaque création, édition complète, patch, publication,
-     dépublication, archivage, désarchivage, duplication. À la suppression d'un quiz : supprime son
-     Game s'il n'a aucune manche, sinon passe-le en archived.
+   Appelle-la dans quizzes.service.ts après chaque création, édition complète, patch, publication,
+   dépublication, archivage, désarchivage, duplication. À la suppression d'un quiz : supprime son
+   Game s'il n'a aucune manche, sinon passe-le en archived.
 4. sessions : createSessionSchema accepte SOIT quizSlug (existant), SOIT gameSlugs (tableau de 1 à 5
    slugs). Dans ce prompt, gameSlugs doit contenir exactement 1 slug dont le moteur est 'quiz'
    (sinon 400 GAME_NOT_SUPPORTED_YET). sessionsService.create résout le Game, vérifie
@@ -79,7 +77,7 @@ api/tests/helpers/integration.ts, packages/types/src/index.ts.
    - dans endQuestionInternal, dans la transaction des scores : un ScoreEvent par joueur ayant
      points > 0 (reason 'quiz_answer', metaJson { questionId, timeToAnswerMs }).
    - endSessionInternal : manche en ended + endedAt ; abortSession : manche en skipped.
-     Player.scoreTotal reste la valeur lue partout.
+   Player.scoreTotal reste la valeur lue partout.
 6. Ajoute GameKind, GameStatus, RoundState à packages/types. Ajoute scoreEvent, sessionRound, game
    aux fonctions truncate de api/tests/helpers/integration.ts, dans l'ordre des clés étrangères.
 

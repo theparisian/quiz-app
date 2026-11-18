@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -42,7 +41,6 @@ api/src/shared/sockets/handlers/console-handler.ts, api/src/shared/sockets/handl
 api/src/shared/sockets/socket-auth.ts, api/tests/helpers/integration.ts.
 
 À FAIRE
-
 1. Crée api/src/shared/auth/tenant-scope.ts avec trois fonctions async qui lèvent
    AppError('Insufficient permissions', 403, 'FORBIDDEN') :
    - assertCanAccessCinema(user, cinemaId: bigint) : super_admin passe toujours ; sinon
@@ -51,7 +49,7 @@ api/src/shared/sockets/socket-auth.ts, api/tests/helpers/integration.ts.
      puis appelle assertCanAccessCinema.
    - assertCanAccessSession(user, sessionId) : charge session.screen.cinemaId
      (404 SESSION_NOT_FOUND si absent) puis appelle assertCanAccessCinema.
-     Le paramètre user a la forme { role, cinemaId } pour servir aussi aux sockets.
+   Le paramètre user a la forme { role, cinemaId } pour servir aussi aux sockets.
 2. Dans sessions.routes.ts, appelle la bonne fonction AVANT toute action dans : POST / (sur
    body.screenId), GET /:id, GET /:id/full, POST /:id/start, /pause, /resume, /force-end-question,
    /abort, /toggle-mute. Fais de même pour toute autre route de ce fichier protégée par ADMIN_ROLES.

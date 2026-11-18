@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -34,15 +33,14 @@ Valider l'architecture avec un moteur simple qui n'utilise QUE le protocole gén
 (« poll »). Une à dix questions sans bonne réponse ; le public vote, l'écran montre les barres.
 
 À LIRE
-api/src/modules/games/\* (engine.types.ts, le moteur quiz comme exemple), packages/validation,
+api/src/modules/games/* (engine.types.ts, le moteur quiz comme exemple), packages/validation,
 les dossiers games/ des trois apps (créés par l'unité B2-B4), docs/ajouter-un-moteur.md, apps/admin/app/(dashboard)/quizzes/page.tsx.
 
 À FAIRE — API
-
 1. packages/validation/src/games/poll.ts :
    pollConfigSchema = { questions: [{ id: string, text: 1..200, options: 2 à 4 × { id, text 1..80 },
-   durationSeconds: 5..60 (défaut 20) }] (1 à 10), participationPoints: 0..1000 (défaut 300),
-   resultsSeconds: 3..20 (défaut 6) }
+     durationSeconds: 5..60 (défaut 20) }] (1 à 10), participationPoints: 0..1000 (défaut 300),
+     resultsSeconds: 3..20 (défaut 6) }
    Vues : pollScreenView, pollMobileView, pollConsoleView, toutes avec
    { phase: 'question' | 'results' | 'done', questionIndex, totalQuestions, question: { id, text,
    options }, endsAt (ISO, phase question), totalVotes } ; les vues screen et console ajoutent
@@ -65,20 +63,19 @@ les dossiers games/ des trois apps (créés par l'unité B2-B4), docs/ajouter-un
    pollConfigSchema), PATCH /api/games/:slug, POST /api/games/:slug/publish. Refuse engineKey 'quiz'
    (les jeux quiz sont créés par l'éditeur de quiz).
 
-À FAIRE — Apps 4. games/poll/ dans les trois apps, enregistré dans chaque registre. Tout provient de view.
-
-- Écran cinéma : question en grand, options avec les formes et couleurs de
-  packages/design-tokens (answer-colors), barre de temps calculée depuis endsAt, compteur de votes ;
-  en phase results, barres horizontales animées avec pourcentages.
-- Mobile : boutons d'option sur le modèle de components/answer-button.tsx ; après le vote,
-  « Vote enregistré » et option choisie surlignée ; en results, les pourcentages.
-- Console : question en cours, votes reçus, résultats.
-
+À FAIRE — Apps
+4. games/poll/ dans les trois apps, enregistré dans chaque registre. Tout provient de view.
+   - Écran cinéma : question en grand, options avec les formes et couleurs de
+     packages/design-tokens (answer-colors), barre de temps calculée depuis endsAt, compteur de votes ;
+     en phase results, barres horizontales animées avec pourcentages.
+   - Mobile : boutons d'option sur le modèle de components/answer-button.tsx ; après le vote,
+     « Vote enregistré » et option choisie surlignée ; en results, les pourcentages.
+   - Console : question en cours, votes reçus, résultats.
 5. apps/admin : page /games/new-poll, formulaire simple (titre, questions, options, durées) qui appelle
    l'API, et entrée « Sondages » dans lib/nav-items.ts.
 
 NE PAS FAIRE
-Le moteur poll n'émet aucun événement session:question\_\* et n'écrit pas dans player_answers.
+Le moteur poll n'émet aucun événement session:question_* et n'écrit pas dans player_answers.
 Si tu as besoin de modifier engine.types.ts ou la plateforme pour y arriver, arrête-toi et explique
 pourquoi : c'est le signe que l'abstraction a un trou, et je veux le savoir.
 

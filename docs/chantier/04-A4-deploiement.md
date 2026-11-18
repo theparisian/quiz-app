@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -40,7 +39,6 @@ ecosystem.config.js, scripts/load-env.sh, api/src/routes/health.ts, api/tests/he
 ROADMAP.md (backlog 3 et 10).
 
 À FAIRE
-
 1. api/src/routes/health.ts : ajoute GET /health/active-sessions, protégé par l'en-tête
    x-health-token exactement comme /health/detailed (401 si absent ou faux, cette fois).
    Réponse : { running, paused, lobbyWithPlayers, blocking }. lobbyWithPlayers = sessions en lobby
@@ -53,15 +51,15 @@ ROADMAP.md (backlog 3 et 10).
       .env. Si blocking > 0 et FORCE != "1" : affiche « Déploiement refusé : N session(s) en cours »
       et sort en code 3. Si l'API ne répond pas (premier déploiement), continue.
    c. git fetch origin "$BRANCH" && git checkout "$BRANCH" && git reset --hard "origin/$BRANCH"
-   (plus de git stash, plus de git pull).
+      (plus de git stash, plus de git pull).
    d. corepack, pnpm install --frozen-lockfile, db:generate, source scripts/load-env.sh,
-   pnpm turbo build --concurrency=1, db:migrate:deploy, pm2 startOrReload ecosystem.config.js
-   --update-env, pm2 save : reprends les commandes exactes du workflow actuel, dans le même ordre.
+      pnpm turbo build --concurrency=1, db:migrate:deploy, pm2 startOrReload ecosystem.config.js
+      --update-env, pm2 save : reprends les commandes exactes du workflow actuel, dans le même ordre.
    e. Contrôle : jusqu'à 30 essais espacés de 2 s sur http://127.0.0.1:4000/health et sur les ports
-   4001 à 4004. L'API doit répondre 200 ; les quatre apps, un code inférieur à 500.
+      4001 à 4004. L'API doit répondre 200 ; les quatre apps, un code inférieur à 500.
    f. Échec du contrôle ou de la compilation : git reset --hard "$PREV_SHA", réinstalle, recompile,
-   pm2 startOrReload, puis sort en code 1 avec « ROLLBACK effectué vers <sha> ».
-   Les migrations ne sont jamais annulées : écris-le en commentaire en tête du script.
+      pm2 startOrReload, puis sort en code 1 avec « ROLLBACK effectué vers <sha> ».
+      Les migrations ne sont jamais annulées : écris-le en commentaire en tête du script.
 3. deploy.yml :
    - Déclencheurs : workflow_run sur le workflow "CI" (types: completed, branches: master),
      exécuté seulement si conclusion == 'success' ; et workflow_dispatch avec les entrées branch et

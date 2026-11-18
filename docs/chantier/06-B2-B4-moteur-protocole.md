@@ -71,22 +71,18 @@ export interface RoundContext {
   players: {
     ids(): string[];
     has(id: string): boolean;
-    meta(
-      id: string,
-    ): { pseudo: string; avatarUrl: string | null; joinedDuringRound: boolean } | undefined;
+    meta(id: string): { pseudo: string; avatarUrl: string | null; joinedDuringRound: boolean } | undefined;
   };
   /** Vue complète pour une audience. Avec playerId : vers ce seul joueur (audience 'mobile'). */
   emitState(audience: Audience, view: unknown, playerId?: bigint): void;
   /** Signal éphémère sans état (son, animation). Jamais nécessaire à la reprise. */
   emitCue(audience: Audience, cue: string, data?: unknown): void;
   /** Écrit ScoreEvent + incrémente Player.scoreTotal, dans une transaction. */
-  award(
-    entries: { playerId: bigint; points: number; reason: string; meta?: unknown }[],
-  ): Promise<void>;
+  award(entries: { playerId: bigint; points: number; reason: string; meta?: unknown }[]): Promise<void>;
   scores(): Promise<Map<string, number>>;
-  persistState(json: unknown): Promise<void>; // session_rounds.state_json
-  finish(): Promise<void>; // fin de manche, appelé une seule fois
-  now(): number; // horloge injectable pour les tests
+  persistState(json: unknown): Promise<void>;   // session_rounds.state_json
+  finish(): Promise<void>;                      // fin de manche, appelé une seule fois
+  now(): number;                                // horloge injectable pour les tests
   log: Logger;
 }
 
@@ -97,8 +93,8 @@ export interface GameRound {
   pause(): Promise<void>;
   resume(): Promise<void>;
   forceAdvance(): Promise<void>;
-  snapshot(audience: Audience, playerId?: bigint): unknown; // synchrone : la vue courante
-  dispose(): void; // annule tous les timers
+  snapshot(audience: Audience, playerId?: bigint): unknown;   // synchrone : la vue courante
+  dispose(): void;                                             // annule tous les timers
 }
 
 export interface GameEngine {
@@ -129,13 +125,13 @@ Propriétés à garantir :
 
 Événements de **manche**, nouveaux :
 
-| Événement       | Sens                          | Payload                                                                                                                             |
-| --------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `round:started` | serveur → tous                | `{ roundId, position, totalRounds, engineKey, game: { slug, title, kind, sponsor: { name, logoUrl, brandColorPrimary } \| null } }` |
-| `game:state`    | serveur → audience            | `{ roundId, engineKey, seq, serverNow, view }`                                                                                      |
-| `game:cue`      | serveur → audience            | `{ roundId, cue, data? }`                                                                                                           |
-| `round:ended`   | serveur → tous                | `{ roundId, position, totalRounds, scoreboard: [{ playerId, pseudo, avatarUrl, scoreTotal, scoreThisRound }] }`                     |
-| `game:action`   | mobile → serveur, avec accusé | `{ roundId, type, payload }` → `{ ok: true, result }` ou `{ ok: false, code, message }`                                             |
+| Événement | Sens | Payload |
+| --- | --- | --- |
+| `round:started` | serveur → tous | `{ roundId, position, totalRounds, engineKey, game: { slug, title, kind, sponsor: { name, logoUrl, brandColorPrimary } \| null } }` |
+| `game:state` | serveur → audience | `{ roundId, engineKey, seq, serverNow, view }` |
+| `game:cue` | serveur → audience | `{ roundId, cue, data? }` |
+| `round:ended` | serveur → tous | `{ roundId, position, totalRounds, scoreboard: [{ playerId, pseudo, avatarUrl, scoreTotal, scoreThisRound }] }` |
+| `game:action` | mobile → serveur, avec accusé | `{ roundId, type, payload }` → `{ ok: true, result }` ou `{ ok: false, code, message }` |
 
 Événements **supprimés** (serveur, schémas, clients, tests) : `session:question_started`,
 `session:timer_update`, `session:answer_submitted_count`, `session:player_answered`,
@@ -169,7 +165,7 @@ Point de départ, à affiner d'après ce que les écrans affichent réellement :
 - En `reveal` : `correctAnswerId`, `explanation`, `scoreboard` (les N premiers, N selon l'audience),
   `nextAt` (échéance de la question suivante, absente après la dernière).
 - Vue mobile, par joueur : la partie commune, plus `me: { answerId | null, locked (arrivé pendant cette
-question), result: { isCorrect, points, rank, scoreTotal } | null }`.
+  question), result: { isCorrect, points, rank, scoreTotal } | null }`.
 - Vue console : la vue écran, avec le classement complet.
 - La bonne réponse n'apparaît dans AUCUNE vue avant la phase `reveal`. Écris un test qui le vérifie en
   sérialisant chaque vue émise pendant `question`.

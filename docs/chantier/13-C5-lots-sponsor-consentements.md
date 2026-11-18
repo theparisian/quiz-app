@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -30,20 +29,18 @@ Règles obligatoires :
 ## Ta mission
 
 OBJECTIF
-
-1. Permettre des lots retirés hors du cinéma (codes fournis par la marque). 2) Séparer les
-   consentements email : la plateforme collecte et conserve ; rien n'est transmis à un cinéma ou à un
-   sponsor sans accord enregistré ET case cochée par le joueur.
+1) Permettre des lots retirés hors du cinéma (codes fournis par la marque). 2) Séparer les
+consentements email : la plateforme collecte et conserve ; rien n'est transmis à un cinéma ou à un
+sponsor sans accord enregistré ET case cochée par le joueur.
 
 À LIRE
-api/src/modules/prizes/_ (tous les fichiers), api/src/shared/email/prize-email-queue.service.ts et
+api/src/modules/prizes/* (tous les fichiers), api/src/shared/email/prize-email-queue.service.ts et
 templates/prize-email.ts, api/src/routes/unsubscribe.ts, api/src/modules/players/players.routes.ts et
 players.schemas.ts, apps/mobile/components/prize-email-form.tsx et final-screen.tsx,
-apps/mobile/app/redeem/_, apps/admin/app/(dashboard)/sponsors/[slug]/prize-templates/page.tsx,
+apps/mobile/app/redeem/*, apps/admin/app/(dashboard)/sponsors/[slug]/prize-templates/page.tsx,
 PROJECT_REFERENCE.md section 9.
 
 À FAIRE — Lots à codes (migration 0026)
-
 1. enum PrizeRedeemMode { staff_pin code_pool static_code } ; prize_templates.redeem_mode défaut
    staff_pin, static_code VarChar(100)?, redeem_instructions Text? (ex. « Présentez ce code en
    caisse »), redeem_url VarChar(500)?.
@@ -61,26 +58,28 @@ PROJECT_REFERENCE.md section 9.
    refusée pour ces lots (409 NOT_STAFF_REDEEMABLE). Le rapport de session et le portail sponsor
    renvoient prizesRedeemed = null pour ces lots.
 
-À FAIRE — Consentements (même migration) 5. enum ConsentScope { platform cinema sponsor }
-contacts : id, email VarChar(255) UNIQUE (minuscules), createdAt, unsubscribedAllAt?.
-contact_consents : id, contactId, scope, cinemaId?, sponsorId?, sessionId, grantedAt, revokedAt?,
-wordingVersion VarChar(20), @@unique([contactId, scope, cinemaId, sponsorId]).
-cinemas.email_sharing_enabled Boolean défaut false (accord avec ce cinéma) ;
-campaigns.emailSharingEnabled existe déjà (accord avec ce sponsor). 6. updateEmailSchema : { email, consent: true (lot, obligatoire), optInPlatform?, optInCinema?,
-optInSponsor? } — les trois derniers valent false par défaut. Le serveur ignore optInCinema si
-l'accord cinéma est désactivé, et optInSponsor s'il n'y a pas de campagne active avec
-emailSharingEnabled dans la session. Pour chaque case acceptée : crée ou réutilise le contact et
-crée le consentement (réactive-le s'il était révoqué). L'envoi du lot fonctionne exactement comme
-avant, sans aucune case facultative. 7. Nouvelle route publique GET /api/players/:id/consent-options (en-tête X-Player-Token) →
-{ cinema: { name } | null, sponsor: { name } | null } : dit au mobile quelles cases montrer. 8. prize-email-form.tsx : sous la case obligatoire existante (inchangée), affiche des cases
-DÉCOCHÉES par défaut, seulement si applicables :
-
-- « Je veux recevoir les actus et jeux de Shh! »
-- « J'accepte que <nom du cinéma> m'envoie ses offres »
-- « J'accepte que <nom du sponsor> m'envoie ses offres »
-  Remplace la mention « Email utilisé uniquement pour l'envoi du lot » par « Sans case cochée, ton
-  email sert uniquement à l'envoi du lot ». Stocke wordingVersion = '2026-11'.
-
+À FAIRE — Consentements (même migration)
+5. enum ConsentScope { platform cinema sponsor }
+   contacts : id, email VarChar(255) UNIQUE (minuscules), createdAt, unsubscribedAllAt?.
+   contact_consents : id, contactId, scope, cinemaId?, sponsorId?, sessionId, grantedAt, revokedAt?,
+   wordingVersion VarChar(20), @@unique([contactId, scope, cinemaId, sponsorId]).
+   cinemas.email_sharing_enabled Boolean défaut false (accord avec ce cinéma) ;
+   campaigns.emailSharingEnabled existe déjà (accord avec ce sponsor).
+6. updateEmailSchema : { email, consent: true (lot, obligatoire), optInPlatform?, optInCinema?,
+   optInSponsor? } — les trois derniers valent false par défaut. Le serveur ignore optInCinema si
+   l'accord cinéma est désactivé, et optInSponsor s'il n'y a pas de campagne active avec
+   emailSharingEnabled dans la session. Pour chaque case acceptée : crée ou réutilise le contact et
+   crée le consentement (réactive-le s'il était révoqué). L'envoi du lot fonctionne exactement comme
+   avant, sans aucune case facultative.
+7. Nouvelle route publique GET /api/players/:id/consent-options (en-tête X-Player-Token) →
+   { cinema: { name } | null, sponsor: { name } | null } : dit au mobile quelles cases montrer.
+8. prize-email-form.tsx : sous la case obligatoire existante (inchangée), affiche des cases
+   DÉCOCHÉES par défaut, seulement si applicables :
+   - « Je veux recevoir les actus et jeux de Shh! »
+   - « J'accepte que <nom du cinéma> m'envoie ses offres »
+   - « J'accepte que <nom du sponsor> m'envoie ses offres »
+   Remplace la mention « Email utilisé uniquement pour l'envoi du lot » par « Sans case cochée, ton
+   email sert uniquement à l'envoi du lot ». Stocke wordingVersion = '2026-11'.
 9. Désinscription : la page existante révoque désormais aussi tous les consentements du contact
    (revokedAt + unsubscribedAllAt) ; un contact désinscrit ne sort plus dans aucun export.
 10. Exports, super_admin uniquement : GET /api/contacts/export.csv?scope=cinema&cinemaSlug= ou

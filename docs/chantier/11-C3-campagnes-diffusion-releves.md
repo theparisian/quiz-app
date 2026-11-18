@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -35,49 +34,53 @@ participants, et ce que cela rapporte au cinéma. On facture des séances diffus
 participants, jamais des « vues ».
 
 À LIRE
-api/src/modules/sponsors/_, api/src/modules/games/_, la plateforme de session (fin de manche),
-api/src/shared/sockets/handlers/player-handler.ts, apps/player/games/_ et hooks/use-nuc-events.ts,
+api/src/modules/sponsors/*, api/src/modules/games/*, la plateforme de session (fin de manche),
+api/src/shared/sockets/handlers/player-handler.ts, apps/player/games/* et hooks/use-nuc-events.ts,
 api/src/modules/sessions/session-report.service.ts (fonction CSV), apps/admin sponsors/[slug]/page.tsx,
-apps/console/components/live-console/ended-view.tsx, apps/console/components/catalog/_.
+apps/console/components/live-console/ended-view.tsx, apps/console/components/catalog/*.
 
 À FAIRE — Données (migration 0024)
-
 1. enum CampaignStatus { draft active paused ended } ; enum CampaignPricing { per_session per_participant }
    campaigns : id, sponsorId, gameId, name, status, startsAt, endsAt, pricing, unitPriceCents Int,
-   cinemaSharePercent Int (0..100), maxSessions Int?, maxSessionsPerScreenPerDay Int? (défaut 3),
-   emailSharingEnabled Boolean défaut false, notes Text?, createdAt, updatedAt.
+     cinemaSharePercent Int (0..100), maxSessions Int?, maxSessionsPerScreenPerDay Int? (défaut 3),
+     emailSharingEnabled Boolean défaut false, notes Text?, createdAt, updatedAt.
    deliveries : id, campaignId, sessionId, roundId UNIQUE, screenId, cinemaId, playedAt,
-   proofDisplayedAt DateTime?, participants Int, finishers Int, prizesIssued Int défaut 0,
-   attendance Int?, billable Boolean, nonBillableReason VarChar(50)?, amountCents Int,
-   cinemaShareCents Int, createdAt. Index (campaignId, playedAt) et (cinemaId, playedAt).
+     proofDisplayedAt DateTime?, participants Int, finishers Int, prizesIssued Int défaut 0,
+     attendance Int?, billable Boolean, nonBillableReason VarChar(50)?, amountCents Int,
+     cinemaShareCents Int, createdAt. Index (campaignId, playedAt) et (cinemaId, playedAt).
    sessions : attendance Int? (entrées de la séance, saisie par le cinéma).
    session_rounds : proofDisplayedAt DateTime?.
 2. Une seule campagne active par jeu à un instant donné (contrôle dans le service, 409 sinon).
 
-À FAIRE — Preuve de diffusion 3. apps/player : quand le rendu d'une manche est monté et visible, émets une fois par manche
-nuc:round_displayed { roundId }. Serveur (player-handler) : socket de type nuc, manche appartenant à
-la session de sa salle ; écrit proofDisplayedAt si vide.
+À FAIRE — Preuve de diffusion
+3. apps/player : quand le rendu d'une manche est monté et visible, émets une fois par manche
+   nuc:round_displayed { roundId }. Serveur (player-handler) : socket de type nuc, manche appartenant à
+   la session de sa salle ; écrit proofDisplayedAt si vide.
 
-À FAIRE — Journal 4. À la fin d'une manche (state ended, pas skipped) dont le jeu a une campagne active couvrant la
-date : crée une Delivery. participants = joueurs ayant fait au moins une action dans la manche ;
-finishers = joueurs encore actifs à la fin. billable = false avec raison si : pas de preuve
-('no_proof'), moins de 3 participants ('too_few_players'), plafond par salle et par jour atteint
-('daily_cap'), plafond total atteint ('campaign_cap').
-Montant : per_session → unitPriceCents ; per_participant → unitPriceCents × participants ;
-0 si non facturable. cinemaShareCents = arrondi(amount × cinemaSharePercent / 100).
-La création ne doit jamais faire échouer la fin de manche : try/catch + logEvent niveau error. 5. prizesIssued est incrémenté quand un lot de cette session est créé et que la session contient la
-manche sponsorisée. attendance est recopié depuis la session quand le cinéma le saisit.
+À FAIRE — Journal
+4. À la fin d'une manche (state ended, pas skipped) dont le jeu a une campagne active couvrant la
+   date : crée une Delivery. participants = joueurs ayant fait au moins une action dans la manche ;
+   finishers = joueurs encore actifs à la fin. billable = false avec raison si : pas de preuve
+   ('no_proof'), moins de 3 participants ('too_few_players'), plafond par salle et par jour atteint
+   ('daily_cap'), plafond total atteint ('campaign_cap').
+   Montant : per_session → unitPriceCents ; per_participant → unitPriceCents × participants ;
+   0 si non facturable. cinemaShareCents = arrondi(amount × cinemaSharePercent / 100).
+   La création ne doit jamais faire échouer la fin de manche : try/catch + logEvent niveau error.
+5. prizesIssued est incrémenté quand un lot de cette session est créé et que la session contient la
+   manche sponsorisée. attendance est recopié depuis la session quand le cinéma le saisit.
 
-À FAIRE — API et écrans 6. Super-admin : CRUD /api/campaigns, POST /:id/activate, /pause, /end ;
-GET /api/campaigns/:id/deliveries ; GET /api/cinemas/:slug/statement?month=YYYY-MM (JSON) et
-/statement.csv : lignes par séance + total de la part cinéma.
-apps/admin : onglet « Campagnes » sur la fiche sponsor (liste, création, état, totaux) et page
-« Relevés » par cinéma et par mois. 7. Cinéma : PATCH /api/sessions/:id/attendance { attendance: 0..2000 } (contrôle de cinéma, session
-terminée depuis moins de 7 jours). Console, écran de fin de session : champ « Entrées de la
-séance » avec le texte « Sert à calculer votre taux de participation ».
-/api/catalog : pour un jeu avec campagne active, ajoute revenue { pricing, cinemaAmountCents } ;
-game-card et le panneau de détail affichent « Vous rapporte X,XX € par séance » ou
-« X,XX € par participant ». Console : page « Revenus » = relevé du mois en cours du cinéma.
+À FAIRE — API et écrans
+6. Super-admin : CRUD /api/campaigns, POST /:id/activate, /pause, /end ;
+   GET /api/campaigns/:id/deliveries ; GET /api/cinemas/:slug/statement?month=YYYY-MM (JSON) et
+   /statement.csv : lignes par séance + total de la part cinéma.
+   apps/admin : onglet « Campagnes » sur la fiche sponsor (liste, création, état, totaux) et page
+   « Relevés » par cinéma et par mois.
+7. Cinéma : PATCH /api/sessions/:id/attendance { attendance: 0..2000 } (contrôle de cinéma, session
+   terminée depuis moins de 7 jours). Console, écran de fin de session : champ « Entrées de la
+   séance » avec le texte « Sert à calculer votre taux de participation ».
+   /api/catalog : pour un jeu avec campagne active, ajoute revenue { pricing, cinemaAmountCents } ;
+   game-card et le panneau de détail affichent « Vous rapporte X,XX € par séance » ou
+   « X,XX € par participant ». Console : page « Revenus » = relevé du mois en cours du cinéma.
 
 TESTS
 Création de Delivery (les 4 raisons de non-facturation et le cas nominal, pour les deux tarifs),

@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -40,7 +39,6 @@ api/src/modules/players/players.service.ts, api/src/shared/sockets/handlers/mobi
 api/tests/session-orchestrator.test.ts, api/tests/late-join.test.ts, api/tests/session-resume.test.ts.
 
 À FAIRE
-
 1. Ajoute à RunningSessionState :
    playerMeta: Map<string, { pseudo: string; avatarUrl: string | null; joinedQuestionPosition: number | null }>
    answerCountFlushHandle: ReturnType<typeof setTimeout> | null
@@ -74,7 +72,6 @@ NE PAS FAIRE
 Ne touche pas à computeScore. Ne change pas la tolérance TIMER_TOLERANCE_MS ni les durées.
 
 TESTS (dans session-orchestrator.test.ts)
-
 - Deux submitAnswer simultanés du même joueur avec deux réponses différentes (Promise.allSettled) :
   un seul réussit, l'autre lève ALREADY_ANSWERED, et la réponse enregistrée en base est la première.
 - Réponse pendant une pause : SESSION_PAUSED ; après resume, la réponse est acceptée.

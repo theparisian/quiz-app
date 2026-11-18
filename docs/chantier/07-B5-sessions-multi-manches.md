@@ -7,7 +7,6 @@ apps/player (écran cinéma), apps/mobile (joueur), apps/console (cinéma), apps
 packages/validation (schémas Zod partagés), packages/types.
 
 Règles obligatoires :
-
 1. Lis d'abord PROJECT_REFERENCE.md sections 2, 6 et 7, puis tous les fichiers cités dans "À lire".
    Ne modifie rien avant d'avoir lu.
 2. Fais uniquement ce qui est demandé. Aucun refactor, renommage ou reformatage hors périmètre.
@@ -33,12 +32,11 @@ OBJECTIF
 Une session peut enchaîner 1 à 5 jeux, avec un score cumulé et un seul classement final.
 
 À LIRE
-api/src/modules/sessions/_ , api/src/modules/games/_, api/src/modules/prizes/prize-config.service.ts,
+api/src/modules/sessions/* , api/src/modules/games/*, api/src/modules/prizes/prize-config.service.ts,
 api/src/modules/sessions/session-report.service.ts, apps/console/components/session-launcher.tsx,
 quiz-picker.tsx, apps/console/components/live-console/live-header.tsx et controls-panel.tsx.
 
 À FAIRE — API
-
 1. Migration 0021 : sessions.quiz_id devient NULLABLE. Toute lecture de session.quiz dans api/src doit
    gérer null : cherche "session.quiz" et "quiz:" dans les include, et corrige chaque usage en
    passant par la manche active ou la première manche. Liste ces usages dans ton compte rendu.
@@ -48,7 +46,7 @@ quiz-picker.tsx, apps/console/components/live-console/live-header.tsx et control
 3. Plateforme : au start, lance la manche 1. Quand une manche appelle finish() :
    a. manche → ended, émets round:ended ;
    b. s'il reste une manche : attends ROUND_INTERLUDE_MS (variable d'env, défaut 8000), puis crée la
-   manche suivante, émets round:started, appelle start() ;
+      manche suivante, émets round:started, appelle start() ;
    c. sinon : endSessionInternal comme aujourd'hui.
    Pause pendant l'interlude : le délai restant est gelé et repris au resume.
    Abort : la manche en cours et les suivantes passent en skipped.
@@ -65,10 +63,12 @@ quiz-picker.tsx, apps/console/components/live-console/live-header.tsx et control
 7. session-report.service.ts : ajoute rounds: [{ position, gameTitle, engineKey, state, startedAt,
    endedAt, participants }] ; les statistiques par question (moteur quiz) portent désormais un roundPosition.
 
-À FAIRE — Console 8. session-launcher : sélection de plusieurs jeux avec ordre (boutons monter / descendre / retirer),
-5 au maximum, durée totale estimée affichée. Un seul jeu sélectionné = parcours actuel. 9. Console live : l'en-tête affiche « Manche 2/3 — <titre> » ; nouveau bouton « Passer à la manche
-suivante » (handler socket console:skip_round → la manche passe en skipped, puis enchaînement
-normal), avec confirmation.
+À FAIRE — Console
+8. session-launcher : sélection de plusieurs jeux avec ordre (boutons monter / descendre / retirer),
+   5 au maximum, durée totale estimée affichée. Un seul jeu sélectionné = parcours actuel.
+9. Console live : l'en-tête affiche « Manche 2/3 — <titre> » ; nouveau bouton « Passer à la manche
+   suivante » (handler socket console:skip_round → la manche passe en skipped, puis enchaînement
+   normal), avec confirmation.
 
 TESTS
 Session de 2 jeux quiz : ordre complet des événements, score cumulé exact, un seul session:ended ;
