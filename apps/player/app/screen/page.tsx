@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNucInit } from '@/hooks/use-nuc-init';
 import { useAudioDirector } from '@/hooks/use-audio-director';
-import { useNucStore } from '@/lib/stores/nuc-store';
-import AnsweredFlashes from '@/components/shared/answered-flashes';
+import { selectScreenDisplay, useNucStore } from '@/lib/stores/nuc-store';
+import GameStage from '@/games/game-stage';
 import IdleState from '@/components/states/idle-state';
 import LobbyState from '@/components/states/lobby-state';
-import QuestionState from '@/components/states/question-state';
+import RoundEndState from '@/components/states/round-end-state';
 import FinalResultsState from '@/components/states/final-results-state';
 import AbortedState from '@/components/states/aborted-state';
 import PausedOverlay from '@/components/states/paused-overlay';
@@ -20,7 +20,9 @@ const IDLE_FADE_MS = 500;
 export default function ScreenPage() {
   useNucInit();
   useAudioDirector();
-  const uiState = useNucStore((s) => s.uiState);
+  // Ce que l'écran affiche (le lobby reste à l'écran pendant une vue qui le demande, ex. le
+  // compte à rebours d'avant la première question du quiz).
+  const uiState = useNucStore(selectScreenDisplay);
   const isPaused = useNucStore((s) => s.isPaused);
   const slugShort = useNucStore((s) => s.slugShort);
   const joinToken = useNucStore((s) => s.joinToken);
@@ -41,10 +43,7 @@ export default function ScreenPage() {
 
   const showIdle = uiState === 'idle' || idleFadingOut;
 
-  const showLateJoinQr =
-    lateJoinQrEnabled &&
-    slugShort != null &&
-    (uiState === 'question' || uiState === 'question_results' || isPaused);
+  const showLateJoinQr = lateJoinQrEnabled && slugShort != null && (uiState === 'game' || isPaused);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-gray-950 text-white">
@@ -60,12 +59,12 @@ export default function ScreenPage() {
         />
       )}
       {uiState === 'lobby' && <LobbyState />}
-      {(uiState === 'question' || uiState === 'question_results') && <QuestionState />}
+      {uiState === 'game' && <GameStage />}
+      {uiState === 'round_end' && <RoundEndState />}
       {uiState === 'final_results' && <FinalResultsState />}
       {uiState === 'aborted' && <AbortedState />}
       {isPaused && <PausedOverlay />}
       {showLateJoinQr && <LateJoinQrBadge slugShort={slugShort} joinToken={joinToken} />}
-      <AnsweredFlashes />
     </div>
   );
 }

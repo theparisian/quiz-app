@@ -1,55 +1,39 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import {
-  ANSWER_POSITIONS,
-  TIMER_URGENT_THRESHOLD_SEC,
-  answerRevealDelayMs,
-  type AnswerPosition,
-} from '@quiz-app/design-tokens';
-import { CONTINUOUS_MUSIC_SLOTS, type AudioSlotKey } from '@quiz-app/validation';
 import { audioEngine } from '@/lib/audio/engine';
-import { useNucStore, type NucUiState } from '@/lib/stores/nuc-store';
+import { musicSlotFor } from '@/lib/audio/music-plan';
+import { subscribeGameCues } from '@/lib/game-cues';
+import { selectScreenDisplay, useNucStore } from '@/lib/stores/nuc-store';
+import { getScreenRules } from '@/games/screen-rules';
 
 /**
  * Directeur audio de l'écran cinéma : seul endroit qui décide quel son joue quand.
  *
- * Pour brancher un nouveau son, ajouter son slot dans `AUDIO_SLOTS` (validation)
- * puis un `audioEngine.playSfx('<slot>')` dans l'effet correspondant ici.
+ * - Musique : d'après ce que l'écran affiche (`selectScreenDisplay`) et la pause.
+ * - Sons de jeu : dérivés de la vue par les règles d'écran du moteur
+ *   (`games/<clé>/screen-rules.ts`) : à chaque changement d'étape (`stageKey` → `sfxOnEnter`)
+ *   et sur une échéance (`timedSfx`). Seuls les sons qu'aucune vue ne permet de déduire
+ *   viennent d'un cue (`sfxForCue`).
+ * - `final` : fin de séance (plateforme).
+ *
+ * Pour brancher un nouveau son : son slot dans `AUDIO_SLOTS` (validation), puis la règle du
+ * moteur concerné, ou un `audioEngine.playSfx('<slot>')` ici pour un son de plateforme.
  */
-
-function musicSlotFor(uiState: NucUiState, continuous: boolean): AudioSlotKey | null {
-  if (uiState === 'idle' || uiState === 'aborted') return null;
-
-  // Musique continue : une seule piste du lobby jusqu'aux scores, jamais relancée.
-  if (continuous) {
-    return CONTINUOUS_MUSIC_SLOTS.find((slot) => audioEngine.hasCue(slot)) ?? null;
-  }
-
-  switch (uiState) {
-    case 'lobby':
-      return 'lobbyMusic';
-    case 'question':
-    case 'question_results':
-      return 'gameMusic';
-    case 'final_results':
-      return 'scoresMusic';
-    default:
-      return null;
-  }
-}
-
 export function useAudioDirector(): void {
   const audio = useNucStore((s) => s.audio);
   const audioMuted = useNucStore((s) => s.audioMuted);
-  const uiState = useNucStore((s) => s.uiState);
+  const display = useNucStore(selectScreenDisplay);
   const isPaused = useNucStore((s) => s.isPaused);
   const backgroundMusicUrl = useNucStore((s) => s.backgroundMusicUrl);
-  const currentQuestionId = useNucStore((s) => s.currentQuestion?.id ?? null);
-  const answersCount = useNucStore((s) => s.currentQuestion?.answers.length ?? 0);
-  const questionStartedAt = useNucStore((s) => s.questionStartedAt);
-  const questionTimeLimitMs = useNucStore((s) => s.questionTimeLimitMs);
-  const answeredFlashes = useNucStore((s) => s.answeredFlashes);
+  const round = useNucStore((s) => s.round);
+  const gameView = useNucStore((s) => s.gameView);
+  const gameViewInvalid = useNucStore((s) => s.gameViewInvalid);
+  const clockOffsetMs = useNucStore((s) => s.clockOffsetMs);
+
+  const roundId = round?.roundId ?? null;
+  const engineKey = round?.engineKey ?? null;
+  const inGame = display === 'game' && !gameViewInvalid && gameView != null;
 
   useEffect(() => {
     audioEngine.configure(audio);
@@ -60,70 +44,84 @@ export function useAudioDirector(): void {
     audioEngine.setMuted(audioMuted);
   }, [audioMuted]);
 
-  // Musique de fond, pilotée par la phase affichée.
+  // Musique de fond, pilotée par ce que l'écran affiche.
   useEffect(() => {
     if (isPaused) {
       audioEngine.pauseMusic();
       return;
     }
 
-    const slot = musicSlotFor(uiState, audio?.continuousMusic ?? false);
+    const slot = musicSlotFor(display, audio?.continuousMusic ?? false, (s) =>
+      audioEngine.hasCue(s),
+    );
     if (slot) {
       audioEngine.playMusic(slot);
       return;
     }
 
-    // Hors quiz : on retombe sur la musique d'ambiance du cinéma si elle existe.
-    if (uiState === 'idle' && backgroundMusicUrl) {
+    // Hors partie : on retombe sur la musique d'ambiance du cinéma si elle existe.
+    if (display === 'idle' && backgroundMusicUrl) {
       audioEngine.playAmbientUrl(backgroundMusicUrl);
       return;
     }
     audioEngine.stopMusic();
-  }, [uiState, isPaused, audio, backgroundMusicUrl]);
+  }, [display, isPaused, audio, backgroundMusicUrl]);
 
-  // Ouverture de question + apparition décalée des réponses.
+  // Sons d'entrée d'étape (ex. quiz : ouverture de question + réponses décalées, révélation).
+  const stageKeyRef = useRef<string | null>(null);
+  const stageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => {
-    if (uiState !== 'question' || !currentQuestionId) return;
-    audioEngine.playSfx('questionStart');
+    const rules = engineKey ? getScreenRules(engineKey) : null;
+    const key = inGame && rules ? `${roundId}:${rules.stageKey(gameView)}` : null;
+    if (key === stageKeyRef.current) return;
+    stageKeyRef.current = key;
+    stageTimersRef.current.forEach(clearTimeout);
+    stageTimersRef.current = [];
+    if (!key || !rules) return;
+    for (const plan of rules.sfxOnEnter(gameView)) {
+      if (plan.delayMs <= 0) {
+        audioEngine.playSfx(plan.slot);
+      } else {
+        stageTimersRef.current.push(setTimeout(() => audioEngine.playSfx(plan.slot), plan.delayMs));
+      }
+    }
+  }, [inGame, roundId, engineKey, gameView]);
 
-    const timers = ANSWER_POSITIONS.slice(0, answersCount).map((position, index) =>
-      setTimeout(
-        () => audioEngine.playSfx('answerReveal'),
-        answerRevealDelayMs(position as AnswerPosition, index),
-      ),
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [uiState, currentQuestionId, answersCount]);
+  useEffect(
+    () => () => {
+      stageTimersRef.current.forEach(clearTimeout);
+      stageTimersRef.current = [];
+    },
+    [],
+  );
 
-  // Dernières secondes : calé sur le même repère temporel que l'animation du timer.
+  // Son calé sur une échéance (ex. quiz : dernières secondes), joué une seule fois.
+  const firedTimedRef = useRef(new Set<string>());
   useEffect(() => {
-    if (uiState !== 'question' || !currentQuestionId || questionStartedAt == null) return;
-    const fireAt = questionStartedAt + questionTimeLimitMs - TIMER_URGENT_THRESHOLD_SEC * 1000;
-    const delay = fireAt - Date.now();
-    if (delay <= 0) return;
-    const timer = setTimeout(() => audioEngine.playSfx('lastSeconds'), delay);
+    const rules = engineKey ? getScreenRules(engineKey) : null;
+    if (!inGame || !rules) return;
+    const plan = rules.timedSfx(gameView, clockOffsetMs, Date.now());
+    if (!plan) return;
+    const key = `${roundId}:${plan.key}`;
+    if (firedTimedRef.current.has(key)) return;
+    const timer = setTimeout(() => {
+      firedTimedRef.current.add(key);
+      audioEngine.playSfx(plan.slot);
+    }, plan.delayMs);
     return () => clearTimeout(timer);
-  }, [uiState, currentQuestionId, questionStartedAt, questionTimeLimitMs]);
+  }, [inGame, roundId, engineKey, gameView, clockOffsetMs]);
+
+  // Sons portés par un cue (ex. quiz : `player_answered`, un son par pseudo affiché).
+  useEffect(
+    () =>
+      subscribeGameCues((cue) => {
+        const slot = getScreenRules(cue.engineKey)?.sfxForCue(cue.cue, cue.data) ?? null;
+        if (slot) audioEngine.playSfx(slot);
+      }),
+    [],
+  );
 
   useEffect(() => {
-    if (uiState === 'question_results') audioEngine.playSfx('questionEnd');
-  }, [uiState, currentQuestionId]);
-
-  useEffect(() => {
-    if (uiState === 'final_results') audioEngine.playSfx('final');
-  }, [uiState]);
-
-  // Un SFX par nouveau pseudo affiché, jamais rejoué pour une occurrence déjà vue.
-  const playedFlashes = useRef(new Set<string>());
-  useEffect(() => {
-    const keys = new Set(answeredFlashes.map((f) => f.key));
-    for (const flash of answeredFlashes) {
-      if (playedFlashes.current.has(flash.key)) continue;
-      playedFlashes.current.add(flash.key);
-      audioEngine.playSfx('playerAnswered');
-    }
-    for (const key of playedFlashes.current) {
-      if (!keys.has(key)) playedFlashes.current.delete(key);
-    }
-  }, [answeredFlashes]);
+    if (display === 'final_results') audioEngine.playSfx('final');
+  }, [display]);
 }

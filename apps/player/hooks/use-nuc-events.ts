@@ -4,15 +4,13 @@ import { useEffect } from 'react';
 import type { Socket } from 'socket.io-client';
 import { useNucStore } from '@/lib/stores/nuc-store';
 
+/**
+ * Événements de plateforme et de manche appliqués au store. Le temps de jeu ne passe plus par
+ * un tic serveur : les vues portent des échéances (`endsAt`) animées localement
+ * (`useCountdown`). `game:cue` est filtré par le store puis relayé (`lib/game-cues.ts`).
+ */
 const SESSION_EVENTS = [
   'session:started',
-  'session:state_changed',
-  'session:question_started',
-  'session:timer_update',
-  'session:answer_submitted_count',
-  'session:player_answered',
-  'session:question_ended',
-  'session:next_question_in',
   'session:paused',
   'session:resumed',
   'session:audio_muted',
@@ -21,25 +19,25 @@ const SESSION_EVENTS = [
   'session:lobby_timer_update',
   'player:joined',
   'player:left',
+  'round:started',
+  'game:state',
+  'game:cue',
+  'round:ended',
 ] as const;
 
 export function useNucEvents(socket: Socket | null) {
   useEffect(() => {
     if (!socket) return;
 
-    const applyEvent = useNucStore.getState().applyEvent;
-    const applySnapshot = useNucStore.getState().applySnapshot;
+    const { applyEvent, applySnapshot } = useNucStore.getState();
 
-    const handlers: Array<{ event: string; handler: (payload: Record<string, unknown>) => void }> =
-      [];
-
-    for (const event of SESSION_EVENTS) {
-      const handler = (payload: Record<string, unknown>) => {
+    const handlers = SESSION_EVENTS.map((event) => {
+      const handler = (payload: unknown) => {
         applyEvent(event, payload);
       };
       socket.on(event, handler);
-      handlers.push({ event, handler });
-    }
+      return [event, handler] as const;
+    });
 
     const onSnapshot = (data: Record<string, unknown>) => {
       applySnapshot(data);
@@ -47,7 +45,7 @@ export function useNucEvents(socket: Socket | null) {
     socket.on('session:state_snapshot', onSnapshot);
 
     return () => {
-      for (const { event, handler } of handlers) {
+      for (const [event, handler] of handlers) {
         socket.off(event, handler);
       }
       socket.off('session:state_snapshot', onSnapshot);

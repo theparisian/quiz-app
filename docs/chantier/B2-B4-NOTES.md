@@ -523,3 +523,104 @@ Console :
 - Non vérifié à l'œil (pas d'écran) : rendu mobile de chaque phase ; contrôlé par
   `next build` et un rendu serveur jetable de chaque phase du quiz (sans erreur). La page
   `/dev/play` couvre toutes les phases (nouveaux onglets : Départ, Fin manche, Exclu, Repli).
+
+## 10. Commit 3b — player (écran cinéma)
+
+### 10.1 Ce qui est fait
+
+- **Store** `apps/player/lib/stores/nuc-store.ts` : plus aucun champ quiz (`currentQuestion`,
+  `questionStartedAt`, `remainingMs`, `answersSubmittedCount`, `lastResults`,
+  `previousScoreboard`, `nextQuestionInMs`, `totalQuestions`, `answeredFlashes`… supprimés).
+  Plateforme : contexte NUC/cinéma, `uiState` (`idle | lobby | game | round_end |
+  final_results | aborted`), `isPaused` (calque), `audioMuted`, `sessionId`, `slugShort`,
+  `joinToken` (A2), `players`, `totalPlayers`, `lobbyRemainingMs`, `scoreboard` (snapshot),
+  `audio`, habillage (`quiz*`/`lobby*`, `lateJoinQrEnabled`…), `final*`, `prizes`,
+  `abortReason`, `connectionStatus`. Manche : `round`, `gameView`, `gameViewInvalid`, `gameSeq`,
+  `clockSamples`, `clockOffsetMs`, `roundScoreboard`. Même logique que le mobile (§ 9) :
+  enveloppe `gameStateSchema`, autre manche ou `seq <= gameSeq` ignorés (l'horloge est quand
+  même échantillonnée), vue validée par `quizScreenViewSchema` (`games/view-schemas.ts`),
+  invalide / moteur inconnu → `gameViewInvalid` + `Sentry.captureMessage('screen: invalid game
+  view')` une fois par manche et par raison, jamais d'exception.
+- `selectScreenDisplay(state)` : ce que l'écran affiche. `uiState = game` mais la règle du
+  moteur `showsLobby(view)` (quiz : `phase = countdown`) → `lobby` : le lobby reste à l'écran
+  pendant le compte à rebours d'avant Q1, avec la musique du lobby, comme avant. Lu par la page
+  ET le directeur audio.
+- **Cues** : `game:cue` est validé (`gameCueSchema`) et filtré (manche active, pas d'état
+  terminal) par le store, mais jamais stocké : il est publié sur `lib/game-cues.ts`
+  (`subscribeGameCues` / `publishGameCue`). Abonnés : le rendu quiz (flashs des pseudos) et le
+  directeur audio.
+- **Rendu** : `games/types.ts` (`GameRendererProps`, `ScreenGameRules`, `SfxPlan`),
+  `games/registry.ts` (`next/dynamic`), `games/view-schemas.ts`, `games/screen-rules.ts`
+  (règles d'écran par moteur, sans JSX, testables), `games/game-stage.tsx`,
+  `games/unknown-game.tsx` (logo + « La partie continue… »), `games/quiz/` :
+  `index.tsx` (ex-`components/states/question-state.tsx`, `git mv`, même balisage et mêmes
+  classes), `answer-card.tsx`, `timer-bar.tsx` (prend `remainingMs` au lieu de `startedAt`),
+  `answered-flashes.tsx` (état local alimenté par le cue `player_answered`, vidé à chaque
+  changement d'étape), `screen-rules.ts`. `components/states/question-results-state.tsx`
+  (déjà non utilisé) supprimé. Hors `GameStage` : idle, lobby, pause, `round-end-state.tsx`
+  (nouveau), résultats finaux, abandon, bannière de connexion, QR des retardataires.
+- **Temps** : barre de la question = `useCountdown(endsAt, pausedRemainingMs, clockOffsetMs,
+  { mode: 'frame' })` (60 i/s) ; « Question suivante dans N… » = `useCountdown` en mode
+  intervalle sur l'`endsAt` de la vue `reveal`. Plus d'écoute de `session:timer_update` ni de
+  `next_question_in`.
+- **Révélation** : séquence « bonne réponse 2,5 s → fondu 0,5 s → classement split » calée sur
+  `view.revealedAt` + `clockOffsetMs` (un rechargement au milieu saute à la bonne étape) ;
+  `scoreDiff = scoreThisQuestion`. La vue `done` (quelques ms avant `session:ended`) garde à
+  l'écran la dernière révélation reçue par le composant (sinon écran vide un instant).
+- **Fin de manche** : `round:ended` → `roundScoreboard` ; `uiState = round_end` seulement si
+  `position < totalRounds` (sinon `session:ended` suit et l'écran final prend la place
+  directement).
+- **Tests** (nouveau : `vitest` dans `apps/player`, `pnpm --filter @quiz-app/player test`,
+  ajouté à la CI) : `lib/stores/nuc-store.test.ts` (lobby pendant le compte à rebours, `seq`
+  ancien / égal ignoré, autre manche ignorée, propriété « vue complète » un message sur trois,
+  snapshot puis `seq <= gameSeq`, snapshot `running` sans vue, vue invalide → repli + un seul
+  Sentry, moteur inconnu, décalage d'horloge, relais des cues de la seule manche active,
+  `round:ended` dernière manche ou non, pause) ; `games/quiz/screen-rules.test.ts`
+  (correspondance des sons et plan de musique, fonctions pures).
+
+### 10.2 Sons : ancien déclencheur → nouveau
+
+| Son | Avant | Maintenant |
+| --- | --- | --- |
+| `lobbyMusic` | `uiState = lobby` (y compris compte à rebours d'avant Q1) | affichage `lobby` (`selectScreenDisplay`), donc aussi la vue quiz `countdown` |
+| `gameMusic` | `uiState = question \| question_results` | affichage `game` ou `round_end` |
+| `scoresMusic` | `uiState = final_results` | idem (`session:ended`, plateforme) |
+| musique continue | premier slot disponible hors idle/abandon | inchangé |
+| ambiance du cinéma | `idle` + `backgroundMusicUrl` | inchangé |
+| pause musique | `isPaused` | inchangé (`session:paused` / `resumed`) |
+| `questionStart` | `session:question_started` (`uiState = question`, nouvel id de question) | entrée dans l'étape `question:<questionIndex>` de la vue (`stageKey` change), sans le cue `question_opened` |
+| `answerReveal` ×N | timers `answerRevealDelayMs(position, i)` à l'ouverture | identique, planifiés par `sfxOnEnter` de la vue `question` ; annulés au changement d'étape |
+| `lastSeconds` | timer local `questionStartedAt + timeLimit - TIMER_URGENT_THRESHOLD_SEC` | timer local sur `Date.parse(endsAt) - TIMER_URGENT_THRESHOLD_SEC*1000 - (now + clockOffsetMs)`, pas en pause (`pausedRemainingMs`), reprogrammé à la reprise, joué une seule fois par question ; sans le cue `last_seconds` |
+| `questionEnd` | `session:question_ended` (`uiState = question_results`) | entrée dans l'étape `reveal:<questionIndex>`, sans le cue `question_closed` |
+| `final` | `uiState = final_results` | idem (plateforme) |
+| `playerAnswered` | `session:player_answered` → un flash → un son par flash | cue `player_answered` (seul son issu d'un cue) : un son par cue valide avec pseudo, comme le flash |
+
+Écarts : `lastSeconds` ne part plus pendant une pause (avant : le timer local ignorait la
+pause) ; un `nuc:resume` qui renvoie la même étape ne rejoue rien (inchangé) ; un rechargement
+de page en pleine question ou révélation rejoue `questionStart` / `questionEnd` (comme avant).
+
+### 10.3 Écarts visuels assumés (écran)
+
+- Barre de temps figée pendant la pause (avant : elle continuait derrière le calque).
+- Classement split : « +N » = points de la question (avant : différence avec le classement
+  précédent, faux après une reconnexion) ; en-tête « Question N / M » de la question révélée
+  pendant le fondu vers la suivante.
+- Nouvel écran `round_end` (jamais affiché avec une seule manche) et repli `unknown-game`.
+
+### 10.4 Pour l'agent console
+
+- Reprendre `lib/stores/nuc-store.ts` (ou le mobile) : validation de l'enveloppe, filtre
+  `roundId` / `seq`, `validateView` avec `quizConsoleViewSchema`, `reportedInvalidRounds`.
+- `useCountdown` en mode intervalle suffit ; `revealedAt` n'est utile que pour une animation.
+- La console ne reçoit pas de cue (`game:cue` part vers l'audience `screen` seulement).
+- Le linter des apps ne couvre que `app/` (`eslint app/`) : lancer aussi `npx eslint games
+  hooks lib` à la main ; `react-hooks/exhaustive-deps` n'est pas configuré (un
+  `eslint-disable` sur cette règle casse le lint).
+
+### 10.5 Non vérifié
+
+Rendu à l'œil et audio réel sur le NUC (pas d'écran ni de son ici). Contrôlé par `next build`,
+les tests et un rendu serveur jetable du composant quiz pour chaque phase (`countdown` → rien,
+`question`, `reveal` juste révélé → réponses colorées, `reveal` après 3 s → split, sans
+erreur). Les enchaînements animés (fondus, compte à rebours, flashs) et le calage des sons
+restent à tester à la main.

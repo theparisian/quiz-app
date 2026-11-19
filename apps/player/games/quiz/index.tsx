@@ -1,54 +1,102 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useNucStore } from '@/lib/stores/nuc-store';
+import { useEffect, useRef, useState } from 'react';
+import type { QuizScreenView } from '@quiz-app/validation';
 import { ANSWER_COLORS } from '@quiz-app/design-tokens';
-import AnswerCard from '@/components/shared/answer-card';
+import { useCountdown } from '@quiz-app/ui';
+import { useNucStore } from '@/lib/stores/nuc-store';
 import QuizBackground from '@/components/shared/quiz-background';
 import ScoreRow from '@/components/shared/score-row';
-import TimerBar from '@/components/shared/timer-bar';
+import type { GameRendererProps } from '../types';
+import AnswerCard from './answer-card';
+import AnsweredFlashes from './answered-flashes';
+import TimerBar from './timer-bar';
 
 type FlowPhase = 'question' | 'reveal' | 'fade_out' | 'split' | 'split_fade_out' | 'split_done';
+
+type RevealView = Extract<QuizScreenView, { phase: 'reveal' }>;
+type ShownView = Exclude<QuizScreenView, { phase: 'done' }>;
 
 const REVEAL_DURATION_MS = 2500;
 const FADE_OUT_DURATION_MS = 500;
 
-export default function QuestionState() {
-  const uiState = useNucStore((s) => s.uiState);
-  const currentQuestion = useNucStore((s) => s.currentQuestion);
-  const currentQuestionPosition = useNucStore((s) => s.currentQuestionPosition);
-  const totalQuestions = useNucStore((s) => s.totalQuestions);
-  const questionStartedAt = useNucStore((s) => s.questionStartedAt);
-  const questionTimeLimitMs = useNucStore((s) => s.questionTimeLimitMs);
-  const answersSubmittedCount = useNucStore((s) => s.answersSubmittedCount);
-  const answersTotal = useNucStore((s) => s.answersTotal);
+/** Étape de la séquence de révélation, calée sur `revealedAt` (une reprise saute à la bonne). */
+function revealStep(view: RevealView, clockOffsetMs: number): { phase: FlowPhase; leftMs: number } {
+  const revealedAt = Date.parse(view.revealedAt);
+  const elapsed = Number.isFinite(revealedAt) ? Date.now() + clockOffsetMs - revealedAt : 0;
+  if (elapsed < REVEAL_DURATION_MS)
+    return { phase: 'reveal', leftMs: REVEAL_DURATION_MS - elapsed };
+  if (elapsed < REVEAL_DURATION_MS + FADE_OUT_DURATION_MS) {
+    return { phase: 'fade_out', leftMs: REVEAL_DURATION_MS + FADE_OUT_DURATION_MS - elapsed };
+  }
+  return { phase: 'split', leftMs: 0 };
+}
+
+/**
+ * Rendu écran cinéma du quiz : ne dépend que de la vue (plus aucun état de jeu lu dans le
+ * store ; seul l'habillage de séance, `quizAnswerDisplayStyle` et le fond, vient du store).
+ * Séquence d'une question : question (timer à 60 i/s) → révélation de la bonne réponse
+ * (2,5 s) → fondu → classement « split » avec le compte à rebours de la question suivante.
+ */
+export default function QuizScreenGame({ view, clockOffsetMs }: GameRendererProps<QuizScreenView>) {
   const quizAnswerDisplayStyle = useNucStore((s) => s.quizAnswerDisplayStyle);
-  const lastResults = useNucStore((s) => s.lastResults);
-  const previousScoreboard = useNucStore((s) => s.previousScoreboard);
-  const nextQuestionInMs = useNucStore((s) => s.nextQuestionInMs);
 
-  const [phase, setPhase] = useState<FlowPhase>('question');
-  const [countdown, setCountdown] = useState<number | null>(null);
-
+  // Dernière révélation affichée : la vue `done` (fin de manche, quelques ms avant l'écran
+  // final) garde le classement à l'écran au lieu d'un écran vide.
+  const [lastReveal, setLastReveal] = useState<RevealView | null>(
+    view.phase === 'reveal' ? view : null,
+  );
   useEffect(() => {
-    if (uiState === 'question') {
+    if (view.phase === 'reveal') setLastReveal(view);
+  }, [view]);
+
+  const reveal = view.phase === 'reveal' ? view : lastReveal;
+  const shown: ShownView | null = view.phase === 'done' ? lastReveal : view;
+  const currentQuestion = shown && shown.phase !== 'countdown' ? shown.question : null;
+
+  const [phase, setPhase] = useState<FlowPhase>(() =>
+    view.phase === 'reveal' ? revealStep(view, clockOffsetMs).phase : 'question',
+  );
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  const questionRemainingMs = useCountdown(
+    view.phase === 'question' ? view.endsAt : null,
+    view.phase === 'question' ? view.pausedRemainingMs : null,
+    clockOffsetMs,
+    { mode: 'frame' },
+  );
+  const nextQuestionRemainingMs = useCountdown(
+    view.phase === 'reveal' ? view.endsAt : null,
+    view.phase === 'reveal' ? view.pausedRemainingMs : null,
+    clockOffsetMs,
+  );
+  const countdown =
+    nextQuestionRemainingMs !== null && nextQuestionRemainingMs > 0
+      ? Math.ceil(nextQuestionRemainingMs / 1000)
+      : null;
+
+  const stage = `${view.phase}:${view.questionIndex}`;
+  useEffect(() => {
+    const current = viewRef.current;
+    if (current.phase === 'question') {
       setPhase((prev) => {
         if (prev === 'split_done') return 'question';
         if (prev === 'split' || prev === 'split_fade_out') return 'split_fade_out';
         return 'question';
       });
-    } else if (uiState === 'question_results') {
-      if (!currentQuestion && lastResults) {
-        setPhase('split');
-      } else {
-        setPhase('reveal');
-      }
+    } else if (current.phase === 'reveal') {
+      setPhase(revealStep(current, clockOffsetMs).phase);
     }
-  }, [uiState, currentQuestionPosition, currentQuestion, lastResults]);
+    // Changement d'étape seulement (pas à chaque vue : le compteur de réponses en réémet).
+  }, [stage]);
 
   useEffect(() => {
     if (phase !== 'reveal') return;
-    const timer = setTimeout(() => setPhase('fade_out'), REVEAL_DURATION_MS);
+    const current = viewRef.current;
+    const leftMs =
+      current.phase === 'reveal' ? revealStep(current, clockOffsetMs).leftMs : REVEAL_DURATION_MS;
+    const timer = setTimeout(() => setPhase('fade_out'), Math.max(0, leftMs));
     return () => clearTimeout(timer);
   }, [phase]);
 
@@ -61,7 +109,7 @@ export default function QuestionState() {
   useEffect(() => {
     if (phase !== 'split_fade_out') return;
     const timer = setTimeout(() => {
-      setPhase(useNucStore.getState().uiState === 'question' ? 'question' : 'split_done');
+      setPhase(viewRef.current.phase === 'question' ? 'question' : 'split_done');
     }, FADE_OUT_DURATION_MS);
     return () => clearTimeout(timer);
   }, [phase]);
@@ -71,20 +119,8 @@ export default function QuestionState() {
     setPhase('split_fade_out');
   }, [phase, countdown]);
 
-  useEffect(() => {
-    if (phase !== 'split' || !nextQuestionInMs) return;
-    let remaining = Math.ceil(nextQuestionInMs / 1000);
-    setCountdown(remaining);
-    const interval = setInterval(() => {
-      remaining--;
-      setCountdown(remaining > 0 ? remaining : null);
-      if (remaining <= 0) clearInterval(interval);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [phase, nextQuestionInMs, currentQuestionPosition]);
-
   if (!currentQuestion && phase === 'question') return null;
-  if ((phase === 'split' || phase === 'split_fade_out' || phase === 'split_done') && !lastResults)
+  if ((phase === 'split' || phase === 'split_fade_out' || phase === 'split_done') && !reveal)
     return null;
 
   const sortedAnswers = currentQuestion
@@ -94,19 +130,20 @@ export default function QuestionState() {
       )
     : [];
 
-  const correctAnswerId = lastResults?.correctAnswerId ?? null;
-  const correctAnswer = currentQuestion?.answers.find((a) => a.id === correctAnswerId);
+  // Pendant la question, la vue ne contient pas la bonne réponse (elle n'arrive qu'en `reveal`).
+  const correctAnswerId = shown?.phase === 'reveal' ? shown.correctAnswerId : null;
+  const splitCorrectAnswerId = reveal?.correctAnswerId ?? null;
+  const correctAnswer = reveal?.question.answers.find((a) => a.id === splitCorrectAnswerId);
   const correctColor = correctAnswer
     ? ANSWER_COLORS[correctAnswer.position as keyof typeof ANSWER_COLORS]?.bg
     : '#22c55e';
 
-  const top5 = lastResults?.scoreboard.slice(0, 5) ?? [];
-  const prevMap = new Map(previousScoreboard.map((e) => [e.playerId, e.scoreTotal]));
+  const top5 = reveal?.scoreboard.slice(0, 5) ?? [];
 
   const showQuestionLayout =
     (phase === 'question' || phase === 'reveal' || phase === 'fade_out') && currentQuestion;
   const showSplitLayout =
-    (phase === 'split' || phase === 'split_fade_out' || phase === 'split_done') && lastResults;
+    (phase === 'split' || phase === 'split_fade_out' || phase === 'split_done') && reveal;
   const isRevealing = phase === 'reveal' || phase === 'fade_out';
   const isSplitFadingOut = phase === 'split_fade_out';
   const isSplitHidden = phase === 'split_done';
@@ -125,12 +162,12 @@ export default function QuestionState() {
             <div className="fixed right-16 top-4 z-20 flex flex-col items-end gap-3">
               {!isRevealing && (
                 <TimerBar
-                  startedAt={questionStartedAt ?? Date.now()}
-                  totalMs={questionTimeLimitMs}
+                  remainingMs={questionRemainingMs ?? currentQuestion.timeLimitMs}
+                  totalMs={currentQuestion.timeLimitMs}
                 />
               )}
               <div className="text-xl font-medium text-gray-300">
-                Question {currentQuestionPosition} / {totalQuestions}
+                Question {currentQuestion.position} / {shown?.totalQuestions}
               </div>
             </div>
 
@@ -173,7 +210,7 @@ export default function QuestionState() {
 
             <div className="px-16 pb-8">
               <div className="text-center text-lg text-gray-400">
-                {answersSubmittedCount} / {answersTotal} réponses
+                {shown?.answeredCount ?? 0} / {shown?.totalPlayers ?? 0} réponses
               </div>
             </div>
           </div>
@@ -186,7 +223,7 @@ export default function QuestionState() {
             } ${isSplitHidden ? 'pointer-events-none opacity-0' : ''}`}
           >
             <div className="flex items-center justify-center bg-white/5 py-4 text-xl font-medium text-gray-300">
-              Question {currentQuestionPosition} / {totalQuestions}
+              Question {reveal.question.position} / {reveal.totalQuestions}
             </div>
 
             <div className="flex flex-1 overflow-hidden">
@@ -206,7 +243,7 @@ export default function QuestionState() {
                         pseudo={entry.pseudo}
                         avatarUrl={entry.avatarUrl}
                         scoreTotal={entry.scoreTotal}
-                        scoreDiff={entry.scoreTotal - (prevMap.get(entry.playerId) ?? 0)}
+                        scoreDiff={entry.scoreThisQuestion}
                         index={0}
                         animated={false}
                       />
@@ -233,12 +270,12 @@ export default function QuestionState() {
                   </div>
                 )}
 
-                {lastResults.explanationText && (
+                {reveal.explanation && (
                   <p
                     className="animate-slide-in-left max-w-lg text-center text-xl italic text-gray-400 opacity-0"
                     style={{ animationDelay: '0.3s' }}
                   >
-                    {lastResults.explanationText}
+                    {reveal.explanation}
                   </p>
                 )}
               </div>
@@ -252,6 +289,7 @@ export default function QuestionState() {
           </div>
         )}
       </div>
+      <AnsweredFlashes stageKey={stage} />
     </div>
   );
 }

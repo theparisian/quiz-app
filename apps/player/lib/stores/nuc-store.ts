@@ -5,15 +5,31 @@ import {
   readLobbyPrizesEnabled,
   type AnswerDisplayStyle,
 } from '@quiz-app/design-tokens';
-import type { ResolvedQuizAudio, SessionPrizesDisplay } from '@quiz-app/validation';
+import {
+  gameCueSchema,
+  gameStateSchema,
+  roundEndedSchema,
+  roundInfoSchema,
+  type ResolvedQuizAudio,
+  type RoundEndedPayload,
+  type RoundInfo,
+  type SessionPrizesDisplay,
+} from '@quiz-app/validation';
+import { pushClockSample } from '@quiz-app/ui';
+import { getGameViewSchema } from '@/games/view-schemas';
+import { getScreenRules } from '@/games/screen-rules';
+import { publishGameCue } from '@/lib/game-cues';
+import { reportGameIssue } from '@/lib/report-issue';
 
-export type NucUiState =
-  | 'idle'
-  | 'lobby'
-  | 'question'
-  | 'question_results'
-  | 'final_results'
-  | 'aborted';
+/**
+ * État de plateforme de l'écran. `game` = la manche en cours, rendue par `<GameStage />`
+ * d'après `round.engineKey` et `gameView` ; tout le reste est hors moteur. La pause est un
+ * calque (`isPaused`) au-dessus de l'état courant.
+ */
+export type NucUiState = 'idle' | 'lobby' | 'game' | 'round_end' | 'final_results' | 'aborted';
+
+/** Ce que l'écran affiche réellement (voir `selectScreenDisplay`). */
+export type NucDisplay = NucUiState;
 
 export type NucConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
 
@@ -22,7 +38,6 @@ interface ScoreEntry {
   pseudo: string;
   avatarUrl: string | null;
   scoreTotal: number;
-  scoreThisQuestion: number;
 }
 
 interface FinalEntry {
@@ -40,23 +55,6 @@ interface PlayerInfo {
   joinedAt: string;
 }
 
-interface AnswerInfo {
-  id: string;
-  position: string;
-  text: string;
-}
-
-/** Pseudo affiché brièvement quand un joueur répond. Une entrée = une occurrence. */
-export interface AnsweredFlash {
-  key: string;
-  playerId: string;
-  pseudo: string;
-  avatarUrl: string | null;
-}
-
-/** Au-delà, on laisse tomber les plus anciens : l'écran doit rester lisible. */
-const MAX_ANSWERED_FLASHES = 6;
-
 type QuizBackgroundMediaType = 'image' | 'video';
 
 interface QuizBackgroundState {
@@ -71,7 +69,20 @@ interface QuizBackgroundState {
   lobbyPrizesEnabled: boolean;
 }
 
-interface NucState {
+interface RoundFields {
+  /** Manche active (`round:started` ou snapshot), null hors manche. */
+  round: RoundInfo | null;
+  /** Dernière vue complète appliquée, validée par le schéma du moteur (null si aucune). */
+  gameView: unknown;
+  /** La dernière vue reçue était invalide (ou le moteur inconnu) : rendu de repli. */
+  gameViewInvalid: boolean;
+  /** `seq` de la dernière vue appliquée : tout `game:state` de `seq <= gameSeq` est ignoré. */
+  gameSeq: number;
+  /** Classement de fin de manche (`round:ended`). */
+  roundScoreboard: RoundEndedPayload | null;
+}
+
+interface NucState extends QuizBackgroundState, RoundFields {
   nucId: string | null;
   screenId: string | null;
   cinemaSlug: string | null;
@@ -87,35 +98,18 @@ interface NucState {
   slugShort: string | null;
   /** Jeton long encodé dans le QR code (null pour une session antérieure à sa création). */
   joinToken: string | null;
-  totalQuestions: number;
-  currentQuestionPosition: number | null;
-  currentQuestion: {
-    id: string;
-    text: string;
-    imageUrl: string | null;
-    answers: AnswerInfo[];
-  } | null;
-  questionStartedAt: number | null;
-  questionTimeLimitMs: number;
-  remainingMs: number;
-  answersSubmittedCount: number;
-  answersTotal: number;
 
   players: PlayerInfo[];
   totalPlayers: number;
   lobbyRemainingMs: number | null;
+  /** Classement de plateforme du snapshot (5 premiers, 3 en fin). */
   scoreboard: ScoreEntry[];
-  previousScoreboard: ScoreEntry[];
-  answeredFlashes: AnsweredFlash[];
 
   audio: ResolvedQuizAudio | null;
 
-  lastResults: {
-    correctAnswerId: string | null;
-    explanationText: string | null;
-    scoreboard: ScoreEntry[];
-  } | null;
-  nextQuestionInMs: number | null;
+  /** `heure serveur - heure locale` (ms), médiane des derniers `serverNow` reçus. */
+  clockOffsetMs: number;
+  clockSamples: number[];
 
   finalScoreboard: FinalEntry[] | null;
   winnerPlayerId: string | null;
@@ -123,16 +117,6 @@ interface NucState {
   abortReason: string | null;
 
   connectionStatus: NucConnectionStatus;
-
-  quizBackgroundMediaUrl: string | null;
-  quizBackgroundMediaType: QuizBackgroundMediaType | null;
-  quizBackgroundOverlayOpacity: number;
-  lobbyBackgroundMediaUrl: string | null;
-  lobbyBackgroundMediaType: QuizBackgroundMediaType | null;
-  lobbyBackgroundOverlayOpacity: number;
-  quizAnswerDisplayStyle: AnswerDisplayStyle;
-  lateJoinQrEnabled: boolean;
-  lobbyPrizesEnabled: boolean;
 
   setNucContext: (ctx: {
     nucId: string;
@@ -147,10 +131,9 @@ interface NucState {
     slugShort: string;
     joinToken?: string | null;
   }) => void;
-  applyEvent: (event: string, payload: Record<string, unknown>) => void;
+  applyEvent: (event: string, payload: unknown) => void;
   applySnapshot: (snap: Record<string, unknown>) => void;
   setConnectionStatus: (s: NucConnectionStatus) => void;
-  dismissAnsweredFlash: (key: string) => void;
   reset: () => void;
 }
 
@@ -164,6 +147,14 @@ const emptyQuizBackground: QuizBackgroundState = {
   quizAnswerDisplayStyle: 'multicolor',
   lateJoinQrEnabled: false,
   lobbyPrizesEnabled: false,
+};
+
+const EMPTY_ROUND: RoundFields = {
+  round: null,
+  gameView: null,
+  gameViewInvalid: false,
+  gameSeq: 0,
+  roundScoreboard: null,
 };
 
 function readPrizes(snap: Record<string, unknown>): SessionPrizesDisplay | null {
@@ -202,6 +193,85 @@ function readQuizBackground(payload: Record<string, unknown>): QuizBackgroundSta
   };
 }
 
+/** Une vue invalide n'est signalée qu'une fois par manche et par raison (pas de rafale). */
+const reportedInvalidRounds = new Set<string>();
+
+function reportInvalidView(round: RoundInfo, reason: string, extra: Record<string, unknown>) {
+  const key = `${round.roundId}:${round.engineKey}:${reason}`;
+  if (reportedInvalidRounds.has(key)) return;
+  reportedInvalidRounds.add(key);
+  reportGameIssue('screen: invalid game view', {
+    reason,
+    engineKey: round.engineKey,
+    roundId: round.roundId,
+    ...extra,
+  });
+}
+
+/** Valide une vue avec le schéma du moteur de la manche ; invalide → repli, jamais d'erreur. */
+function validateView(
+  round: RoundInfo,
+  view: unknown,
+  seq: number,
+): Pick<RoundFields, 'gameView' | 'gameViewInvalid'> {
+  const schema = getGameViewSchema(round.engineKey);
+  if (!schema) {
+    reportInvalidView(round, 'unknown_engine', { seq });
+    return { gameView: null, gameViewInvalid: true };
+  }
+  const parsed = schema.safeParse(view);
+  if (!parsed.success) {
+    reportInvalidView(round, 'schema_mismatch', {
+      seq,
+      issues: (parsed.error?.issues ?? [])
+        .slice(0, 5)
+        .map((i) => `${i.path.join('.')}: ${i.message}`),
+    });
+    return { gameView: null, gameViewInvalid: true };
+  }
+  // On garde l'objet reçu (le schéma ne transforme rien) : une vue est complète.
+  return { gameView: view, gameViewInvalid: false };
+}
+
+/** Champs de manche d'un snapshot (`round`, `gameView`, `gameSeq`, règle 5). */
+function roundFieldsFromSnapshot(snap: Record<string, unknown>): RoundFields {
+  const parsedRound = roundInfoSchema.safeParse(snap.round);
+  if (!parsedRound.success) return { ...EMPTY_ROUND };
+  const round = parsedRound.data;
+  const gameSeq =
+    typeof snap.gameSeq === 'number' && Number.isInteger(snap.gameSeq) && snap.gameSeq >= 0
+      ? snap.gameSeq
+      : 0;
+  const view =
+    snap.gameView == null
+      ? { gameView: null, gameViewInvalid: false }
+      : validateView(round, snap.gameView, gameSeq);
+  return { round, ...view, gameSeq, roundScoreboard: null };
+}
+
+function hasGame(s: Pick<RoundFields, 'gameView' | 'gameViewInvalid'>): boolean {
+  return s.gameView != null || s.gameViewInvalid;
+}
+
+/** États terminaux : plus aucun événement de jeu ne les quitte (sauf un snapshot ou un reset). */
+function isTerminal(ui: NucUiState): boolean {
+  return ui === 'final_results' || ui === 'aborted' || ui === 'idle';
+}
+
+/**
+ * Ce que l'écran affiche : `uiState`, sauf une vue de jeu qui laisse le lobby à l'écran (règle
+ * du moteur, ex. compte à rebours d'avant la première question du quiz). Sert à la page et au
+ * directeur audio (musique), pour qu'ils ne divergent jamais.
+ */
+export function selectScreenDisplay(
+  s: Pick<NucState, 'uiState' | 'round' | 'gameView' | 'gameViewInvalid'>,
+): NucDisplay {
+  if (s.uiState !== 'game') return s.uiState;
+  if (s.gameViewInvalid || s.gameView == null || !s.round) return 'game';
+  const rules = getScreenRules(s.round.engineKey);
+  return rules?.showsLobby(s.gameView) ? 'lobby' : 'game';
+}
+
 const initialState = {
   nucId: null as string | null,
   screenId: null as string | null,
@@ -217,26 +287,17 @@ const initialState = {
   sessionId: null as string | null,
   slugShort: null as string | null,
   joinToken: null as string | null,
-  totalQuestions: 0,
-  currentQuestionPosition: null as number | null,
-  currentQuestion: null as NucState['currentQuestion'],
-  questionStartedAt: null as number | null,
-  questionTimeLimitMs: 20000,
-  remainingMs: 0,
-  answersSubmittedCount: 0,
-  answersTotal: 0,
 
   players: [] as PlayerInfo[],
   totalPlayers: 0,
   lobbyRemainingMs: null as number | null,
   scoreboard: [] as ScoreEntry[],
-  previousScoreboard: [] as ScoreEntry[],
-  answeredFlashes: [] as AnsweredFlash[],
 
   audio: null as ResolvedQuizAudio | null,
 
-  lastResults: null as NucState['lastResults'],
-  nextQuestionInMs: null as number | null,
+  ...EMPTY_ROUND,
+  clockOffsetMs: 0,
+  clockSamples: [] as number[],
 
   finalScoreboard: null as FinalEntry[] | null,
   winnerPlayerId: null as string | null,
@@ -270,12 +331,10 @@ export const useNucStore = create<NucState>((set, get) => ({
       totalPlayers: 0,
       lobbyRemainingMs: null,
       isPaused: false,
+      ...EMPTY_ROUND,
     }),
 
   setConnectionStatus: (s) => set({ connectionStatus: s }),
-
-  dismissAnsweredFlash: (key) =>
-    set({ answeredFlashes: get().answeredFlashes.filter((f) => f.key !== key) }),
 
   applySnapshot: (snap) => {
     const nuc = snap.nuc as
@@ -306,7 +365,6 @@ export const useNucStore = create<NucState>((set, get) => ({
           slugShort: string;
           joinToken?: string | null;
           state: string;
-          totalQuestions: number;
           totalPlayers: number;
         }
       | null
@@ -322,203 +380,91 @@ export const useNucStore = create<NucState>((set, get) => ({
         uiState: 'idle',
         isPaused: false,
         audioMuted,
-        totalQuestions: 0,
         totalPlayers: 0,
         lobbyRemainingMs: null,
         players: [],
         scoreboard: [],
-        currentQuestion: null,
         finalScoreboard: null,
-        lastResults: null,
         prizes: null,
-        answeredFlashes: [],
         audio: null,
+        ...EMPTY_ROUND,
         ...emptyQuizBackground,
       });
       return;
     }
 
-    const quizBackground = readQuizBackground(snap);
-
-    const players = (snap.players as PlayerInfo[]) ?? [];
-
+    const roundFields = roundFieldsFromSnapshot(snap);
     const base = {
       sessionId: session.sessionId,
       slugShort: session.slugShort,
       joinToken: session.joinToken ?? null,
-      totalQuestions: session.totalQuestions,
       totalPlayers: session.totalPlayers,
       lobbyRemainingMs: null as number | null,
       audioMuted,
-      players,
+      players: (snap.players as PlayerInfo[] | undefined) ?? [],
+      scoreboard: (snap.scoreboard as ScoreEntry[] | undefined) ?? [],
       isPaused: session.state === 'paused',
       audio: readAudio(snap),
-      answeredFlashes: [] as AnsweredFlash[],
+      ...readQuizBackground(snap),
+      ...roundFields,
     };
 
-    if (session.state === 'lobby') {
-      set({
-        ...base,
-        ...quizBackground,
-        uiState: 'lobby',
-        lobbyRemainingMs: (snap.lobbyTimerRemainingMs as number | undefined) ?? null,
-        scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
-        currentQuestion: null,
-        lastResults: null,
-        finalScoreboard: null,
-        winnerPlayerId: null,
-        prizes: readPrizes(snap),
-      });
-      return;
+    switch (session.state) {
+      case 'lobby':
+        set({
+          ...base,
+          uiState: 'lobby',
+          lobbyRemainingMs: (snap.lobbyTimerRemainingMs as number | undefined) ?? null,
+          finalScoreboard: null,
+          winnerPlayerId: null,
+          prizes: readPrizes(snap),
+        });
+        return;
+      case 'aborted':
+        set({ ...base, uiState: 'aborted', abortReason: null });
+        return;
+      case 'ended':
+        set({
+          ...base,
+          uiState: 'final_results',
+          finalScoreboard: (snap.finalScoreboard as FinalEntry[] | undefined) ?? null,
+          winnerPlayerId: null,
+          prizes: readPrizes(snap),
+        });
+        return;
+      default:
+        // running / paused : la manche en cours, ou le lobby tant qu'aucune vue n'existe.
+        set({ ...base, uiState: hasGame(roundFields) ? 'game' : 'lobby' });
     }
-
-    if (session.state === 'aborted') {
-      set({
-        ...base,
-        ...quizBackground,
-        uiState: 'aborted',
-        abortReason: null,
-        scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
-      });
-      return;
-    }
-
-    if (session.state === 'ended') {
-      set({
-        ...base,
-        ...quizBackground,
-        uiState: 'final_results',
-        finalScoreboard: (snap.finalScoreboard as FinalEntry[]) ?? null,
-        winnerPlayerId: null,
-        scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
-        prizes: readPrizes(snap),
-      });
-      return;
-    }
-
-    const cq = snap.currentQuestion as
-      | {
-          position: number;
-          questionId: string;
-          text: string;
-          imageUrl: string | null;
-          answers: { position: string; text: string }[];
-          timeLimitMs: number;
-          remainingMs: number;
-        }
-      | undefined;
-
-    if (cq && (session.state === 'running' || session.state === 'paused')) {
-      const tlm = cq.timeLimitMs;
-      const rem = cq.remainingMs;
-      const startedAt = Date.now() - (tlm - rem);
-      const answers: AnswerInfo[] = cq.answers.map((a) => ({
-        id: a.position,
-        position: a.position,
-        text: a.text,
-      }));
-      set({
-        ...base,
-        ...quizBackground,
-        uiState: 'question',
-        currentQuestionPosition: cq.position,
-        currentQuestion: {
-          id: cq.questionId,
-          text: cq.text,
-          imageUrl: cq.imageUrl,
-          answers,
-        },
-        questionStartedAt: startedAt,
-        questionTimeLimitMs: tlm,
-        remainingMs: rem,
-        scoreboard: (snap.scoreboard as ScoreEntry[]) ?? get().scoreboard,
-      });
-      return;
-    }
-
-    const lr = snap.lastResults as
-      | {
-          correctAnswerId: string;
-          scoreboard: {
-            playerId: string;
-            pseudo: string;
-            avatarUrl?: string | null;
-            scoreTotal: number;
-            scoreThisQuestion: number;
-          }[];
-          explanation: string | null;
-          nextQuestionInMs: number;
-        }
-      | undefined;
-
-    if (lr) {
-      const scoreboard: ScoreEntry[] = lr.scoreboard.map((r) => ({
-        playerId: r.playerId,
-        pseudo: r.pseudo,
-        avatarUrl: r.avatarUrl ?? null,
-        scoreTotal: r.scoreTotal,
-        scoreThisQuestion: r.scoreThisQuestion,
-      }));
-      set({
-        ...base,
-        ...quizBackground,
-        uiState: 'question_results',
-        lastResults: {
-          correctAnswerId: lr.correctAnswerId || null,
-          explanationText: lr.explanation,
-          scoreboard,
-        },
-        scoreboard,
-        nextQuestionInMs: lr.nextQuestionInMs,
-        remainingMs: 0,
-        currentQuestion: null,
-      });
-      return;
-    }
-
-    set({
-      ...base,
-      ...quizBackground,
-      uiState: 'lobby',
-      scoreboard: (snap.scoreboard as ScoreEntry[]) ?? [],
-    });
   },
 
   applyEvent: (event, payload) => {
     const state = get();
+    const p = (payload ?? {}) as Record<string, unknown>;
 
     switch (event) {
       case 'session:started':
         set({
           uiState: 'lobby',
-          totalQuestions: (payload.totalQuestions as number) ?? 0,
           lobbyRemainingMs: null,
-          audio: readAudio(payload) ?? state.audio,
-          ...readQuizBackground(payload),
+          audio: readAudio(p) ?? state.audio,
+          ...readQuizBackground(p),
         });
         break;
 
       case 'session:lobby_timer_update':
-        set({ lobbyRemainingMs: payload.remainingMs as number });
+        set({ lobbyRemainingMs: p.remainingMs as number });
         break;
-
-      case 'session:state_changed': {
-        const newState = payload.newState as string;
-        if (newState === 'running' && state.uiState === 'lobby') {
-          // question will come next
-        }
-        break;
-      }
 
       case 'player:joined':
         set({
           players: [
             ...state.players,
             {
-              playerId: payload.playerId as string,
-              pseudo: payload.pseudo as string,
-              avatarUrl: (payload.avatarUrl as string | null) ?? null,
-              joinedAt: payload.joinedAt as string,
+              playerId: p.playerId as string,
+              pseudo: p.pseudo as string,
+              avatarUrl: (p.avatarUrl as string | null) ?? null,
+              joinedAt: p.joinedAt as string,
             },
           ],
           totalPlayers: state.totalPlayers + 1,
@@ -527,76 +473,75 @@ export const useNucStore = create<NucState>((set, get) => ({
 
       case 'player:left':
         set({
-          players: state.players.filter((p) => p.playerId !== (payload.playerId as string)),
+          players: state.players.filter((pl) => pl.playerId !== (p.playerId as string)),
           totalPlayers: Math.max(0, state.totalPlayers - 1),
         });
         break;
 
-      case 'session:question_started':
-        set({
-          uiState: 'question',
-          currentQuestionPosition: payload.questionPosition as number,
-          currentQuestion: {
-            id: payload.questionId as string,
-            text: payload.questionText as string,
-            imageUrl: (payload.questionImageUrl as string | null) ?? null,
-            answers: payload.answers as AnswerInfo[],
-          },
-          questionStartedAt: Date.now(),
-          questionTimeLimitMs: payload.timeLimitMs as number,
-          remainingMs: payload.timeLimitMs as number,
-          answersSubmittedCount: 0,
-          answersTotal: state.totalPlayers,
-          previousScoreboard: state.scoreboard,
-          answeredFlashes: [],
-        });
+      case 'round:started': {
+        const parsed = roundInfoSchema.safeParse(payload);
+        if (!parsed.success) return;
+        // Nouvelle manche : la vue précédente et son seq n'ont plus de sens.
+        if (state.round?.roundId === parsed.data.roundId) {
+          set({ round: parsed.data });
+        } else {
+          set({ ...EMPTY_ROUND, round: parsed.data });
+        }
         break;
+      }
 
-      case 'session:timer_update':
-        set({ remainingMs: payload.remainingMs as number });
-        break;
-
-      case 'session:answer_submitted_count':
+      case 'game:state': {
+        const parsed = gameStateSchema.safeParse(payload);
+        if (!parsed.success) return;
+        const env = parsed.data;
+        const clock = pushClockSample(state.clockSamples, env.serverNow);
+        const round = state.round;
+        // Autre manche, ou vue ancienne arrivée en retard : ignorée (règle 2).
+        if (!round || env.roundId !== round.roundId || env.seq <= state.gameSeq) {
+          set({ clockSamples: clock.samples, clockOffsetMs: clock.offsetMs });
+          return;
+        }
+        const view = validateView(round, env.view, env.seq);
+        const uiState: NucUiState =
+          state.uiState === 'lobby' || state.uiState === 'round_end' ? 'game' : state.uiState;
         set({
-          answersSubmittedCount: payload.count as number,
-          answersTotal: payload.total as number,
-        });
-        break;
-
-      case 'session:player_answered': {
-        const playerId = payload.playerId as string;
-        const flash: AnsweredFlash = {
-          key: `${playerId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          playerId,
-          pseudo: (payload.pseudo as string) ?? '',
-          avatarUrl: (payload.avatarUrl as string | null) ?? null,
-        };
-        if (!flash.pseudo) break;
-        set({
-          answeredFlashes: [...state.answeredFlashes, flash].slice(-MAX_ANSWERED_FLASHES),
+          ...view,
+          gameSeq: env.seq,
+          clockSamples: clock.samples,
+          clockOffsetMs: clock.offsetMs,
+          uiState,
         });
         break;
       }
 
-      case 'session:question_ended': {
-        const scoreboard = payload.scoreboard as ScoreEntry[];
-        set({
-          uiState: 'question_results',
-          lastResults: {
-            correctAnswerId: (payload.correctAnswerId as string | null) ?? null,
-            explanationText: (payload.explanationText as string | null) ?? null,
-            scoreboard,
-          },
-          scoreboard,
-          remainingMs: 0,
-          answeredFlashes: [],
+      case 'game:cue': {
+        // Éphémère : jamais dans le store, seulement relayé s'il concerne la manche active.
+        const parsed = gameCueSchema.safeParse(payload);
+        const round = state.round;
+        if (!parsed.success || !round || parsed.data.roundId !== round.roundId) return;
+        if (isTerminal(state.uiState)) return;
+        publishGameCue({
+          roundId: round.roundId,
+          engineKey: round.engineKey,
+          cue: parsed.data.cue,
+          data: parsed.data.data,
         });
         break;
       }
 
-      case 'session:next_question_in':
-        set({ nextQuestionInMs: payload.ms as number });
+      case 'round:ended': {
+        const parsed = roundEndedSchema.safeParse(payload);
+        if (!parsed.success) return;
+        const board = parsed.data;
+        const isLastRound = board.position >= board.totalRounds;
+        set({
+          roundScoreboard: board,
+          // Dernière manche : `session:ended` suit aussitôt et l'écran final prend la place
+          // directement (pas d'écran intermédiaire affiché quelques millisecondes).
+          ...(isLastRound || isTerminal(state.uiState) ? {} : { uiState: 'round_end' as const }),
+        });
         break;
+      }
 
       case 'session:paused':
         set({ isPaused: true });
@@ -607,16 +552,16 @@ export const useNucStore = create<NucState>((set, get) => ({
         break;
 
       case 'session:audio_muted':
-        set({ audioMuted: payload.muted as boolean });
+        set({ audioMuted: p.muted as boolean });
         break;
 
       case 'session:ended': {
-        const finalScoreboard = payload.finalScoreboard as FinalEntry[];
+        const finalScoreboard = p.finalScoreboard as FinalEntry[];
         set({
           uiState: 'final_results',
           finalScoreboard,
-          winnerPlayerId: (payload.winnerPlayerId as string | null) ?? null,
-          prizes: (payload.prizes as SessionPrizesDisplay | undefined) ?? null,
+          winnerPlayerId: (p.winnerPlayerId as string | null) ?? null,
+          prizes: (p.prizes as SessionPrizesDisplay | undefined) ?? null,
           isPaused: false,
         });
         break;
@@ -625,16 +570,19 @@ export const useNucStore = create<NucState>((set, get) => ({
       case 'session:aborted':
         set({
           uiState: 'aborted',
-          abortReason: (payload.reason as string | null) ?? null,
+          abortReason: (p.reason as string | null) ?? null,
           isPaused: false,
         });
         break;
     }
   },
 
-  reset: () =>
+  reset: () => {
+    reportedInvalidRounds.clear();
     set({
       ...initialState,
+      clockSamples: [],
+      players: [],
       nucId: get().nucId,
       screenId: get().screenId,
       cinemaSlug: get().cinemaSlug,
@@ -642,5 +590,6 @@ export const useNucStore = create<NucState>((set, get) => ({
       cinemaLogoUrl: get().cinemaLogoUrl,
       backgroundMusicUrl: get().backgroundMusicUrl,
       connectionStatus: 'disconnected',
-    }),
+    });
+  },
 }));

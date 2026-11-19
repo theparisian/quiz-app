@@ -51,3 +51,5 @@ jobs:
       - run: pnpm --filter @quiz-app/api test
 
       - run: pnpm --filter @quiz-app/mobile test
+
+      - run: pnpm --filter @quiz-app/player test

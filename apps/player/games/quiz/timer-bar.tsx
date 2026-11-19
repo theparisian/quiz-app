@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import { TIMER_CRITICAL_THRESHOLD_SEC, TIMER_URGENT_THRESHOLD_SEC } from '@quiz-app/design-tokens';
 
 interface TimerBarProps {
-  startedAt: number;
+  /** Temps restant (ms), animé par l'appelant (`useCountdown` en mode `frame`, 60 i/s). */
+  remainingMs: number;
   totalMs: number;
 }
 
@@ -13,28 +13,10 @@ const STROKE = 7;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export default function TimerBar({ startedAt, totalMs }: TimerBarProps) {
-  const rafRef = useRef<number>(0);
-  const [progress, setProgress] = useState(1);
-  const [remainingSec, setRemainingSec] = useState(Math.ceil(totalMs / 1000));
-
-  useEffect(() => {
-    function tick() {
-      const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, totalMs - elapsed);
-      setProgress(remaining / totalMs);
-      setRemainingSec(Math.ceil(remaining / 1000));
-
-      if (remaining > 0) {
-        rafRef.current = requestAnimationFrame(tick);
-      }
-    }
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [startedAt, totalMs]);
+export default function TimerBar({ remainingMs, totalMs }: TimerBarProps) {
+  const remaining = Math.max(0, remainingMs);
+  const progress = totalMs > 0 ? Math.min(1, remaining / totalMs) : 0;
+  const remainingSec = Math.ceil(remaining / 1000);
 
   const isUrgent = remainingSec <= TIMER_URGENT_THRESHOLD_SEC && remainingSec > 0;
   const isCritical = remainingSec <= TIMER_CRITICAL_THRESHOLD_SEC && remainingSec > 0;
