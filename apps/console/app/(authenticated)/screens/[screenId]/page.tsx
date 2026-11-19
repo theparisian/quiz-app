@@ -9,6 +9,7 @@ import { useSessionsByScreen } from '@/hooks/use-sessions';
 import { activeSessionByScreen, useActiveSessions } from '@/hooks/use-active-sessions';
 import { SessionRow } from '@/components/session-row';
 import { ScreenLivePanel } from '@/components/screen-live-panel';
+import { latestNuc } from '@/lib/nucs';
 
 function formatRelative(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -32,7 +33,7 @@ export default function ScreenDetailPage() {
 
   const screen = screens?.find((s) => s.id === screenId);
   const liveSession = activeSessionByScreen(activeSessions).get(screenId);
-  const nuc = screen?.nucs[0];
+  const nuc = screen ? latestNuc(screen.nucs) : undefined;
   const isNucOnline = nuc?.status === 'online';
 
   return (

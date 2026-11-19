@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { Screencast, Users } from '@phosphor-icons/react';
 import { activeSessionByScreen, type ActiveSessionItem } from '@/hooks/use-active-sessions';
+import { latestNuc } from '@/lib/nucs';
 
 interface SidebarScreen {
   id: string;
   name: string;
-  nucs: { status: string }[];
+  nucs: { status: string; lastSeenAt: string | null }[];
 }
 
 interface SidebarScreenListProps {
@@ -64,7 +65,7 @@ export function SidebarScreenList({
       {screens.map((screen) => {
         const isSelected = screen.id === selectedScreenId;
         const liveSession = liveByScreen.get(screen.id);
-        const nuc = screen.nucs[0];
+        const nuc = latestNuc(screen.nucs);
         const isNucOnline = nuc?.status === 'online';
         const liveConfig = liveSession ? LIVE_STATE_CONFIG[liveSession.state] : null;
 

@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
 import { activeSessionByScreen, useActiveSessions } from '@/hooks/use-active-sessions';
 import { ScreenCard } from '@/components/screen-card';
+import { latestNuc } from '@/lib/nucs';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -60,7 +61,7 @@ export default function DashboardPage() {
 
   const liveByScreen = activeSessionByScreen(activeSessions);
   const liveCount = activeSessions?.length ?? 0;
-  const onlineCount = screens.filter((s) => s.nucs[0]?.status === 'online').length;
+  const onlineCount = screens.filter((s) => latestNuc(s.nucs)?.status === 'online').length;
 
   return (
     <div>
@@ -80,17 +81,20 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {screens.map((screen) => (
-          <ScreenCard
-            key={screen.id}
-            id={screen.id}
-            name={screen.name}
-            capacity={screen.capacity}
-            nucStatus={screen.nucs[0]?.status ?? null}
-            lastSeenAt={screen.nucs[0]?.lastSeenAt ?? null}
-            liveSession={liveByScreen.get(screen.id) ?? null}
-          />
-        ))}
+        {screens.map((screen) => {
+          const nuc = latestNuc(screen.nucs);
+          return (
+            <ScreenCard
+              key={screen.id}
+              id={screen.id}
+              name={screen.name}
+              capacity={screen.capacity}
+              nucStatus={nuc?.status ?? null}
+              lastSeenAt={nuc?.lastSeenAt ?? null}
+              liveSession={liveByScreen.get(screen.id) ?? null}
+            />
+          );
+        })}
       </div>
     </div>
   );

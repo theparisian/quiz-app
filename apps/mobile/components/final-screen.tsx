@@ -121,7 +121,7 @@ function PrizeGiftCard({
         <p className="mt-2 text-sm leading-snug text-gray-400">
           {isConsolation
             ? "Tout le monde gagne ce soir — ton lot t'attend !"
-            : `Ton ${label.toLowerCase()} t'attend, il est pour toi !`}
+            : "Ton lot t'attend, il est pour toi !"}
         </p>
         {isSuperPrize && (
           <p className="mt-1 text-sm font-semibold text-yellow-400">🎰 Super lot !</p>

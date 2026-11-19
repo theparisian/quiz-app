@@ -6,6 +6,9 @@ import {
   DEFAULT_MAX_SESSIONS_PER_SCREEN_PER_DAY,
   formatEuroCents,
   nonBillableReasonLabel,
+  parisDayEnd,
+  parisDayStart,
+  PARIS_TIME_ZONE,
   type Campaign,
   type CampaignListResponse,
   type CampaignPricingValue,
@@ -22,11 +25,15 @@ import {
 } from '../../../../lib/campaigns-api';
 import { ContactsExportButton } from '../../../components/contacts-export-button';
 
-const DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' });
+// Jours de campagne = jours de Paris (C3), comme sur le portail sponsor.
+const DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', {
+  dateStyle: 'short',
+  timeZone: PARIS_TIME_ZONE,
+});
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('fr-FR', {
   dateStyle: 'short',
   timeStyle: 'short',
-  timeZone: 'Europe/Paris',
+  timeZone: PARIS_TIME_ZONE,
 });
 
 interface CampaignsTabProps {
@@ -354,9 +361,9 @@ function CampaignForm({
       setError('La part du cinéma est un pourcentage entier entre 0 et 100.');
       return;
     }
-    // Période en jours entiers, heure locale : du début du premier jour à la fin du dernier.
-    const start = new Date(`${startsAt}T00:00:00`);
-    const end = new Date(`${endsAt}T23:59:59`);
+    // Période en jours entiers de Paris (C3) : du début du premier jour à la fin du dernier.
+    const start = parisDayStart(startsAt);
+    const end = parisDayEnd(endsAt);
     if (end.getTime() <= start.getTime()) {
       setError('La fin doit suivre le début.');
       return;

@@ -51,9 +51,8 @@ function LockIcon() {
 }
 
 function prizeButtonLabel(prizeLabel?: string): string {
-  if (!prizeLabel) return 'Valider';
-  const short = prizeLabel.trim().split(/\s+/)[0];
-  return short ? `Recevoir mon ${short}` : 'Valider';
+  // Libellé neutre : marche pour n'importe quel lot (« Une pinte offerte », « 2 places »…).
+  return prizeLabel?.trim() ? 'Recevoir mon lot' : 'Valider';
 }
 
 /** Case facultative, décochée par défaut (C5). */

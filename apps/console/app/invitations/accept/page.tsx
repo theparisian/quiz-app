@@ -126,7 +126,7 @@ function AcceptInvitationContent() {
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center text-center">
           <AppLogo className="h-10" />
-          <p className="mt-2 text-sm text-gray-500">Finalise ton inscription</p>
+          <p className="mt-2 text-sm text-gray-500">Finalisez votre inscription</p>
         </div>
 
         <form
@@ -169,7 +169,7 @@ function AcceptInvitationContent() {
               maxLength={100}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Ton prénom ou pseudo"
+              placeholder="Votre prénom ou pseudo"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
