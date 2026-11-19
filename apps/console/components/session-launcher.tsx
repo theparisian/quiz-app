@@ -3,49 +3,49 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Play, X } from '@phosphor-icons/react';
+import type { CatalogGame } from '@quiz-app/validation';
 import { api } from '@/lib/api';
-import { QuizPicker, type QuizSummary } from '@/components/quiz-picker';
+import { useAuth } from '@/lib/auth';
+import { CatalogPicker } from '@/components/catalog/catalog-picker';
+import { estimateGameSeconds, formatDuration } from '@/components/catalog/format';
 
 /** Nombre maximal de jeux (manches) d'une séance (même limite que l'API). */
 export const MAX_GAMES_PER_SESSION = 5;
-
-/** Durée par question quand le quiz n'a pas de durée estimée (réponse + résultats). */
-const FALLBACK_SECONDS_PER_QUESTION = 30;
 
 interface SessionLauncherProps {
   screenId: string;
   onLaunched: (sessionId: string) => void;
 }
 
-/** Durée estimée d'un jeu (secondes) : celle du quiz, sinon d'après son nombre de questions. */
-export function estimateGameSeconds(quiz: QuizSummary): number {
-  return quiz.durationEstimateSeconds ?? quiz.questionsCount * FALLBACK_SECONDS_PER_QUESTION;
-}
-
-function formatDuration(totalSeconds: number): string {
-  const minutes = Math.max(1, Math.round(totalSeconds / 60));
-  return `${minutes} min`;
+/** Message d'un refus de création de séance, en vouvoiement. */
+function launchErrorMessage(err: unknown): string {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === 'GAME_NOT_AVAILABLE') {
+    return 'Un des jeux choisis n’est plus disponible pour votre cinéma. Retirez-le et réessayez.';
+  }
+  return err instanceof Error ? err.message : 'Erreur lors de la création';
 }
 
 /**
- * Lancement d'une séance : un ou plusieurs jeux (5 au maximum), joués dans l'ordre choisi.
- * Un seul jeu : parcours historique (`quizSlug`) ; plusieurs : `gameSlugs` (le jeu d'un quiz
- * reprend le slug du quiz).
+ * Lancement d'une séance : un ou plusieurs jeux du catalogue du cinéma (5 au maximum), joués
+ * dans l'ordre choisi. La séance est toujours créée par `gameSlugs`.
  */
 export function SessionLauncher({ screenId, onLaunched }: SessionLauncherProps) {
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<QuizSummary[]>([]);
+  const { user } = useAuth();
+  const cinemaSlug = user?.cinemaSlug ?? null;
+  const [selected, setSelected] = useState<CatalogGame[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
   const maxReached = selected.length >= MAX_GAMES_PER_SESSION;
-  const totalSeconds = selected.reduce((acc, q) => acc + estimateGameSeconds(q), 0);
+  const totalSeconds = selected.reduce((acc, g) => acc + estimateGameSeconds(g), 0);
 
-  const toggle = (quiz: QuizSummary) => {
+  const choose = (game: CatalogGame) => {
     setSelected((prev) => {
-      if (prev.some((q) => q.slug === quiz.slug)) return prev.filter((q) => q.slug !== quiz.slug);
+      if (prev.some((g) => g.slug === game.slug)) return prev;
       if (prev.length >= MAX_GAMES_PER_SESSION) return prev;
-      return [...prev, quiz];
+      return [...prev, game];
     });
   };
 
@@ -59,23 +59,22 @@ export function SessionLauncher({ screenId, onLaunched }: SessionLauncherProps) 
     });
   };
 
-  const remove = (slug: string) => setSelected((prev) => prev.filter((q) => q.slug !== slug));
+  const remove = (slug: string) => setSelected((prev) => prev.filter((g) => g.slug !== slug));
 
   const handleCreate = async () => {
     if (selected.length === 0) return;
     setCreating(true);
     setError('');
     try {
-      const body =
-        selected.length === 1
-          ? { quizSlug: selected[0]!.slug, screenId }
-          : { gameSlugs: selected.map((q) => q.slug), screenId };
-      const session = await api.post<{ id: string }>('/api/sessions', body);
+      const session = await api.post<{ id: string }>('/api/sessions', {
+        gameSlugs: selected.map((g) => g.slug),
+        screenId,
+      });
       queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['sessions', 'screen', screenId] });
       onLaunched(session.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+      setError(launchErrorMessage(err));
       setCreating(false);
     }
   };
@@ -84,8 +83,9 @@ export function SessionLauncher({ screenId, onLaunched }: SessionLauncherProps) 
     <div className="rounded-xl border bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-gray-900">Lancer une session</h2>
       <p className="mt-1 text-sm text-gray-500">
-        Choisissez un ou plusieurs quiz ({MAX_GAMES_PER_SESSION} au maximum) à projeter sur cette
-        salle, dans l&apos;ordre des manches.
+        Choisissez dans votre catalogue un ou plusieurs jeux ({MAX_GAMES_PER_SESSION} au maximum) à
+        projeter sur cette salle, dans l&apos;ordre des manches. Cliquez sur un jeu pour voir sa
+        fiche.
       </p>
 
       {selected.length > 0 && (
@@ -98,17 +98,17 @@ export function SessionLauncher({ screenId, onLaunched }: SessionLauncherProps) 
             <span>Durée totale estimée : {formatDuration(totalSeconds)}</span>
           </div>
           <ol className="mt-2 space-y-1.5">
-            {selected.map((quiz, i) => (
+            {selected.map((game, i) => (
               <li
-                key={quiz.slug}
+                key={game.slug}
                 className="flex items-center gap-2 rounded-md bg-white px-3 py-1.5 text-sm shadow-sm"
               >
                 <span className="w-16 shrink-0 text-xs font-semibold text-blue-700">
                   Manche {i + 1}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-gray-900">{quiz.title}</span>
+                <span className="min-w-0 flex-1 truncate text-gray-900">{game.title}</span>
                 <span className="shrink-0 text-xs text-gray-400">
-                  {formatDuration(estimateGameSeconds(quiz))}
+                  {formatDuration(estimateGameSeconds(game))}
                 </span>
                 <button
                   type="button"
@@ -130,7 +130,7 @@ export function SessionLauncher({ screenId, onLaunched }: SessionLauncherProps) 
                 </button>
                 <button
                   type="button"
-                  onClick={() => remove(quiz.slug)}
+                  onClick={() => remove(game.slug)}
                   aria-label="Retirer"
                   className="rounded p-1 text-red-500 hover:bg-red-50"
                 >
@@ -143,11 +143,17 @@ export function SessionLauncher({ screenId, onLaunched }: SessionLauncherProps) 
       )}
 
       <div className="mt-4">
-        <QuizPicker
-          selectedSlugs={selected.map((q) => q.slug)}
-          onToggle={toggle}
-          maxReached={maxReached}
-        />
+        {cinemaSlug ? (
+          <CatalogPicker
+            cinemaSlug={cinemaSlug}
+            selectedSlugs={selected.map((g) => g.slug)}
+            maxReached={maxReached}
+            onChoose={choose}
+            onRemove={remove}
+          />
+        ) : (
+          <p className="text-sm text-gray-400">Aucun cinéma associé à votre compte.</p>
+        )}
       </div>
 
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}

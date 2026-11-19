@@ -10,6 +10,7 @@ import {
   SealQuestion,
   Smiley,
   Sparkle,
+  Storefront,
 } from '@phosphor-icons/react';
 
 export type NavItem = { href: string; label: string; icon: Icon };
@@ -18,6 +19,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: Gauge },
   { href: '/cinemas', label: 'Cinémas', icon: FilmSlate },
   { href: '/invitations', label: 'Invitations', icon: EnvelopeSimple },
+  { href: '/games', label: 'Catalogue', icon: Storefront },
   { href: '/quizzes', label: 'Quizz', icon: SealQuestion },
   { href: '/polls', label: 'Sondages', icon: ChartBarHorizontal },
   { href: '/reports', label: 'Rapports', icon: ChartBar },
