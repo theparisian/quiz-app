@@ -1,4 +1,4 @@
-import type { CatalogGame } from '@quiz-app/validation';
+import { formatEuroCents, type CatalogGame, type CatalogRevenue } from '@quiz-app/validation';
 
 /** Durée retenue pour un jeu sans durée estimée (secondes). */
 export const FALLBACK_GAME_SECONDS = 5 * 60;
@@ -17,3 +17,9 @@ export const ENGINE_LABEL: Record<string, string> = {
   quiz: 'Quiz',
   poll: 'Sondage',
 };
+
+/** « Vous rapporte 4,00 € par séance » / « … par participant » (campagne active, C3). */
+export function revenueLabel(revenue: CatalogRevenue): string {
+  const unit = revenue.pricing === 'per_participant' ? 'par participant' : 'par séance';
+  return `Vous rapporte ${formatEuroCents(revenue.cinemaAmountCents)} ${unit}`;
+}

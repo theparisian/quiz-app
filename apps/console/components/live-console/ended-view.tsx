@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useLiveSessionStore } from '@/lib/stores/live-session-store';
 import { SessionTop3Prizes } from './session-top3-prizes';
+import { AttendanceField } from './attendance-field';
 
 interface EndedViewProps {
   sessionId: string;
@@ -58,6 +59,8 @@ export function EndedView({ sessionId, onExit, exitLabel }: EndedViewProps) {
           <span className="font-semibold text-gray-900">{consolationPrizesClaimed}</span>
         </p>
       )}
+
+      <AttendanceField sessionId={sessionId} />
 
       <div className="flex gap-4">
         <Link

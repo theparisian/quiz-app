@@ -7,6 +7,7 @@ import {
   Gauge,
   Megaphone,
   MusicNotes,
+  Receipt,
   SealQuestion,
   Smiley,
   Sparkle,
@@ -25,6 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/reports', label: 'Rapports', icon: ChartBar },
   { href: '/ai/usage', label: 'IA', icon: Sparkle },
   { href: '/sponsors', label: 'Sponsors', icon: Megaphone },
+  { href: '/statements', label: 'Relevés', icon: Receipt },
   { href: '/avatars', label: 'Avatars', icon: Smiley },
   { href: '/audio', label: 'Audio', icon: MusicNotes },
 ];

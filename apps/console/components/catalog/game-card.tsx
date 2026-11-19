@@ -3,7 +3,7 @@
 import type { CatalogGame } from '@quiz-app/validation';
 import { Clock, Image as ImageIcon } from '@phosphor-icons/react';
 import { resolveMediaUrl } from '@/lib/media-url';
-import { ENGINE_LABEL, estimateGameSeconds, formatDuration } from './format';
+import { ENGINE_LABEL, estimateGameSeconds, formatDuration, revenueLabel } from './format';
 
 interface GameCardProps {
   game: CatalogGame;
@@ -61,6 +61,9 @@ export function GameCard({ game, order, onOpen }: GameCardProps) {
           </span>
           {game.sponsor && <span>{game.sponsor.name}</span>}
         </div>
+        {game.revenue && (
+          <p className="mt-1 text-xs font-medium text-emerald-700">{revenueLabel(game.revenue)}</p>
+        )}
       </div>
     </button>
   );

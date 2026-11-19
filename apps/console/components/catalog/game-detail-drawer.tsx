@@ -6,7 +6,7 @@ import type { CatalogGame, CatalogGameDetail } from '@quiz-app/validation';
 import { Clock, Image as ImageIcon, Users, X } from '@phosphor-icons/react';
 import { api } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/media-url';
-import { ENGINE_LABEL, estimateGameSeconds, formatDuration } from './format';
+import { ENGINE_LABEL, estimateGameSeconds, formatDuration, revenueLabel } from './format';
 
 interface GameDetailDrawerBaseProps {
   /** Jeu ouvert (données de la carte, affichées pendant le chargement de la fiche). */
@@ -100,6 +100,11 @@ export function GameDetailDrawer(props: GameDetailDrawerProps) {
             <div>
               <h3 className="text-lg font-semibold text-gray-900">{shown.title}</h3>
               {shown.tagline && <p className="mt-0.5 text-sm text-gray-600">{shown.tagline}</p>}
+              {shown.revenue && (
+                <p className="mt-2 inline-block rounded-md bg-emerald-50 px-2 py-1 text-sm font-medium text-emerald-800">
+                  {revenueLabel(shown.revenue)}
+                </p>
+              )}
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                 <span className="inline-flex items-center gap-1">
                   <Clock size={14} />

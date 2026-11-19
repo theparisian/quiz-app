@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { api, apiUploadFile } from '../../../../lib/api';
 import { resolveMediaUrl } from '../../../../lib/media-url';
+import { CampaignsTab } from './campaigns-tab';
 
 const optionalHex = z.string().refine((s) => s === '' || /^#[0-9A-Fa-f]{6}$/.test(s), {
   message: 'Couleur au format #RRGGBB',
@@ -44,6 +45,7 @@ export default function SponsorDetailPage() {
   const params = useParams();
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const qc = useQueryClient();
+  const [tab, setTab] = useState<'fiche' | 'campagnes'>('fiche');
 
   const detailQ = useQuery({
     queryKey: ['sponsor', slug],
@@ -163,125 +165,157 @@ export default function SponsorDetailPage() {
         </span>
       </div>
 
-      <div className="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-900">Logo</h2>
-        <div className="mt-3 flex flex-wrap items-center gap-4">
-          {logo ? (
-            <img src={logo} alt="" className="h-24 w-24 rounded-lg border object-cover" />
-          ) : (
-            <div className="h-24 w-24 rounded-lg bg-gray-100" />
-          )}
-          <div className="flex flex-col gap-2">
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/svg+xml"
-              disabled={logoMut.isPending}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) logoMut.mutate(f);
-                e.target.value = '';
-              }}
-              className="text-sm"
-            />
-            <button
-              type="button"
-              disabled={!s.logoUrl || removeLogoMut.isPending}
-              onClick={() => removeLogoMut.mutate()}
-              className="text-left text-sm text-red-600 hover:underline disabled:opacity-40"
-            >
-              Retirer le logo
-            </button>
-          </div>
-        </div>
+      <div role="tablist" className="flex gap-1 border-b">
+        {(
+          [
+            ['fiche', 'Fiche'],
+            ['campagnes', 'Campagnes'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+              tab === key
+                ? 'border-blue-600 text-blue-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-4 rounded-lg border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-900">Fiche</h2>
+      {tab === 'campagnes' && <CampaignsTab sponsorSlug={slug} sponsorId={s.id} />}
 
-        <label className="block text-sm font-medium">
-          Nom
-          <input
-            className="mt-1 w-full rounded border px-3 py-2 text-sm"
-            {...form.register('name')}
-          />
-        </label>
+      {tab === 'fiche' && (
+        <>
+          <div className="rounded-lg border bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-gray-900">Logo</h2>
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              {logo ? (
+                <img src={logo} alt="" className="h-24 w-24 rounded-lg border object-cover" />
+              ) : (
+                <div className="h-24 w-24 rounded-lg bg-gray-100" />
+              )}
+              <div className="flex flex-col gap-2">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  disabled={logoMut.isPending}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) logoMut.mutate(f);
+                    e.target.value = '';
+                  }}
+                  className="text-sm"
+                />
+                <button
+                  type="button"
+                  disabled={!s.logoUrl || removeLogoMut.isPending}
+                  onClick={() => removeLogoMut.mutate()}
+                  className="text-left text-sm text-red-600 hover:underline disabled:opacity-40"
+                >
+                  Retirer le logo
+                </button>
+              </div>
+            </div>
+          </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm font-medium">
-            Couleur primaire (#RRGGBB)
-            <input
-              className="mt-1 w-full rounded border px-3 py-2 font-mono text-sm"
-              placeholder="#1e40af"
-              {...form.register('brandColorPrimary')}
-            />
-          </label>
-          <label className="block text-sm font-medium">
-            Couleur secondaire (#RRGGBB)
-            <input
-              className="mt-1 w-full rounded border px-3 py-2 font-mono text-sm"
-              placeholder="#64748b"
-              {...form.register('brandColorSecondary')}
-            />
-          </label>
-        </div>
+          <form onSubmit={onSubmit} className="space-y-4 rounded-lg border bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-gray-900">Fiche</h2>
 
-        <label className="block text-sm font-medium">
-          Email contact
-          <input
-            type="email"
-            className="mt-1 w-full rounded border px-3 py-2 text-sm"
-            {...form.register('contactEmail')}
-          />
-        </label>
+            <label className="block text-sm font-medium">
+              Nom
+              <input
+                className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                {...form.register('name')}
+              />
+            </label>
 
-        <label className="block text-sm font-medium">
-          Conditions contrat
-          <textarea
-            rows={4}
-            className="mt-1 w-full rounded border px-3 py-2 text-sm"
-            {...form.register('contractTerms')}
-          />
-        </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-medium">
+                Couleur primaire (#RRGGBB)
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2 font-mono text-sm"
+                  placeholder="#1e40af"
+                  {...form.register('brandColorPrimary')}
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Couleur secondaire (#RRGGBB)
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2 font-mono text-sm"
+                  placeholder="#64748b"
+                  {...form.register('brandColorSecondary')}
+                />
+              </label>
+            </div>
 
-        <label className="block text-sm font-medium">
-          Metadata (JSON objet)
-          <textarea
-            rows={6}
-            className="mt-1 w-full rounded border px-3 py-2 font-mono text-xs"
-            {...form.register('metadataJson')}
-          />
-        </label>
+            <label className="block text-sm font-medium">
+              Email contact
+              <input
+                type="email"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                {...form.register('contactEmail')}
+              />
+            </label>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            disabled={saveMut.isPending}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            Enregistrer
-          </button>
-          {s.active ? (
-            <button
-              type="button"
-              onClick={() => deactivateMut.mutate()}
-              disabled={deactivateMut.isPending}
-              className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              Désactiver
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => activateMut.mutate()}
-              disabled={activateMut.isPending}
-              className="rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800 hover:bg-green-100"
-            >
-              Réactiver
-            </button>
+            <label className="block text-sm font-medium">
+              Conditions contrat
+              <textarea
+                rows={4}
+                className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                {...form.register('contractTerms')}
+              />
+            </label>
+
+            <label className="block text-sm font-medium">
+              Metadata (JSON objet)
+              <textarea
+                rows={6}
+                className="mt-1 w-full rounded border px-3 py-2 font-mono text-xs"
+                {...form.register('metadataJson')}
+              />
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={saveMut.isPending}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                Enregistrer
+              </button>
+              {s.active ? (
+                <button
+                  type="button"
+                  onClick={() => deactivateMut.mutate()}
+                  disabled={deactivateMut.isPending}
+                  className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Désactiver
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => activateMut.mutate()}
+                  disabled={activateMut.isPending}
+                  className="rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800 hover:bg-green-100"
+                >
+                  Réactiver
+                </button>
+              )}
+            </div>
+          </form>
+          {saveMut.isSuccess && (
+            <p className="text-sm text-green-700">Modifications enregistrées.</p>
           )}
-        </div>
-      </form>
-      {saveMut.isSuccess && <p className="text-sm text-green-700">Modifications enregistrées.</p>}
+        </>
+      )}
     </div>
   );
 }
