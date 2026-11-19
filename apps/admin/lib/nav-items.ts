@@ -1,6 +1,7 @@
 import {
   type Icon,
   ChartBar,
+  ChartBarHorizontal,
   EnvelopeSimple,
   FilmSlate,
   Gauge,
@@ -18,6 +19,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/cinemas', label: 'Cinémas', icon: FilmSlate },
   { href: '/invitations', label: 'Invitations', icon: EnvelopeSimple },
   { href: '/quizzes', label: 'Quizz', icon: SealQuestion },
+  { href: '/polls', label: 'Sondages', icon: ChartBarHorizontal },
   { href: '/reports', label: 'Rapports', icon: ChartBar },
   { href: '/ai/usage', label: 'IA', icon: Sparkle },
   { href: '/sponsors', label: 'Sponsors', icon: Megaphone },

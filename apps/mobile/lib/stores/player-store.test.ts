@@ -387,3 +387,80 @@ describe('usePlayerStore — plusieurs manches (B5)', () => {
     expect(store().roundScoreboard).toEqual(BOARD);
   });
 });
+
+describe('usePlayerStore — moteur sondage (B6)', () => {
+  const POLL_ROUND: RoundInfo = {
+    ...ROUND,
+    roundId: '9',
+    engineKey: 'poll',
+    game: { slug: 'sondage', title: 'Sondage', kind: 'internal', sponsor: null },
+  };
+  const pollQuestion = {
+    phase: 'question',
+    questionIndex: 0,
+    totalQuestions: 1,
+    question: {
+      id: 'q1',
+      text: 'Film ?',
+      options: [
+        { id: 'a', text: 'Alien' },
+        { id: 'b', text: 'Brazil' },
+      ],
+      durationMs: 20000,
+    },
+    endsAt: new Date(Date.now() + 20_000).toISOString(),
+    pausedRemainingMs: null,
+    totalVotes: 0,
+    totalPlayers: 2,
+    myVote: null,
+  };
+  const pollState = (seq: number, view: unknown) => ({
+    roundId: POLL_ROUND.roundId,
+    engineKey: 'poll',
+    seq,
+    serverNow: new Date().toISOString(),
+    view,
+  });
+
+  beforeEach(() => {
+    store().reset();
+    reportGameIssue.mockClear();
+    store().applySnapshot(snapshot('lobby'));
+  });
+
+  it('applies poll views validated by the poll schema (vote, results)', () => {
+    store().applyEvent('round:started', POLL_ROUND);
+    store().applyEvent('game:state', pollState(1, pollQuestion));
+    expect(store().uiState).toBe('game');
+    expect(store().gameView).toMatchObject({ phase: 'question', myVote: null });
+
+    store().applyEvent('game:state', pollState(2, { ...pollQuestion, myVote: 'b', totalVotes: 1 }));
+    expect(store().gameView).toMatchObject({ myVote: 'b' });
+
+    store().applyEvent(
+      'game:state',
+      pollState(3, {
+        ...pollQuestion,
+        phase: 'results',
+        myVote: 'b',
+        totalVotes: 1,
+        counts: [
+          { optionId: 'a', votes: 0 },
+          { optionId: 'b', votes: 1 },
+        ],
+      }),
+    );
+    expect(store().gameView).toMatchObject({
+      phase: 'results',
+      counts: [{ votes: 0 }, { votes: 1 }],
+    });
+    expect(store().gameViewInvalid).toBe(false);
+  });
+
+  it('a results view without counts is invalid: fallback', () => {
+    store().applyEvent('round:started', POLL_ROUND);
+    store().applyEvent('game:state', pollState(1, { ...pollQuestion, phase: 'results' }));
+    expect(store().gameViewInvalid).toBe(true);
+    expect(reportGameIssue).toHaveBeenCalledTimes(1);
+  });
+});

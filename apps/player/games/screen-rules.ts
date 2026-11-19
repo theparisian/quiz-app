@@ -1,4 +1,5 @@
-import { QUIZ_ENGINE_KEY } from '@quiz-app/validation';
+import { POLL_ENGINE_KEY, QUIZ_ENGINE_KEY } from '@quiz-app/validation';
+import { pollScreenRules } from './poll/screen-rules';
 import { quizScreenRules } from './quiz/screen-rules';
 import type { ScreenGameRules } from './types';
 
@@ -9,6 +10,7 @@ import type { ScreenGameRules } from './types';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const GAME_SCREEN_RULES: Record<string, ScreenGameRules<any>> = {
   [QUIZ_ENGINE_KEY]: quizScreenRules,
+  [POLL_ENGINE_KEY]: pollScreenRules,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

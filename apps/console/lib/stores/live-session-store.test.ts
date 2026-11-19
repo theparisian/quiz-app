@@ -411,3 +411,46 @@ describe('live-session-store — plusieurs manches (B5)', () => {
     expect(selectRoundLabel(st)).toBe('Manche 1/2 — Quiz ciné');
   });
 });
+
+describe('live-session-store — moteur sondage (B6)', () => {
+  it('poll views validated by the poll schema, poll rules for the header and force-advance', () => {
+    startRunning();
+    apply('round:started', { ...ROUND, roundId: '9', engineKey: 'poll' });
+    const view = {
+      phase: 'results',
+      questionIndex: 0,
+      totalQuestions: 2,
+      question: {
+        id: 'q1',
+        text: 'Film ?',
+        options: [
+          { id: 'a', text: 'Alien' },
+          { id: 'b', text: 'Brazil' },
+        ],
+        durationMs: 20000,
+      },
+      endsAt: new Date(Date.now() + 5000).toISOString(),
+      pausedRemainingMs: null,
+      totalVotes: 2,
+      totalPlayers: 2,
+      counts: [
+        { optionId: 'a', votes: 1 },
+        { optionId: 'b', votes: 1 },
+      ],
+    };
+    apply('game:state', { ...gameState(1, view, '9'), engineKey: 'poll' });
+    let s = useLiveSessionStore.getState();
+    expect(s.gameViewInvalid).toBe(false);
+    expect(s.gameView).toMatchObject({ phase: 'results', totalVotes: 2 });
+    expect(selectProgressLabel(s)).toBe('Sondage — question 1 / 2');
+    expect(selectCanForceAdvance(s)).toBe(true);
+
+    apply('game:state', { ...gameState(2, { ...view, phase: 'done' }, '9'), engineKey: 'poll' });
+    s = useLiveSessionStore.getState();
+    expect(selectCanForceAdvance(s)).toBe(false);
+
+    // Une vue de quiz sur une manche sondage : repli.
+    apply('game:state', { ...gameState(3, questionView(), '9'), engineKey: 'poll' });
+    expect(useLiveSessionStore.getState().gameViewInvalid).toBe(true);
+  });
+});

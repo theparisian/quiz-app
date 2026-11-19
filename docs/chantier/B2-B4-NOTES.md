@@ -915,3 +915,53 @@ Ce qui, dans le quiz, a résisté à l'interface ou reste propre au quiz dans la
 - **Rapport** : `rounds[]` (position, titre, moteur, état, dates, participants) ; questions de
   toutes les manches quiz avec `roundPosition` ; un retardataire de la manche R est éligible à
   toutes les questions des manches suivantes (manche d'arrivée déduite de `joinedAt`).
+
+## 15. B6 — Moteur sondage (validation de l'interface)
+
+Moteur `poll` : `api/src/modules/games/engines/poll/poll.engine.ts` (nom de fichier selon le guide,
+`<clé>.engine.ts`, et non `poll-engine.ts` du prompt), schémas
+`packages/validation/src/games/poll.ts`, rendus `apps/{player,mobile,console}/games/poll/`.
+
+**Aucune modification de `engine.types.ts` ni de la plateforme** (runtime, handlers, reprise,
+parties plateforme des stores). Le sondage n'utilise que `ctx.emitState`, `ctx.award`,
+`ctx.persistState`, `ctx.reportProgress`, `ctx.finish`, `ctx.setTimer`, `ctx.now` et
+`ctx.players` ; aucun cue, aucune table propre, aucun `session:question_*`, rien dans
+`player_answers`. Participants (convention 7) tenus par la plateforme sans rien demander au moteur
+(vérifié dans `session-poll.test.ts`).
+
+Points d'attention relevés (pas des trous, mais à savoir) :
+
+1. **`reportProgress(step)`** : le sondage y met son numéro de question (1..N). La colonne reste
+   `sessions.current_question_position` ; `players.joined_question_position` d'un retardataire
+   arrivé pendant un sondage porte donc un numéro de question du sondage (les rapports quiz ne
+   l'utilisent pas pour cette manche, B5 déduit la manche d'arrivée de `joinedAt`).
+2. **Pause** : `handleAction` ne refuse pas une action pendant la pause ; chaque moteur le fait
+   (`SESSION_PAUSED`). Le sondage le fait comme le quiz.
+3. **« Tous les joueurs ont voté »** : `ctx.players.ids()` contient les joueurs actifs, y compris
+   déconnectés ; un téléphone éteint empêche la fin anticipée (l'échéance clôt le vote). Même
+   sémantique que le compteur `totalPlayers` du quiz.
+4. **Reprise** : seuls les votes persistés sont retrouvés. Le moteur persiste à chaque phase et,
+   en plus, ses votes au regroupement du compteur (250 ms) : un arrêt perd au plus 250 ms de votes.
+   La question interrompue reprend à sa phase `results` (règle du prompt).
+5. **Vue mobile et compteur** : comme le quiz, `totalVotes` d'une vue mobile n'est pas réémis à
+   chaque vote d'un autre joueur (jamais N²) ; `snapshot(mobile)` peut donc être plus récent que la
+   dernière vue reçue par un joueur qui n'a pas voté (sans effet visible : le mobile n'affiche pas
+   ce compteur pendant le vote).
+6. **Habillage** : une séance qui commence par un sondage a l'habillage neutre (pas de quiz sur la
+   première manche, `shapeThemePayload(null)`).
+7. **Validation REST** : `validate()` (api) teste `instanceof ZodError` ; un schéma importé de
+   `@quiz-app/validation` (build du paquet) lève un `ZodError` d'une autre copie du module et
+   finissait en 500. `games.routes.ts` passe par `safeParse` ; `validate()` n'a pas été modifié
+   (hors périmètre, point ouvert).
+8. **Console** : le lanceur de séance ne liste que `/api/quizzes` ; un sondage ne se programme
+   pour l'instant que par l'API (`gameSlugs`). Le catalogue (C1) le rendra choisissable.
+
+API B6 (super_admin) : `GET /api/games?engineKey=&page=&limit=`, `GET /api/games/:slug`,
+`POST /api/games` (`engineKey` `poll` seulement : `quiz` → 400 `GAME_MANAGED_BY_QUIZ`, autre →
+400 `GAME_NOT_SUPPORTED_YET` ; `slug` optionnel, pris par un quiz ou un jeu → 409 `SLUG_TAKEN`,
+`new-poll` réservé ; sans slug, tiré du titre avec suffixe), `PATCH /api/games/:slug` (titre,
+description, `configJson` ; contenu refusé 409 `GAME_IN_USE` si une manche `pending`/`running`
+l'utilise ; route unique étendue par C1), `POST /api/games/:slug/publish` (brouillon → publié,
+403 `GAME_INVALID_TRANSITION` sinon). `durationEstimateSeconds` = Σ (durée + résultats).
+Admin : `/polls` (liste, entrée « Sondages »), `/games/new-poll`, `/games/[slug]/edit-poll`
+(même formulaire, publication) — cible du lien « Modifier le contenu » de C1.

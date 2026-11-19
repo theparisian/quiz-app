@@ -1,5 +1,6 @@
 import { AppError } from '../../shared/errors/app-error.js';
 import type { GameEngine } from './engine.types.js';
+import { pollEngine } from './engines/poll/poll.engine.js';
 import { quizEngine } from './engines/quiz/quiz.engine.js';
 
 const engines = new Map<string, GameEngine>();
@@ -23,3 +24,4 @@ export function getEngine(key: string): GameEngine {
 }
 
 registerEngine(quizEngine);
+registerEngine(pollEngine);

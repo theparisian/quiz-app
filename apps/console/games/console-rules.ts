@@ -1,4 +1,5 @@
-import { QUIZ_ENGINE_KEY } from '@quiz-app/validation';
+import { POLL_ENGINE_KEY, QUIZ_ENGINE_KEY } from '@quiz-app/validation';
+import { pollConsoleRules } from './poll/console-rules';
 import { quizConsoleRules } from './quiz/console-rules';
 import type { ConsoleGameRules } from './types';
 
@@ -9,6 +10,7 @@ import type { ConsoleGameRules } from './types';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const GAME_CONSOLE_RULES: Record<string, ConsoleGameRules<any>> = {
   [QUIZ_ENGINE_KEY]: quizConsoleRules,
+  [POLL_ENGINE_KEY]: pollConsoleRules,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

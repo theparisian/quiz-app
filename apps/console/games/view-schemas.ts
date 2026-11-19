@@ -1,4 +1,9 @@
-import { QUIZ_ENGINE_KEY, quizConsoleViewSchema } from '@quiz-app/validation';
+import {
+  POLL_ENGINE_KEY,
+  QUIZ_ENGINE_KEY,
+  pollConsoleViewSchema,
+  quizConsoleViewSchema,
+} from '@quiz-app/validation';
 import type { GameViewSchema } from './types';
 
 /**
@@ -8,6 +13,7 @@ import type { GameViewSchema } from './types';
  */
 export const GAME_VIEW_SCHEMAS: Record<string, GameViewSchema> = {
   [QUIZ_ENGINE_KEY]: quizConsoleViewSchema,
+  [POLL_ENGINE_KEY]: pollConsoleViewSchema,
 };
 
 export function getGameViewSchema(engineKey: string): GameViewSchema | null {

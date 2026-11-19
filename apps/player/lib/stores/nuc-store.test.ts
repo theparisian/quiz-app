@@ -406,3 +406,63 @@ describe('nuc store — plusieurs manches (B5)', () => {
     expect(st.roundScoreboard).toEqual(BOARD);
   });
 });
+
+describe('nuc store — moteur sondage (B6)', () => {
+  const POLL_ROUND: RoundInfo = {
+    ...ROUND,
+    roundId: '8',
+    engineKey: 'poll',
+    game: { slug: 'sondage', title: 'Sondage', kind: 'internal', sponsor: null },
+  };
+  const pollQuestion = {
+    phase: 'question',
+    questionIndex: 0,
+    totalQuestions: 2,
+    question: {
+      id: 'q1',
+      text: 'Film ?',
+      options: [
+        { id: 'a', text: 'Alien' },
+        { id: 'b', text: 'Brazil' },
+      ],
+      durationMs: 20000,
+    },
+    endsAt: new Date(Date.now() + 20_000).toISOString(),
+    pausedRemainingMs: null,
+    totalVotes: 0,
+    totalPlayers: 3,
+  };
+  const pollState = (seq: number, view: unknown) => ({
+    ...gameState(seq, view, POLL_ROUND.roundId),
+    engineKey: 'poll',
+  });
+
+  it('validates the poll view with the poll schema; the first question replaces the lobby', () => {
+    const s = useNucStore.getState();
+    s.setSessionContext({ sessionId: '1', slugShort: 'ABCD', joinToken: 'tok' });
+    s.applyEvent('session:started', { sessionId: '1', audio: null });
+    s.applyEvent('round:started', POLL_ROUND);
+    s.applyEvent('game:state', pollState(1, pollQuestion));
+    expect(selectScreenDisplay(useNucStore.getState())).toBe('game');
+    expect(useNucStore.getState().gameView).toMatchObject({ phase: 'question', totalVotes: 0 });
+
+    s.applyEvent(
+      'game:state',
+      pollState(2, {
+        ...pollQuestion,
+        phase: 'results',
+        totalVotes: 2,
+        counts: [
+          { optionId: 'a', votes: 2 },
+          { optionId: 'b', votes: 0 },
+        ],
+      }),
+    );
+    expect(useNucStore.getState().gameView).toMatchObject({ phase: 'results', totalVotes: 2 });
+
+    // Une vue de quiz sur une manche sondage : invalide, repli.
+    s.applyEvent('game:state', pollState(3, questionView()));
+    expect(useNucStore.getState().gameViewInvalid).toBe(true);
+    expect(reportGameIssue).toHaveBeenCalledTimes(1);
+  });
+});

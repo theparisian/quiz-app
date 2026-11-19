@@ -1,5 +1,5 @@
 import dynamic from 'next/dynamic';
-import { QUIZ_ENGINE_KEY } from '@quiz-app/validation';
+import { POLL_ENGINE_KEY, QUIZ_ENGINE_KEY } from '@quiz-app/validation';
 import type { GameRenderer } from './types';
 
 /**
@@ -9,6 +9,7 @@ import type { GameRenderer } from './types';
  */
 export const GAME_RENDERERS: Record<string, GameRenderer> = {
   [QUIZ_ENGINE_KEY]: dynamic(() => import('./quiz'), { loading: () => null }),
+  [POLL_ENGINE_KEY]: dynamic(() => import('./poll'), { loading: () => null }),
 };
 
 export function getGameRenderer(engineKey: string): GameRenderer | null {

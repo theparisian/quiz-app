@@ -16,7 +16,8 @@ Ajouter un moteur se résume donc à :
 Aucune modification de la plateforme, des handlers socket, des stores ni de la reprise. Si tu as besoin d'en
 toucher une, c'est que l'interface a un trou : note-le plutôt que de le contourner dans le moteur.
 
-Exemple suivi tout au long de cette page : le quiz (`quiz`). Les chemins sont donnés avec `<clé>` pour un
+Exemple suivi tout au long de cette page : le quiz (`quiz`). Le sondage (`poll`, B6) est un second
+exemple, plus court, qui n'utilise que le protocole générique (aucun cue, aucune table propre). Les chemins sont donnés avec `<clé>` pour un
 nouveau moteur (ex. `poll`).
 
 ---
@@ -50,6 +51,9 @@ Exemple : `packages/validation/src/games/quiz.ts`. Le fichier déclare :
   l'accusé (`quizAnswerResultSchema`).
 - les **cues** et leur `data` : `QUIZ_CUES` et `quizPlayerAnsweredCueSchema`. Un cue ne porte jamais d'état :
   le perdre ne change rien à ce qui est affiché une seconde plus tard.
+
+Second exemple, plus simple : `packages/validation/src/games/poll.ts` (sondage, B6), qui déclare aussi
+le schéma du contenu du jeu (`pollConfigSchema`, stocké dans `games.config_json`).
 
 Puis l'exporter depuis `packages/validation/src/index.ts` :
 
@@ -121,7 +125,12 @@ registerEngine(pollEngine);
 
 La manche est jouée dès qu'une ligne `session_rounds` pointe vers un `games` dont `engine_key` vaut la clé.
 La création de ces jeux (formulaire d'admin, route `/api/games`) n'appartient pas au moteur : pour le quiz,
-le jeu est synchronisé depuis le quiz (`games.service.ts`) ; le sondage aura son propre formulaire (B6).
+le jeu est synchronisé depuis le quiz (`games.service.ts`) ; le sondage est créé par `POST /api/games`
+(`engineKey`, `title`, `configJson` validé par le schéma du moteur dans `games.service.ts`) et modifié par
+l'unique `PATCH /api/games/:slug`. Un nouveau moteur à contenu `configJson` ajoute son cas dans
+`assertEditableEngine` / la validation du contenu de `games.service.ts`, et son formulaire dans
+`apps/admin` (modèle : `app/components/poll-form.tsx`, pages `/games/new-poll` et
+`/games/[slug]/edit-poll`). Un jeu doit être `published` pour être programmé dans une séance.
 
 ## 3. Les rendus côté clients : `apps/<app>/games/<clé>/`
 
@@ -235,6 +244,30 @@ Le rendu visuel et le son ne sont vérifiables qu'à la main : `/dev/play` sur l
 sur l'écran (`/screen`) et la console.
 
 ## 6. Pièges connus
+
+Relevés en écrivant le sondage (B6) :
+
+- **Rebâtir `@quiz-app/validation`** : l'API et les apps lisent le paquet compilé (`dist/`). Après
+  avoir ajouté ou modifié un schéma : `pnpm --filter @quiz-app/validation build` (sinon l'export est
+  « introuvable » ou l'ancien schéma s'applique).
+- **`validate()` et les schémas du paquet** : `validate()` (`api/src/shared/validation`) reconnaît
+  les erreurs par `instanceof ZodError`, ce qui échoue pour un schéma importé de
+  `@quiz-app/validation` (autre copie du module zod) : l'erreur finit en 500. Utiliser `safeParse`
+  et lever une `AppError` 400 (voir `parse()` dans `games.routes.ts`). Le moteur valide lui aussi
+  ses payloads par `safeParse`.
+- **Pause** : la plateforme ne refuse pas `game:action` pendant une pause ; le moteur le fait
+  (`SESSION_PAUSED`).
+- **Persistance** : `persistState` à chaque phase ne suffit pas à retrouver les actions faites
+  pendant une phase ; le sondage persiste aussi ses votes au regroupement du compteur (250 ms).
+- **Sons** : un moteur peut réutiliser les slots existants (`questionStart`, `questionEnd`,
+  `lastSeconds`) ; `sfxForCue` renvoie `null` s'il n'émet aucun cue. `showsLobby` renvoie `false`
+  si le moteur n'a pas de compte à rebours.
+- **`/dev/play`** : les fixtures de vue d'un autre moteur passent un `round` dont `engineKey` est
+  le sien (voir les écrans « Sondage » de `lib/dev-play-fixtures.ts`).
+- **Tests des stores** : ajouter un cas « vue du moteur validée par son schéma / vue d'un autre
+  moteur refusée » à chacun des trois tests de store (modèle : blocs « moteur sondage (B6) »).
+- **Console** : tant que le catalogue (C1) n'existe pas, le lanceur de séance ne liste que les
+  quiz ; un jeu d'un autre moteur se programme par l'API (`gameSlugs`).
 
 - **Réservation synchrone** : dans `onAction`, tous les contrôles et l'écriture en mémoire précèdent le premier
   `await`. Deux actions simultanées d'un même joueur ne doivent pas passer toutes les deux.

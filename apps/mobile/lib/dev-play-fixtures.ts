@@ -1,5 +1,10 @@
 import { usePlayerStore } from '@/lib/stores/player-store';
-import type { QuizMobileView, RoundInfo, SessionPrizesDisplay } from '@quiz-app/validation';
+import type {
+  PollMobileView,
+  QuizMobileView,
+  RoundInfo,
+  SessionPrizesDisplay,
+} from '@quiz-app/validation';
 
 const DEV_PLAYER = {
   playerId: 'dev-player-1',
@@ -50,7 +55,10 @@ export type DevPlayScreen =
   | 'final_results'
   | 'aborted'
   | 'kicked'
-  | 'unknown_game';
+  | 'unknown_game'
+  | 'poll_question'
+  | 'poll_voted'
+  | 'poll_results';
 
 export const DEV_PLAY_SCREENS: { id: DevPlayScreen; label: string }[] = [
   { id: 'lobby', label: 'Lobby' },
@@ -65,6 +73,9 @@ export const DEV_PLAY_SCREENS: { id: DevPlayScreen; label: string }[] = [
   { id: 'aborted', label: 'Abort' },
   { id: 'kicked', label: 'Exclu' },
   { id: 'unknown_game', label: 'Repli' },
+  { id: 'poll_question', label: 'Sondage' },
+  { id: 'poll_voted', label: 'Sondage voté' },
+  { id: 'poll_results', label: 'Sondage résultats' },
 ];
 
 const DEFAULT_SCREEN: DevPlayScreen = 'lobby';
@@ -112,8 +123,53 @@ function questionView(me: QuizMobileView['me'], remainingMs: number): QuizMobile
   };
 }
 
-function gameSnapshot(sessionState: string, view: unknown) {
-  return { ...baseSnapshot(sessionState), round: DEV_ROUND, gameView: view, gameSeq: 1 };
+function gameSnapshot(sessionState: string, view: unknown, round: RoundInfo = DEV_ROUND) {
+  return { ...baseSnapshot(sessionState), round, gameView: view, gameSeq: 1 };
+}
+
+const DEV_POLL_ROUND: RoundInfo = {
+  roundId: '2',
+  position: 2,
+  totalRounds: 2,
+  engineKey: 'poll',
+  game: { slug: 'sondage-demo', title: 'Sondage — Démo', kind: 'internal', sponsor: null },
+};
+
+const POLL_COMMON = {
+  questionIndex: 1,
+  totalQuestions: 3,
+  question: {
+    id: 'q2',
+    text: 'Quel genre voir la semaine prochaine ?',
+    options: [
+      { id: 'a', text: 'Science-fiction' },
+      { id: 'b', text: 'Comédie' },
+      { id: 'c', text: 'Horreur' },
+      { id: 'd', text: 'Animation' },
+    ],
+    durationMs: 20000,
+  },
+  pausedRemainingMs: null,
+  totalVotes: 21,
+  totalPlayers: 38,
+};
+
+function pollView(phase: 'question' | 'results', myVote: string | null): PollMobileView {
+  if (phase === 'question') {
+    return { phase, ...POLL_COMMON, endsAt: inSeconds(15000), myVote };
+  }
+  return {
+    phase,
+    ...POLL_COMMON,
+    endsAt: inSeconds(6000),
+    myVote,
+    counts: [
+      { optionId: 'a', votes: 9 },
+      { optionId: 'b', votes: 6 },
+      { optionId: 'c', votes: 2 },
+      { optionId: 'd', votes: 4 },
+    ],
+  };
 }
 
 function seedBaseMetadata() {
@@ -270,6 +326,18 @@ export function seedDevPlayScreen(screen: DevPlayScreen): void {
 
     case 'unknown_game':
       store.applySnapshot(gameSnapshot('running', { phase: 'mystery' }));
+      break;
+
+    case 'poll_question':
+      store.applySnapshot(gameSnapshot('running', pollView('question', null), DEV_POLL_ROUND));
+      break;
+
+    case 'poll_voted':
+      store.applySnapshot(gameSnapshot('running', pollView('question', 'b'), DEV_POLL_ROUND));
+      break;
+
+    case 'poll_results':
+      store.applySnapshot(gameSnapshot('running', pollView('results', 'b'), DEV_POLL_ROUND));
       break;
   }
 }

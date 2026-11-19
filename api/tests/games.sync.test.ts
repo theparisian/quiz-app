@@ -271,11 +271,12 @@ describe('sessions: création par quizSlug ou gameSlugs → une manche', () => {
 
   it('gameSlugs : jeu en double → 400 DUPLICATE_GAME ; moteur non enregistré → 400 GAME_NOT_SUPPORTED_YET', async () => {
     const { game } = await publishedQuizWithGame(`multi-${Date.now()}`);
+    // Moteur sans implémentation (le sondage est enregistré depuis B6).
     const poll = await prisma.game.create({
       data: {
-        slug: `poll-${Date.now()}`,
-        title: 'Sondage',
-        engineKey: 'poll',
+        slug: `bingo-${Date.now()}`,
+        title: 'Bingo',
+        engineKey: 'bingo',
         status: 'published',
       },
     });
