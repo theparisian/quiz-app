@@ -8,6 +8,7 @@ import { getSessionRuntime } from '../sessions/session-runtime.service.js';
 import { notifyLobbyPlayerJoined } from '../sessions/lobby-timer.service.js';
 import { buildPlayerJoinSnapshot } from '../sessions/session-resume.service.js';
 import { resolveLobbyQuiz } from '../sessions/session-content.service.js';
+import { findSessionIdByCode } from '../sessions/session-code.service.js';
 import type { JoinSessionInput } from './players.schemas.js';
 
 function normalizePseudo(raw: string): string {
@@ -72,6 +73,13 @@ const JOIN_SESSION_INCLUDE = {
   screen: { select: { cinemaId: true, capacity: true } },
 } as const;
 
+/** Code à 4 chiffres : la séance active qui le porte (une séance terminée peut avoir le même). */
+async function findSessionByCodeForJoin(code: string) {
+  const id = await findSessionIdByCode(code);
+  if (id == null) return null;
+  return prisma.session.findUnique({ where: { id }, include: JOIN_SESSION_INCLUDE });
+}
+
 export const playersService = {
   async join(input: JoinSessionInput & { userId?: bigint }) {
     // Par jeton du QR (prioritaire) ou par code court à 4 chiffres.
@@ -81,11 +89,7 @@ export const playersService = {
           include: JOIN_SESSION_INCLUDE,
         })
       : input.sessionSlugShort
-        ? await prisma.session.findFirst({
-            where: { slugShort: input.sessionSlugShort },
-            orderBy: { createdAt: 'desc' },
-            include: JOIN_SESSION_INCLUDE,
-          })
+        ? await findSessionByCodeForJoin(input.sessionSlugShort)
         : null;
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
 

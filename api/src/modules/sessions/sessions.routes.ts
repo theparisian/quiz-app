@@ -34,6 +34,7 @@ import {
 import { getSessionRuntime } from './session-runtime.service.js';
 import { clearLobbyTimer } from './lobby-timer.service.js';
 import { notifyScreenSessionStarted } from './screen-session-started.js';
+import { findSessionIdByCode } from './session-code.service.js';
 import {
   buildSessionReport,
   listReportableSessions,
@@ -291,11 +292,8 @@ router.get('/by-token/:joinToken', async (req, res, next) => {
 router.get('/by-code/:slugShort/avatars', async (req, res, next) => {
   try {
     const slugShort = param(req, 'slugShort');
-    const session = await prisma.session.findFirst({
-      where: { slugShort },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
-    });
+    const id = await findSessionIdByCode(slugShort);
+    const session = id == null ? null : { id };
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
 
     // Avatars : configuration du jeu de la première manche (lobby).
@@ -328,18 +326,21 @@ router.get('/by-code/:slugShort/pseudo-suggestions', async (req, res, next) => {
     }
 
     const slugShort = param(req, 'slugShort');
-    const session = await prisma.session.findFirst({
-      where: { slugShort },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        state: true,
-        players: {
-          where: { status: { not: 'kicked' } },
-          select: { pseudo: true },
-        },
-      },
-    });
+    const sessionId = await findSessionIdByCode(slugShort);
+    const session =
+      sessionId == null
+        ? null
+        : await prisma.session.findUnique({
+            where: { id: sessionId },
+            select: {
+              id: true,
+              state: true,
+              players: {
+                where: { status: { not: 'kicked' } },
+                select: { pseudo: true },
+              },
+            },
+          });
 
     if (!session || session.state === 'ended' || session.state === 'aborted') {
       throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');

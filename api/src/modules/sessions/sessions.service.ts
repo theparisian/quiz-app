@@ -9,7 +9,11 @@ import { QUIZ_ENGINE_KEY } from '../games/games.schemas.js';
 import { ensureGameForQuiz, gamesService } from '../games/games.service.js';
 import { hasEngine } from '../games/engine-registry.js';
 import { FIRST_ROUND_SELECT, resolveLobbyQuiz } from './session-content.service.js';
-import { generateUniqueSessionCode } from './session-code.service.js';
+import {
+  ensureActiveSessionCodeIsUnique,
+  findSessionIdByCode,
+  generateUniqueSessionCode,
+} from './session-code.service.js';
 import { startLobbyTimer } from './lobby-timer.service.js';
 import { assertTransition, isActive } from './session-state.service.js';
 import type { CreateSessionInput, ListSessionsQuery } from './sessions.schemas.js';
@@ -169,14 +173,14 @@ export const sessionsService = {
       throw new AppError('Screen already has an active session', 409, 'SCREEN_HAS_ACTIVE_SESSION');
     }
 
-    const slugShort = await generateUniqueSessionCode();
+    const drawnCode = await generateUniqueSessionCode();
     // Jeton long encodé dans le QR code (le code à 4 chiffres reste le secours).
     const joinToken = nanoid(20);
 
-    const { session, gameIds } = await prisma.$transaction(async (tx) => {
+    const { session: created, gameIds } = await prisma.$transaction(async (tx) => {
       const created = await tx.session.create({
         data: {
-          slugShort,
+          slugShort: drawnCode,
           joinToken,
           quizId: quiz?.id ?? null,
           screenId,
@@ -196,6 +200,16 @@ export const sessionsService = {
       });
       return { session: full, gameIds: roundGames.map((g) => g.id) };
     });
+
+    // Deux créations simultanées peuvent avoir tiré le même code : la plus récente en change.
+    const slugShort = await ensureActiveSessionCodeIsUnique(created.id, drawnCode);
+    const session =
+      slugShort === drawnCode
+        ? created
+        : await prisma.session.findUniqueOrThrow({
+            where: { id: created.id },
+            include: SESSION_DETAIL_INCLUDE,
+          });
 
     logger.info(
       {
@@ -250,12 +264,13 @@ export const sessionsService = {
     return session;
   },
 
+  /** Séance active portant ce code, sinon la plus récente (écran final d'une séance terminée). */
   async getBySlugShort(slug: string) {
-    const session = await prisma.session.findFirst({
-      where: { slugShort: slug },
-      include: PUBLIC_SESSION_INCLUDE,
-      orderBy: { createdAt: 'desc' },
-    });
+    const id = await findSessionIdByCode(slug);
+    const session =
+      id == null
+        ? null
+        : await prisma.session.findUnique({ where: { id }, include: PUBLIC_SESSION_INCLUDE });
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
     return session;
   },
