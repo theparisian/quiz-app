@@ -1,23 +1,20 @@
 'use client';
 
-import { useLiveSessionStore } from '@/lib/stores/live-session-store';
+import { selectProgressLabel, useLiveSessionStore } from '@/lib/stores/live-session-store';
 
 interface LiveHeaderProps {
   onToggleMute: () => void;
 }
 
 export function LiveHeader({ onToggleMute }: LiveHeaderProps) {
-  const currentQuestionPosition = useLiveSessionStore((s) => s.currentQuestionPosition);
-  const totalQuestions = useLiveSessionStore((s) => s.totalQuestions);
+  const progressLabel = useLiveSessionStore(selectProgressLabel);
   const audioMuted = useLiveSessionStore((s) => s.audioMuted);
 
   return (
     <div className="grid grid-cols-3 gap-3">
       <div className="rounded-lg border bg-white p-3">
         <p className="text-xs font-medium uppercase text-gray-500">Session</p>
-        <p className="mt-1 text-sm font-semibold text-gray-900">
-          Question {currentQuestionPosition ?? '–'} / {totalQuestions}
-        </p>
+        <p className="mt-1 text-sm font-semibold text-gray-900">{progressLabel ?? '–'}</p>
       </div>
 
       <div className="rounded-lg border bg-white p-3">

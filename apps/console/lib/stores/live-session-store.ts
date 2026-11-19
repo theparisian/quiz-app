@@ -1,7 +1,14 @@
 import { create } from 'zustand';
+import {
+  gameStateSchema,
+  roundEndedSchema,
+  roundInfoSchema,
+  type RoundEndedPayload,
+  type RoundInfo,
+  type SessionPrizesDisplay,
+} from '@quiz-app/validation';
 import type {
   SessionStateChangedPayload,
-  SessionStartedPayload as SessionStartedPlatformPayload,
   SessionLobbyTimerUpdatePayload,
   SessionAudioMutedPayload,
   SessionEndedPayload,
@@ -9,38 +16,18 @@ import type {
   PlayerJoinedPayload,
   PlayerLeftPayload,
 } from '@quiz-app/validation/socket-events';
-import type { SessionPrizesDisplay } from '@quiz-app/validation';
+import { pushClockSample } from '@quiz-app/ui';
+import { getGameViewSchema } from '@/games/view-schemas';
+import { getConsoleRules } from '@/games/console-rules';
+import type { ConsoleScoreEntry } from '@/games/types';
+import { reportGameIssue } from '@/lib/report-issue';
 
 /*
- * TEMPORAIRE (B2-B4, commit 2) : formes des anciens événements `session:question_*`, retirés de
- * `@quiz-app/validation` par le protocole de manche. Gardées ici pour que la console compile ;
- * le commit 3 migre ce store sur `round:*` / `game:state` et supprime ce bloc.
+ * Quiz complet de la séance, chargé par `GET /api/sessions/:id/full` (authentifié). Il donne le
+ * titre et la couverture de l'en-tête, et les bonnes réponses que la console montre pendant la
+ * question (aucune vue ne les porte avant la révélation). Ce n'est pas l'état de la partie :
+ * celui-ci vient des vues (`gameView`).
  */
-type SessionStartedPayload = SessionStartedPlatformPayload & { totalQuestions: number };
-type SessionQuestionStartedPayload = {
-  questionId: string;
-  questionPosition: number;
-  questionText: string;
-  questionImageUrl: string | null;
-  answers: { id: string; position: string; text: string }[];
-  timeLimitMs: number;
-  startedAt: string;
-};
-type SessionTimerUpdatePayload = { remainingMs: number };
-type SessionAnswerSubmittedCountPayload = { count: number; total: number };
-type SessionQuestionEndedPayload = {
-  correctAnswerId: string | null;
-  explanationText: string | null;
-  scoreboard: {
-    playerId: string;
-    pseudo: string;
-    avatarUrl?: string | null;
-    scoreTotal: number;
-    scoreThisQuestion: number;
-  }[];
-};
-type SessionNextQuestionInPayload = { ms: number };
-
 export interface QuestionFull {
   id: string;
   position: number;
@@ -80,33 +67,36 @@ type SessionState = 'lobby' | 'running' | 'paused' | 'ended' | 'aborted';
 
 export type LiveConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
 
-export interface LiveSessionState {
+interface RoundFields {
+  /** Manche active (`round:started` ou snapshot), null hors manche. */
+  round: RoundInfo | null;
+  /** Dernière vue complète appliquée, validée par le schéma console du moteur (null si aucune). */
+  gameView: unknown;
+  /** La dernière vue reçue était invalide (ou le moteur inconnu) : rendu de repli. */
+  gameViewInvalid: boolean;
+  /** `seq` de la dernière vue appliquée : tout `game:state` de `seq <= gameSeq` est ignoré. */
+  gameSeq: number;
+  /** Classement de fin de manche (`round:ended`). */
+  roundScoreboard: RoundEndedPayload | null;
+}
+
+export interface LiveSessionState extends RoundFields {
   sessionId: string | null;
   slugShort: string | null;
   state: SessionState | null;
-  totalQuestions: number;
   totalPlayers: number;
   lobbyRemainingMs: number | null;
 
+  /** Contenu authentifié de la séance (`GET /:id/full`), voir plus haut. */
   quiz: QuizFull | null;
-
-  currentQuestionPosition: number | null;
-  currentQuestion: QuestionFull | null;
-  questionStartedAt: number | null;
-  questionTimeLimitMs: number;
-  remainingMs: number;
-  answersSubmittedCount: number;
 
   audioMuted: boolean;
 
   players: PlayerLive[];
 
-  showingResults: boolean;
-  lastQuestionResults: {
-    correctAnswerId: string;
-    scoreboard: PlayerLive[];
-  } | null;
-  nextQuestionInMs: number | null;
+  /** `heure serveur - heure locale` (ms), médiane des derniers `serverNow` reçus. */
+  clockOffsetMs: number;
+  clockSamples: number[];
 
   finalScoreboard: PlayerLive[] | null;
   winnerPlayerId: string | null;
@@ -133,9 +123,7 @@ export interface SessionFullResponse {
   id: string;
   slugShort: string;
   state: string;
-  currentQuestionPosition: number | null;
   totalPlayers: number;
-  totalQuestions: number;
   screenId: string;
   screenName: string;
   cinemaName: string;
@@ -152,6 +140,14 @@ export interface SessionFullResponse {
   }[];
 }
 
+const EMPTY_ROUND: RoundFields = {
+  round: null,
+  gameView: null,
+  gameViewInvalid: false,
+  gameSeq: 0,
+  roundScoreboard: null,
+};
+
 const INITIAL: Omit<
   LiveSessionState,
   'hydrateFromSession' | 'applyEvent' | 'applySocketSnapshot' | 'setConnectionStatus' | 'reset'
@@ -159,21 +155,14 @@ const INITIAL: Omit<
   sessionId: null,
   slugShort: null,
   state: null,
-  totalQuestions: 0,
   totalPlayers: 0,
   lobbyRemainingMs: null,
   quiz: null,
-  currentQuestionPosition: null,
-  currentQuestion: null,
-  questionStartedAt: null,
-  questionTimeLimitMs: 0,
-  remainingMs: 0,
-  answersSubmittedCount: 0,
   audioMuted: false,
   players: [],
-  showingResults: false,
-  lastQuestionResults: null,
-  nextQuestionInMs: null,
+  ...EMPTY_ROUND,
+  clockOffsetMs: 0,
+  clockSamples: [],
   finalScoreboard: null,
   winnerPlayerId: null,
   abortReason: null,
@@ -186,6 +175,95 @@ const INITIAL: Omit<
   connectionStatus: 'disconnected',
 };
 
+/** Une vue invalide n'est signalée qu'une fois par manche et par raison (pas de rafale). */
+const reportedInvalidRounds = new Set<string>();
+
+function reportInvalidView(round: RoundInfo, reason: string, extra: Record<string, unknown>) {
+  const key = `${round.roundId}:${round.engineKey}:${reason}`;
+  if (reportedInvalidRounds.has(key)) return;
+  reportedInvalidRounds.add(key);
+  reportGameIssue('console: invalid game view', {
+    reason,
+    engineKey: round.engineKey,
+    roundId: round.roundId,
+    ...extra,
+  });
+}
+
+/** Valide une vue avec le schéma console du moteur ; invalide → repli, jamais d'erreur. */
+function validateView(
+  round: RoundInfo,
+  view: unknown,
+  seq: number,
+): Pick<RoundFields, 'gameView' | 'gameViewInvalid'> {
+  const schema = getGameViewSchema(round.engineKey);
+  if (!schema) {
+    reportInvalidView(round, 'unknown_engine', { seq });
+    return { gameView: null, gameViewInvalid: true };
+  }
+  const parsed = schema.safeParse(view);
+  if (!parsed.success) {
+    reportInvalidView(round, 'schema_mismatch', {
+      seq,
+      issues: (parsed.error?.issues ?? [])
+        .slice(0, 5)
+        .map((i) => `${i.path.join('.')}: ${i.message}`),
+    });
+    return { gameView: null, gameViewInvalid: true };
+  }
+  // On garde l'objet reçu (le schéma ne transforme rien) : une vue est complète.
+  return { gameView: view, gameViewInvalid: false };
+}
+
+/** Champs de manche d'un snapshot (`round`, `gameView`, `gameSeq`, règle 5). */
+function roundFieldsFromSnapshot(snap: Record<string, unknown>): RoundFields {
+  const parsedRound = roundInfoSchema.safeParse(snap.round);
+  if (!parsedRound.success) return { ...EMPTY_ROUND };
+  const round = parsedRound.data;
+  const gameSeq =
+    typeof snap.gameSeq === 'number' && Number.isInteger(snap.gameSeq) && snap.gameSeq >= 0
+      ? snap.gameSeq
+      : 0;
+  const view =
+    snap.gameView == null
+      ? { gameView: null, gameViewInvalid: false }
+      : validateView(round, snap.gameView, gameSeq);
+  return { round, ...view, gameSeq, roundScoreboard: null };
+}
+
+/**
+ * Scores à jour d'un classement (révélation, fin de manche) reportés sur la liste des joueurs.
+ * Un joueur absent du classement garde sa ligne ; un joueur inconnu est ajouté.
+ */
+function mergeScores(players: PlayerLive[], board: ConsoleScoreEntry[]): PlayerLive[] {
+  const byId = new Map(board.map((b) => [b.playerId, b]));
+  const merged = players.map((p) => {
+    const b = byId.get(p.playerId);
+    if (!b) return p;
+    byId.delete(p.playerId);
+    return { ...p, pseudo: b.pseudo, avatarUrl: b.avatarUrl, scoreTotal: b.scoreTotal };
+  });
+  for (const b of byId.values()) {
+    merged.push({
+      playerId: b.playerId,
+      pseudo: b.pseudo,
+      avatarUrl: b.avatarUrl,
+      scoreTotal: b.scoreTotal,
+      status: 'active',
+    });
+  }
+  return merged;
+}
+
+/** Classement porté par une vue valide (règle console du moteur), sinon null. */
+function viewScoreboard(
+  round: RoundInfo,
+  fields: Pick<RoundFields, 'gameView' | 'gameViewInvalid'>,
+) {
+  if (fields.gameViewInvalid || fields.gameView == null) return null;
+  return getConsoleRules(round.engineKey)?.scoreboard(fields.gameView) ?? null;
+}
+
 export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
   ...INITIAL,
 
@@ -194,7 +272,6 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
       sessionId: session.id,
       slugShort: session.slugShort,
       state: session.state as SessionState,
-      totalQuestions: session.totalQuestions,
       totalPlayers: session.totalPlayers,
       quiz: session.quiz,
       screenId: session.screenId,
@@ -220,13 +297,11 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
           sessionId: string;
           slugShort: string;
           state: string;
-          totalQuestions: number;
           totalPlayers: number;
           audioMuted: boolean;
         }
       | undefined;
-    const quiz = p.quiz as QuizFull | undefined;
-    if (!sess || !quiz) return;
+    if (!sess) return;
 
     const playersRaw = p.players as
       | {
@@ -238,84 +313,6 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
         }[]
       | undefined;
 
-    set({
-      sessionId: sess.sessionId,
-      slugShort: sess.slugShort,
-      state: sess.state as SessionState,
-      totalQuestions: sess.totalQuestions,
-      totalPlayers: sess.totalPlayers,
-      lobbyRemainingMs:
-        sess.state === 'lobby' ? ((p.lobbyTimerRemainingMs as number | undefined) ?? null) : null,
-      audioMuted: sess.audioMuted,
-      quiz,
-      prizes: (p.prizes as SessionPrizesDisplay | undefined) ?? null,
-      players:
-        playersRaw?.map((pl) => ({
-          playerId: pl.playerId,
-          pseudo: pl.pseudo,
-          avatarUrl: pl.avatarUrl ?? null,
-          scoreTotal: pl.scoreTotal,
-          status: 'active',
-        })) ?? get().players,
-    });
-
-    const cq = p.currentQuestion as
-      | {
-          position: number;
-          timeLimitMs: number;
-          remainingMs: number;
-        }
-      | undefined;
-
-    if (cq) {
-      const question = quiz.questions.find((q) => q.position === cq.position) ?? null;
-      const tlm = cq.timeLimitMs;
-      const rem = cq.remainingMs;
-      set({
-        currentQuestionPosition: cq.position,
-        currentQuestion: question,
-        questionStartedAt: Date.now() - (tlm - rem),
-        questionTimeLimitMs: tlm,
-        remainingMs: rem,
-        showingResults: false,
-        lastQuestionResults: null,
-        nextQuestionInMs: null,
-        answersSubmittedCount: get().answersSubmittedCount,
-      });
-    }
-
-    const lr = p.lastResults as
-      | {
-          correctAnswerId: string;
-          scoreboard: {
-            playerId: string;
-            pseudo: string;
-            avatarUrl?: string | null;
-            scoreTotal: number;
-          }[];
-          explanation: string | null;
-          nextQuestionInMs: number;
-        }
-      | undefined;
-
-    if (lr) {
-      set({
-        showingResults: true,
-        lastQuestionResults: {
-          correctAnswerId: lr.correctAnswerId,
-          scoreboard: lr.scoreboard.map((s) => ({
-            playerId: s.playerId,
-            pseudo: s.pseudo,
-            avatarUrl: s.avatarUrl ?? null,
-            scoreTotal: s.scoreTotal,
-            status: 'active',
-          })),
-        },
-        nextQuestionInMs: lr.nextQuestionInMs,
-        remainingMs: 0,
-      });
-    }
-
     const fs = p.finalScoreboard as
       | {
           playerId: string;
@@ -326,34 +323,39 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
         }[]
       | undefined;
 
-    if (fs) {
-      set({
-        state: 'ended',
-        finalScoreboard: fs.map((s) => ({
-          playerId: s.playerId,
-          pseudo: s.pseudo,
-          avatarUrl: s.avatarUrl ?? null,
-          scoreTotal: s.scoreTotal,
+    // Le snapshot remplace tout l'état de jeu (règle 5) ; les `game:state` suivants de
+    // `seq <= gameSeq` seront ignorés.
+    set({
+      sessionId: sess.sessionId,
+      slugShort: sess.slugShort,
+      state: (fs ? 'ended' : sess.state) as SessionState,
+      totalPlayers: sess.totalPlayers,
+      lobbyRemainingMs:
+        sess.state === 'lobby' ? ((p.lobbyTimerRemainingMs as number | undefined) ?? null) : null,
+      audioMuted: sess.audioMuted,
+      prizes: (p.prizes as SessionPrizesDisplay | undefined) ?? null,
+      players:
+        playersRaw?.map((pl) => ({
+          playerId: pl.playerId,
+          pseudo: pl.pseudo,
+          avatarUrl: pl.avatarUrl ?? null,
+          scoreTotal: pl.scoreTotal,
           status: 'active',
-        })),
-        winnerPlayerId: null,
-        showingResults: false,
-      });
-      return;
-    }
-
-    if (!cq && !lr && sess.state === 'lobby') {
-      set({
-        currentQuestionPosition: null,
-        currentQuestion: null,
-        questionStartedAt: null,
-        questionTimeLimitMs: 0,
-        remainingMs: 0,
-        showingResults: false,
-        lastQuestionResults: null,
-        nextQuestionInMs: null,
-      });
-    }
+        })) ?? get().players,
+      ...roundFieldsFromSnapshot(p),
+      ...(fs
+        ? {
+            finalScoreboard: fs.map((s) => ({
+              playerId: s.playerId,
+              pseudo: s.pseudo,
+              avatarUrl: s.avatarUrl ?? null,
+              scoreTotal: s.scoreTotal,
+              status: 'active',
+            })),
+            winnerPlayerId: null,
+          }
+        : {}),
+    });
   },
 
   applyEvent: (eventName, payload) => {
@@ -364,8 +366,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
         break;
       }
       case 'session:started': {
-        const p = payload as SessionStartedPayload;
-        set({ state: 'running', totalQuestions: p.totalQuestions, lobbyRemainingMs: null });
+        set({ state: 'running', lobbyRemainingMs: null });
         break;
       }
       case 'session:lobby_timer_update': {
@@ -373,56 +374,47 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
         set({ lobbyRemainingMs: p.remainingMs });
         break;
       }
-      case 'session:question_started': {
-        const p = payload as SessionQuestionStartedPayload;
-        const question =
-          get().quiz?.questions.find((q) => q.position === p.questionPosition) ?? null;
+      case 'round:started': {
+        const parsed = roundInfoSchema.safeParse(payload);
+        if (!parsed.success) return;
+        // Nouvelle manche : la vue précédente et son seq n'ont plus de sens.
+        if (get().round?.roundId === parsed.data.roundId) {
+          set({ round: parsed.data });
+        } else {
+          set({ ...EMPTY_ROUND, round: parsed.data });
+        }
+        break;
+      }
+      case 'game:state': {
+        const parsed = gameStateSchema.safeParse(payload);
+        if (!parsed.success) return;
+        const env = parsed.data;
+        const state = get();
+        const clock = pushClockSample(state.clockSamples, env.serverNow);
+        const round = state.round;
+        // Autre manche, ou vue ancienne arrivée en retard : ignorée (règle 2).
+        if (!round || env.roundId !== round.roundId || env.seq <= state.gameSeq) {
+          set({ clockSamples: clock.samples, clockOffsetMs: clock.offsetMs });
+          return;
+        }
+        const view = validateView(round, env.view, env.seq);
+        const board = viewScoreboard(round, view);
         set({
-          currentQuestionPosition: p.questionPosition,
-          currentQuestion: question,
-          questionStartedAt: Date.now(),
-          questionTimeLimitMs: p.timeLimitMs,
-          remainingMs: p.timeLimitMs,
-          answersSubmittedCount: 0,
-          showingResults: false,
-          lastQuestionResults: null,
-          nextQuestionInMs: null,
+          ...view,
+          gameSeq: env.seq,
+          clockSamples: clock.samples,
+          clockOffsetMs: clock.offsetMs,
+          ...(board ? { players: mergeScores(state.players, board) } : {}),
         });
         break;
       }
-      case 'session:timer_update': {
-        const p = payload as SessionTimerUpdatePayload;
-        set({ remainingMs: p.remainingMs });
-        break;
-      }
-      case 'session:answer_submitted_count': {
-        const p = payload as SessionAnswerSubmittedCountPayload;
-        set({ answersSubmittedCount: p.count, totalPlayers: p.total });
-        break;
-      }
-      case 'session:question_ended': {
-        const p = payload as SessionQuestionEndedPayload;
-        const scoreboard = p.scoreboard.map((s) => ({
-          playerId: s.playerId,
-          pseudo: s.pseudo,
-          avatarUrl: s.avatarUrl ?? null,
-          scoreTotal: s.scoreTotal,
-          status: 'active',
-        }));
+      case 'round:ended': {
+        const parsed = roundEndedSchema.safeParse(payload);
+        if (!parsed.success) return;
         set({
-          showingResults: true,
-          lastQuestionResults: {
-            correctAnswerId: p.correctAnswerId ?? '',
-            scoreboard,
-          },
-          players: scoreboard,
-          remainingMs: 0,
+          roundScoreboard: parsed.data,
+          players: mergeScores(get().players, parsed.data.scoreboard),
         });
-        break;
-      }
-      case 'session:next_question_in': {
-        const p = payload as SessionNextQuestionInPayload;
-        set({ nextQuestionInMs: p.ms });
         break;
       }
       case 'session:paused': {
@@ -451,7 +443,6 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
           })),
           winnerPlayerId: p.winnerPlayerId,
           prizes: p.prizes ?? get().prizes,
-          showingResults: false,
         });
         break;
       }
@@ -488,5 +479,30 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
     }
   },
 
-  reset: () => set(INITIAL),
+  reset: () => {
+    reportedInvalidRounds.clear();
+    set({ ...INITIAL, clockSamples: [], players: [] });
+  },
 }));
+
+/** Progression affichée dans l'en-tête (« Question 2 / 10 » pour le quiz), ou null. */
+export function selectProgressLabel(
+  s: Pick<LiveSessionState, 'round' | 'gameView' | 'gameViewInvalid'>,
+): string | null {
+  if (!s.round || s.gameViewInvalid || s.gameView == null) return null;
+  return getConsoleRules(s.round.engineKey)?.progressLabel(s.gameView) ?? null;
+}
+
+/**
+ * Le bouton « Forcer la fin » a un effet sur la vue courante. Manche affichée en repli (vue
+ * invalide, moteur inconnu) : laissé actif, le serveur décide (`force-advance` est générique).
+ */
+export function selectCanForceAdvance(
+  s: Pick<LiveSessionState, 'round' | 'gameView' | 'gameViewInvalid'>,
+): boolean {
+  if (!s.round) return false;
+  const rules = getConsoleRules(s.round.engineKey);
+  if (s.gameViewInvalid || !rules) return true;
+  if (s.gameView == null) return false;
+  return rules.canForceAdvance(s.gameView);
+}

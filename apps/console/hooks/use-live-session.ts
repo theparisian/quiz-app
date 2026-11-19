@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { getConsoleSocket, disconnectConsoleSocket } from '@/lib/socket';
 import { useLiveSessionStore } from '@/lib/stores/live-session-store';
 
+/**
+ * Événements de plateforme et de manche écoutés par la console. L'état de jeu arrive
+ * uniquement par `game:state` (vue console complète) ; la console ne reçoit aucun `game:cue`.
+ */
 const SESSION_EVENTS = [
   'session:state_changed',
   'session:started',
-  'session:question_started',
-  'session:timer_update',
-  'session:answer_submitted_count',
-  'session:question_ended',
-  'session:next_question_in',
+  'round:started',
+  'game:state',
+  'round:ended',
   'session:paused',
   'session:resumed',
   'session:audio_muted',

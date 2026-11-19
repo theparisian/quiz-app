@@ -1,17 +1,17 @@
 'use client';
 
-import { useLiveSessionStore } from '@/lib/stores/live-session-store';
+import { selectCanForceAdvance, useLiveSessionStore } from '@/lib/stores/live-session-store';
 
 interface ControlsPanelProps {
   onPause: () => void;
   onResume: () => void;
-  onForceEnd: () => void;
+  onForceAdvance: () => void;
   onAbort: () => void;
 }
 
-export function ControlsPanel({ onPause, onResume, onForceEnd, onAbort }: ControlsPanelProps) {
+export function ControlsPanel({ onPause, onResume, onForceAdvance, onAbort }: ControlsPanelProps) {
   const state = useLiveSessionStore((s) => s.state);
-  const showingResults = useLiveSessionStore((s) => s.showingResults);
+  const canForceAdvance = useLiveSessionStore(selectCanForceAdvance);
 
   if (state !== 'running' && state !== 'paused') return null;
 
@@ -38,8 +38,8 @@ export function ControlsPanel({ onPause, onResume, onForceEnd, onAbort }: Contro
       {state === 'running' && (
         <button
           type="button"
-          onClick={onForceEnd}
-          disabled={showingResults}
+          onClick={onForceAdvance}
+          disabled={!canForceAdvance}
           className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           ⏭ Forcer la fin

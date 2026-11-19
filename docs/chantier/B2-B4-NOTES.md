@@ -624,3 +624,76 @@ les tests et un rendu serveur jetable du composant quiz pour chaque phase (`coun
 `question`, `reveal` juste révélé → réponses colorées, `reveal` après 3 s → split, sans
 erreur). Les enchaînements animés (fondus, compte à rebours, flashs) et le calage des sons
 restent à tester à la main.
+
+## 11. Commit 3c — console (cinéma)
+
+### 11.1 Ce qui est fait
+
+- **Store** `apps/console/lib/stores/live-session-store.ts` : le bloc TEMPORAIRE des anciens
+  types (commit 2) et toute la partie quiz (`currentQuestion*`, `questionStartedAt`,
+  `questionTimeLimitMs`, `remainingMs`, `answersSubmittedCount`, `showingResults`,
+  `lastQuestionResults`, `nextQuestionInMs`, `totalQuestions`) sont supprimés. Plateforme
+  inchangée (`sessionId`, `slugShort`, `state`, `totalPlayers`, `lobbyRemainingMs`, `audioMuted`,
+  `players`, `final*`, `abortReason`, salle, `prizes`, `consolationPrizesClaimed`,
+  `connectionStatus`). Manche : `round`, `gameView`, `gameViewInvalid`, `gameSeq`, `clockSamples`,
+  `clockOffsetMs`, `roundScoreboard`, même logique que player/mobile (enveloppe
+  `gameStateSchema`, autre manche ou `seq <= gameSeq` ignorés en échantillonnant quand même
+  l'horloge, vue validée par `quizConsoleViewSchema` via `games/view-schemas.ts`, invalide ou
+  moteur inconnu → `gameViewInvalid` + `Sentry.captureMessage('console: invalid game view')` une
+  fois par manche et par raison, jamais d'exception).
+- `quiz` (quiz complet de `GET /api/sessions/:id/full`, authentifié) reste dans le store : ce
+  n'est pas l'état de jeu mais le contenu de la séance (titre et couverture de l'en-tête, bonnes
+  réponses). Il est passé au rendu du moteur par `GameStage` en prop `content`.
+- **Bug corrigé au passage** : depuis le commit 2, `applySocketSnapshot` sortait tout de suite
+  (le snapshot console n'a plus `quiz`), donc la reprise `console:resume` n'appliquait plus rien.
+  Il applique maintenant les champs de plateforme et `round` / `gameView` / `gameSeq` (règle 5).
+- **Scores de la liste des joueurs** : avant, `question_ended` remplaçait `players` par le
+  classement. Maintenant, la règle console du moteur (`scoreboard(view)`, quiz : classement
+  complet de la vue `reveal`) et `round:ended` mettent à jour les scores (fusion par `playerId`).
+- **Rendu** : `games/types.ts` (`GameRendererProps { round; view; clockOffsetMs; sendAction?:
+  never; content }`, `ConsoleGameRules`), `games/registry.ts` (`next/dynamic`),
+  `games/view-schemas.ts`, `games/console-rules.ts` (règles sans JSX : `progressLabel`,
+  `canForceAdvance`, `scoreboard`), `games/game-stage.tsx`, `games/unknown-game.tsx` (encadré
+  sobre « Manche en cours… », vouvoiement), `games/quiz/` : `index.tsx`, `question-preview.tsx`
+  et `timer-bar.tsx` (`git mv` depuis `components/live-console/`, même balisage et mêmes
+  classes, props issues de la vue), `console-rules.ts`. `LiveHeader`, `PlayersList`,
+  `ControlsPanel`, lobby, pause, fin, abandon et bannière restent hors de `GameStage`.
+- **Bonne réponse pendant la question** : `quizHighlightedAnswerIds(view, content)` ; en
+  `reveal`, `view.correctAnswerId` ; sinon (question en cours, ou révélation sans bonne réponse)
+  les `isCorrect` de la question de même `id` dans le quiz de `GET /:id/full`. Quiz pas encore
+  chargé → rien n'est surligné (jamais d'invention).
+- **Temps** : barre = `useCountdown(endsAt, pausedRemainingMs, clockOffsetMs, { mode: 'frame' })`
+  (fluide comme l'ancienne boucle rAF), figée en pause, vide (0 s) en `reveal` comme avant.
+- **Contrôles** : `onForceEnd` → `onForceAdvance` → `POST /api/sessions/:id/force-advance` (seul
+  appelant ; la console n'émet pas `console:force_advance` par socket). Libellé « ⏭ Forcer la
+  fin » conservé. Actif seulement si la règle du moteur le dit (quiz : `phase = question`, le
+  moteur ignore `forceAdvance` ailleurs) ; en repli (vue invalide, moteur inconnu) il reste
+  actif, le serveur décide.
+- En-tête « Question N / M » : `progressLabel` de la vue (`questionIndex + 1`, « – » pendant le
+  compte à rebours) ; « – » sans vue.
+- Hook : écoute `round:started`, `game:state`, `round:ended` + plateforme ; plus aucun ancien
+  événement. Pas de `game:cue` (audience `screen` seulement).
+- **Tests** (nouveau : `vitest` dans `apps/console`, `pnpm --filter @quiz-app/console test`,
+  ajouté à la CI ; `lint` couvre aussi `games/`) : `lib/stores/live-session-store.test.ts`
+  (vue de question, `seq` ancien / égal ignoré, autre manche ignorée, `seq` du snapshot
+  respecté, propriété « vue complète » un message sur trois, scores depuis la révélation, vue
+  invalide → repli + un seul Sentry puis reprise, moteur inconnu, décalage d'horloge,
+  `round:ended`, snapshot sans quiz appliqué) ; `games/quiz/console-rules.test.ts` (surlignage
+  depuis le contenu authentifié pendant la question, depuis la vue en révélation, libellé,
+  disponibilité de « Forcer la fin »).
+
+### 11.2 Écarts visuels assumés (console)
+
+- « Forcer la fin » est grisé pendant le compte à rebours d'avant Q1 (avant : actif, sans effet).
+- Barre de temps figée pendant la pause (la console affiche de toute façon l'écran de pause).
+- En-tête : numéro = `questionIndex + 1` (avant : `position` en base, identique en pratique).
+- Vue `done` (quelques ms avant `session:ended`) : zone de jeu vide.
+
+### 11.3 Non vérifié / points ouverts
+
+- Rendu à l'œil (pas de navigateur ici) : contrôlé par `next build`, les tests et le typage.
+- B5 : `GET /:id/full` ne renvoie que le quiz de la séance (`session.quiz`). Avec plusieurs
+  manches, le contenu passé au rendu devra être celui du jeu de la manche (par `round.game`) ;
+  `quizHighlightedAnswerIds` cherche la question par `id`, donc un contenu d'un autre quiz ne
+  surligne simplement rien.
+- `LiveHeader` lit `totalPlayers` par `getState()` (non réactif) : bug antérieur, non touché.

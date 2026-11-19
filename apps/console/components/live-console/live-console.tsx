@@ -7,10 +7,9 @@ import { api } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { useLiveSession } from '@/hooks/use-live-session';
 import { useLiveSessionStore, type SessionFullResponse } from '@/lib/stores/live-session-store';
+import { GameStage } from '@/games/game-stage';
 import { LobbyView } from './lobby-view';
 import { LiveHeader } from './live-header';
-import { QuestionPreview } from './question-preview';
-import { TimerBar } from './timer-bar';
 import { PlayersList } from './players-list';
 import { ControlsPanel } from './controls-panel';
 import { EndedView } from './ended-view';
@@ -167,13 +166,12 @@ export function LiveConsole({
         {state === 'running' && (
           <div className="space-y-4">
             <LiveHeader onToggleMute={() => doAction(`/api/sessions/${sessionId}/toggle-mute`)} />
-            <QuestionPreview />
-            <TimerBar />
+            <GameStage />
             <PlayersList />
             <ControlsPanel
               onPause={() => doAction(`/api/sessions/${sessionId}/pause`)}
               onResume={() => doAction(`/api/sessions/${sessionId}/resume`)}
-              onForceEnd={() => doAction(`/api/sessions/${sessionId}/force-advance`)}
+              onForceAdvance={() => doAction(`/api/sessions/${sessionId}/force-advance`)}
               onAbort={() => setAbortModalOpen(true)}
             />
           </div>
