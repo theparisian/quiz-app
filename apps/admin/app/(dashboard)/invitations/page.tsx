@@ -12,7 +12,9 @@ interface Invitation {
   email: string;
   role: string;
   status: string;
-  cinemaName: string;
+  cinemaName: string | null;
+  /** Invitation d'un contact sponsor (C4). */
+  sponsorName?: string | null;
   invitedBy: string | null;
   createdAt: string;
   expiresAt: string;
@@ -172,9 +174,15 @@ export default function InvitationsPage() {
               <tr key={inv.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm text-gray-900">{inv.email}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">
-                  {inv.role === 'projectionist' ? 'Projectionniste' : 'Admin cinéma'}
+                  {inv.role === 'projectionist'
+                    ? 'Projectionniste'
+                    : inv.role === 'sponsor'
+                      ? 'Contact sponsor'
+                      : 'Admin cinéma'}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-500">{inv.cinemaName}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">
+                  {inv.cinemaName ?? inv.sponsorName ?? '—'}
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[inv.status] ?? ''}`}

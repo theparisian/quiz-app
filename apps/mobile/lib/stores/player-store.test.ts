@@ -464,3 +464,40 @@ describe('usePlayerStore — moteur sondage (B6)', () => {
     expect(reportGameIssue).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('usePlayerStore — sponsor (C4)', () => {
+  const SPONSOR = { name: 'Popcorn & Co', logoUrl: null, brandColorPrimary: null };
+
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it('reads sessionSponsor from the snapshot and keeps it on the final screen', () => {
+    store().applySnapshot(snapshot('lobby', { sessionSponsor: SPONSOR }));
+    expect(store().sessionSponsor).toEqual(SPONSOR);
+    store().applySnapshot(
+      snapshot('ended', {
+        sessionSponsor: SPONSOR,
+        finalResults: { rank: 1, finalScoreboard: [] },
+      }),
+    );
+    expect(store().uiState).toBe('final_results');
+    expect(store().sessionSponsor).toEqual(SPONSOR);
+  });
+
+  it('hydrates from by-code, and an explicit null snapshot clears it', () => {
+    store().hydrate({
+      playerId: 'p1',
+      pseudo: 'Alice',
+      resumeToken: 't',
+      sessionId: 's1',
+      slugShort: 'ABC123',
+      sessionSponsor: SPONSOR,
+    });
+    expect(store().sessionSponsor).toEqual(SPONSOR);
+    store().applySnapshot(snapshot('lobby'));
+    expect(store().sessionSponsor).toEqual(SPONSOR);
+    store().applySnapshot(snapshot('lobby', { sessionSponsor: null }));
+    expect(store().sessionSponsor).toBeNull();
+  });
+});

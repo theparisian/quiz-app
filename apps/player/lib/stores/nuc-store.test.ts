@@ -466,3 +466,40 @@ describe('nuc store — moteur sondage (B6)', () => {
     expect(reportGameIssue).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('nuc store — sponsor (C4)', () => {
+  const SPONSOR = {
+    name: 'Popcorn & Co',
+    logoUrl: '/uploads/logo.png',
+    brandColorPrimary: '#ff0000',
+  };
+
+  it('reads sessionSponsor from the screen snapshot, and clears it without a session', () => {
+    const s = useNucStore.getState();
+    s.applySnapshot({
+      session: { sessionId: '1', slugShort: 'ABCD', state: 'lobby', totalPlayers: 0 },
+      sessionSponsor: SPONSOR,
+      round: null,
+      gameView: null,
+      gameSeq: 0,
+    });
+    expect(useNucStore.getState().sessionSponsor).toEqual(SPONSOR);
+
+    s.applySnapshot({ session: null });
+    expect(useNucStore.getState().sessionSponsor).toBeNull();
+  });
+
+  it('ignores an invalid or missing sessionSponsor', () => {
+    useNucStore.getState().applySnapshot({
+      session: { sessionId: '1', slugShort: 'ABCD', state: 'lobby', totalPlayers: 0 },
+      sessionSponsor: { name: 42 },
+    });
+    expect(useNucStore.getState().sessionSponsor).toBeNull();
+  });
+
+  it('a new session context forgets the previous sponsor', () => {
+    useNucStore.setState({ sessionSponsor: SPONSOR });
+    useNucStore.getState().setSessionContext({ sessionId: '2', slugShort: 'EFGH' });
+    expect(useNucStore.getState().sessionSponsor).toBeNull();
+  });
+});

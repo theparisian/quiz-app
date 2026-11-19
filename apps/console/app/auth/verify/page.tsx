@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
+import { homePathFor, useAuth } from '@/lib/auth';
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -24,11 +24,7 @@ function VerifyContent() {
       .post<{ user: { role: string } }>('/api/auth/magic-link/verify', { token })
       .then(async (res) => {
         await refetch();
-        if (res.user.role === 'player') {
-          router.replace('/access-denied');
-        } else {
-          router.replace('/dashboard');
-        }
+        router.replace(homePathFor(res.user.role));
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Token invalide ou expiré');

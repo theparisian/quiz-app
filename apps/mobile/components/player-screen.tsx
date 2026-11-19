@@ -10,6 +10,8 @@ import FinalScreen from '@/components/final-screen';
 import AbortedScreen from '@/components/aborted-screen';
 import KickedScreen from '@/components/kicked-screen';
 import { ScreenTransition } from '@/components/screen-transition';
+import SponsorBadge from '@/components/sponsor-badge';
+import { displayedRoundSponsor } from '@quiz-app/validation';
 
 interface PlayerScreenProps {
   socket: Socket | null;
@@ -22,15 +24,29 @@ interface PlayerScreenProps {
  */
 export default function PlayerScreen({ socket }: PlayerScreenProps) {
   const uiState = usePlayerStore((s) => s.uiState);
+  const round = usePlayerStore((s) => s.round);
+  const sessionSponsor = usePlayerStore((s) => s.sessionSponsor);
 
   if (uiState === 'game') {
-    return <GameStage socket={socket} />;
+    // C4 : bandeau fin du sponsor, seulement pendant une manche sponsorisée.
+    const roundSponsor = displayedRoundSponsor(round);
+    return (
+      <>
+        <GameStage socket={socket} />
+        {roundSponsor && <SponsorBadge sponsor={roundSponsor} variant="banner" />}
+      </>
+    );
   }
 
   let screen;
   switch (uiState) {
     case 'lobby':
-      screen = <LobbyWaiting />;
+      screen = (
+        <>
+          <LobbyWaiting />
+          {sessionSponsor && <SponsorBadge sponsor={sessionSponsor} />}
+        </>
+      );
       break;
     case 'paused':
       screen = <PausedScreen />;
@@ -39,7 +55,12 @@ export default function PlayerScreen({ socket }: PlayerScreenProps) {
       screen = <RoundEndScreen />;
       break;
     case 'final_results':
-      screen = <FinalScreen />;
+      screen = (
+        <>
+          <FinalScreen />
+          {sessionSponsor && <SponsorBadge sponsor={sessionSponsor} />}
+        </>
+      );
       break;
     case 'aborted':
       screen = <AbortedScreen />;

@@ -5,6 +5,7 @@ import { useNucStore } from '@/lib/stores/nuc-store';
 import QrCode from '@/components/shared/qr-code';
 import PlayerPill from '@/components/shared/player-pill';
 import { buildJoinUrl } from '@/lib/join-url';
+import SponsorBadge from '@/components/sponsor/sponsor-badge';
 
 const MOBILE_URL =
   process.env.NEXT_PUBLIC_MOBILE_URL || process.env.NEXT_PUBLIC_PLAY_URL || 'http://localhost:3002';
@@ -44,6 +45,7 @@ export default function LobbyState() {
   const prizes = useNucStore((s) => s.prizes);
   const lobbyRemainingMs = useNucStore((s) => s.lobbyRemainingMs);
   const lobbyPrizesEnabled = useNucStore((s) => s.lobbyPrizesEnabled);
+  const sessionSponsor = useNucStore((s) => s.sessionSponsor);
 
   const hasPrizes = !!(prizes?.rank1 || prizes?.rank2 || prizes?.rank3);
   const superPrize = prizes?.rank1?.isSuperPrize ? prizes.rank1 : null;
@@ -58,8 +60,18 @@ export default function LobbyState() {
       {/* Partie gauche : réservée à l'image de fond de l'annonceur. */}
       <div className="relative flex-1 overflow-hidden" />
 
+      {/* Sponsor de la séance (C4) — bas de l'écran, sous les pseudos. */}
+      {sessionSponsor && (
+        <SponsorBadge
+          sponsor={sessionSponsor}
+          className="pointer-events-none fixed bottom-10 left-10 z-20"
+        />
+      )}
+
       {/* Pseudos connectés — fixés en bas à gauche de l'écran. */}
-      <div className="pointer-events-none fixed bottom-10 left-10 z-20 max-w-[55vw]">
+      <div
+        className={`pointer-events-none fixed left-10 z-20 max-w-[55vw] ${sessionSponsor ? 'bottom-36' : 'bottom-10'}`}
+      >
         <div className="flex flex-wrap content-end items-end gap-x-4 gap-y-3">
           {visiblePlayers.map((p, i) => (
             <PlayerPill

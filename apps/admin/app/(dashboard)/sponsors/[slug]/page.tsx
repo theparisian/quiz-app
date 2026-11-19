@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { api, apiUploadFile } from '../../../../lib/api';
 import { resolveMediaUrl } from '../../../../lib/media-url';
 import { CampaignsTab } from './campaigns-tab';
+import { SponsorAccessBlock } from './access-block';
 
 const optionalHex = z.string().refine((s) => s === '' || /^#[0-9A-Fa-f]{6}$/.test(s), {
   message: 'Couleur au format #RRGGBB',
@@ -314,6 +315,8 @@ export default function SponsorDetailPage() {
           {saveMut.isSuccess && (
             <p className="text-sm text-green-700">Modifications enregistrées.</p>
           )}
+
+          <SponsorAccessBlock sponsorSlug={slug} />
         </>
       )}
     </div>

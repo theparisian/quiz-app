@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { homePathFor, useAuth } from '@/lib/auth';
 
 export default function RootPage() {
   const { user, loading } = useAuth();
@@ -11,7 +11,7 @@ export default function RootPage() {
   useEffect(() => {
     if (loading) return;
     if (user) {
-      router.replace('/dashboard');
+      router.replace(homePathFor(user.role));
     } else {
       router.replace('/login');
     }

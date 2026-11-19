@@ -3,6 +3,8 @@
 import { useNucStore } from '@/lib/stores/nuc-store';
 import QuizBackground from '@/components/shared/quiz-background';
 import ScoreRow from '@/components/shared/score-row';
+import { displayedRoundSponsor } from '@quiz-app/validation';
+import SponsorBadge from '@/components/sponsor/sponsor-badge';
 
 /** Lignes du classement de fin de manche affichées à l'écran. */
 const ROUND_END_TOP = 5;
@@ -14,7 +16,10 @@ const ROUND_END_TOP = 5;
  */
 export default function RoundEndState() {
   const board = useNucStore((s) => s.roundScoreboard);
+  const round = useNucStore((s) => s.round);
   if (!board) return null;
+  // C4 : sponsor de la manche qui vient de se terminer (pas celui de la manche suivante).
+  const sponsor = round?.roundId === board.roundId ? displayedRoundSponsor(round) : null;
   const top = board.scoreboard.slice(0, ROUND_END_TOP);
 
   return (
@@ -39,6 +44,7 @@ export default function RoundEndState() {
               />
             ))}
           </div>
+          {sponsor && <SponsorBadge sponsor={sponsor} />}
         </div>
       </div>
     </div>

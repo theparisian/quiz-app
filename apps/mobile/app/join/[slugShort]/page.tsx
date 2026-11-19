@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { AppLogo } from '@quiz-app/ui';
+import type { SponsorDisplay } from '@quiz-app/validation';
 import { getMobileSocket, disconnectMobileSocket } from '@/lib/socket';
 import { usePlayerStore } from '@/lib/stores/player-store';
 import PseudoInput from '@/components/pseudo-input';
@@ -16,6 +17,8 @@ interface SessionInfo {
   cinema: { name: string; logoUrl: string | null };
   quiz: { title: string; brandingJson: Record<string, unknown> | null };
   totalPlayers: number;
+  /** C4 : sponsor de la séance (première manche sponsorisée), null sinon. */
+  sessionSponsor?: SponsorDisplay | null;
 }
 
 interface JoinAck {
@@ -155,6 +158,7 @@ export default function JoinPage() {
           ...(session?.cinema.name ? { cinemaName: session.cinema.name } : {}),
           ...(session?.quiz.title ? { quizTitle: session.quiz.title } : {}),
           ...(session?.quiz.brandingJson ? { brandingJson: session.quiz.brandingJson } : {}),
+          sessionSponsor: session?.sessionSponsor ?? null,
           scoreTotal: ack.scoreTotal ?? 0,
           joinedQuestionPosition: ack.joinedQuestionPosition ?? null,
           stateSnapshot: ack.stateSnapshot ?? null,

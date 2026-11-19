@@ -11,6 +11,22 @@ export interface User {
   cinemaId: string | null;
   cinemaSlug: string | null;
   cinemaName: string | null;
+  /** Rôle sponsor (C4) : sponsor dont l'utilisateur consulte le portail. */
+  sponsorId?: string | null;
+  sponsorSlug?: string | null;
+  sponsorName?: string | null;
+}
+
+/** Rôle sponsor (C4) : portail /sponsor seulement, aucune page cinéma. */
+export function isSponsorRole(role: string | undefined | null): boolean {
+  return role === 'sponsor';
+}
+
+/** Page d'accueil après connexion selon le rôle. */
+export function homePathFor(role: string): string {
+  if (role === 'player') return '/access-denied';
+  if (role === 'sponsor') return '/sponsor';
+  return '/dashboard';
 }
 
 interface AuthCtx {

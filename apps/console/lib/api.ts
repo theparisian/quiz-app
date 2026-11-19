@@ -37,3 +37,18 @@ export const api = {
   },
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 };
+
+/** Téléchargement d'un fichier de l'API (cookie de session inclus), ex. export CSV. */
+export async function downloadApiFile(path: string, filename: string): Promise<void> {
+  const res = await fetch(`${API_URL}${path}`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`Téléchargement impossible (${res.status})`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

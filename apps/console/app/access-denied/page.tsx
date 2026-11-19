@@ -1,4 +1,25 @@
+'use client';
+
+import { isSponsorRole, useAuth } from '@/lib/auth';
+
 export default function AccessDeniedPage() {
+  const { user } = useAuth();
+  // Contact sponsor (C4) : son espace est /sponsor.
+  if (user && isSponsorRole(user.role)) {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-4 text-center">
+          <h1 className="text-xl font-bold text-gray-900">Accès refusé</h1>
+          <p className="text-sm text-gray-500">
+            Votre compte donne accès à l&apos;espace sponsor uniquement.
+          </p>
+          <a href="/sponsor" className="inline-block text-sm text-blue-600 hover:underline">
+            Aller à l&apos;espace sponsor
+          </a>
+        </div>
+      </main>
+    );
+  }
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-4 text-center">

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { CurrencyEur, Gear, ListNumbers, SignOut } from '@phosphor-icons/react';
 import { AppLogo } from '@quiz-app/ui';
-import { useAuth } from '@/lib/auth';
+import { isSponsorRole, useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
 import { useActiveSessions } from '@/hooks/use-active-sessions';
 import { useSelectedScreenId } from '@/hooks/use-selected-screen-id';
@@ -29,7 +29,8 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     if (!loading && !user) {
       router.replace('/login');
     }
-    if (!loading && user && user.role === 'player') {
+    // Joueur et contact sponsor (C4, portail /sponsor) n'ont accès à aucune page cinéma.
+    if (!loading && user && (user.role === 'player' || isSponsorRole(user.role))) {
       router.replace('/access-denied');
     }
   }, [user, loading, router]);
@@ -42,7 +43,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     );
   }
 
-  if (!user) return null;
+  if (!user || user.role === 'player' || isSponsorRole(user.role)) return null;
 
   const hasCinema = !!cinemaSlug;
   const liveCount = activeSessions?.length ?? 0;

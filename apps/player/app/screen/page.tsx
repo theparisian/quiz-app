@@ -14,6 +14,9 @@ import PausedOverlay from '@/components/states/paused-overlay';
 import { NucConnectionBanner } from '@/components/shared/nuc-connection-banner';
 import LobbyBackground from '@/components/shared/lobby-background';
 import LateJoinQrBadge from '@/components/shared/late-join-qr-badge';
+import { displayedRoundSponsor } from '@quiz-app/validation';
+import SponsorBadge from '@/components/sponsor/sponsor-badge';
+import RoundOpeningCard from '@/components/sponsor/round-opening-card';
 
 const IDLE_FADE_MS = 500;
 
@@ -27,6 +30,7 @@ export default function ScreenPage() {
   const slugShort = useNucStore((s) => s.slugShort);
   const joinToken = useNucStore((s) => s.joinToken);
   const lateJoinQrEnabled = useNucStore((s) => s.lateJoinQrEnabled);
+  const round = useNucStore((s) => s.round);
   const prevUiStateRef = useRef(uiState);
   const [idleFadingOut, setIdleFadingOut] = useState(false);
 
@@ -44,6 +48,8 @@ export default function ScreenPage() {
   const showIdle = uiState === 'idle' || idleFadingOut;
 
   const showLateJoinQr = lateJoinQrEnabled && slugShort != null && (uiState === 'game' || isPaused);
+  // C4 : sponsor de la manche en cours, dans le coin bas droit (jamais hors manche sponsorisée).
+  const roundSponsor = uiState === 'game' ? displayedRoundSponsor(round) : null;
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-gray-950 text-white">
@@ -63,6 +69,14 @@ export default function ScreenPage() {
       {uiState === 'round_end' && <RoundEndState />}
       {uiState === 'final_results' && <FinalResultsState />}
       {uiState === 'aborted' && <AbortedState />}
+      {roundSponsor && (
+        <SponsorBadge
+          sponsor={roundSponsor}
+          size="sm"
+          className={`pointer-events-none fixed bottom-8 z-30 ${showLateJoinQr ? 'right-56' : 'right-8'}`}
+        />
+      )}
+      <RoundOpeningCard />
       {isPaused && <PausedOverlay />}
       {showLateJoinQr && <LateJoinQrBadge slugShort={slugShort} joinToken={joinToken} />}
     </div>

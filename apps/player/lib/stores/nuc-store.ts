@@ -10,10 +10,12 @@ import {
   gameStateSchema,
   roundEndedSchema,
   roundInfoSchema,
+  sessionSponsorSchema,
   type ResolvedQuizAudio,
   type RoundEndedPayload,
   type RoundInfo,
   type SessionPrizesDisplay,
+  type SponsorDisplay,
 } from '@quiz-app/validation';
 import { pushClockSample } from '@quiz-app/ui';
 import { getGameViewSchema } from '@/games/view-schemas';
@@ -107,6 +109,9 @@ interface NucState extends QuizBackgroundState, RoundFields {
 
   audio: ResolvedQuizAudio | null;
 
+  /** Sponsor de la séance (C4) : première manche sponsorisée, montré au lobby. */
+  sessionSponsor: SponsorDisplay | null;
+
   /** `heure serveur - heure locale` (ms), médiane des derniers `serverNow` reçus. */
   clockOffsetMs: number;
   clockSamples: number[];
@@ -159,6 +164,12 @@ const EMPTY_ROUND: RoundFields = {
 
 function readPrizes(snap: Record<string, unknown>): SessionPrizesDisplay | null {
   return (snap.prizes as SessionPrizesDisplay | undefined) ?? null;
+}
+
+/** `sessionSponsor` d'un snapshot (C4) ; absent ou invalide → aucun sponsor affiché. */
+function readSessionSponsor(snap: Record<string, unknown>): SponsorDisplay | null {
+  const parsed = sessionSponsorSchema.safeParse(snap.sessionSponsor);
+  return parsed.success ? parsed.data : null;
 }
 
 function readAudio(payload: Record<string, unknown>): ResolvedQuizAudio | null {
@@ -302,6 +313,7 @@ const initialState = {
   scoreboard: [] as ScoreEntry[],
 
   audio: null as ResolvedQuizAudio | null,
+  sessionSponsor: null as SponsorDisplay | null,
 
   ...EMPTY_ROUND,
   clockOffsetMs: 0,
@@ -339,6 +351,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       totalPlayers: 0,
       lobbyRemainingMs: null,
       isPaused: false,
+      sessionSponsor: null,
       ...EMPTY_ROUND,
     }),
 
@@ -395,6 +408,7 @@ export const useNucStore = create<NucState>((set, get) => ({
         finalScoreboard: null,
         prizes: null,
         audio: null,
+        sessionSponsor: null,
         ...EMPTY_ROUND,
         ...emptyQuizBackground,
       });
@@ -413,6 +427,7 @@ export const useNucStore = create<NucState>((set, get) => ({
       scoreboard: (snap.scoreboard as ScoreEntry[] | undefined) ?? [],
       isPaused: session.state === 'paused',
       audio: readAudio(snap),
+      sessionSponsor: readSessionSponsor(snap),
       ...readQuizBackground(snap),
       ...roundFields,
     };

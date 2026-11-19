@@ -3,9 +3,11 @@ import {
   gameStateSchema,
   roundEndedSchema,
   roundInfoSchema,
+  sessionSponsorSchema,
   type RoundEndedPayload,
   type RoundInfo,
   type SessionPrizesDisplay,
+  type SponsorDisplay,
 } from '@quiz-app/validation';
 import { pushClockSample } from '@quiz-app/ui';
 import { getGameViewSchema } from '@/games/view-schemas';
@@ -45,6 +47,8 @@ interface PlayerState {
   cinemaName: string | null;
   quizTitle: string | null;
   brandingJson: Record<string, unknown> | null;
+  /** Sponsor de la séance (C4) : première manche sponsorisée ; lobby et écran final. */
+  sessionSponsor: SponsorDisplay | null;
 
   uiState: PlayerUiState;
   state: string | null;
@@ -92,6 +96,7 @@ interface PlayerState {
     cinemaName?: string;
     quizTitle?: string;
     brandingJson?: Record<string, unknown> | null;
+    sessionSponsor?: SponsorDisplay | null;
     scoreTotal?: number;
     joinedQuestionPosition?: number | null;
     stateSnapshot?: Record<string, unknown> | null;
@@ -177,6 +182,12 @@ function roundFieldsFromSnapshot(snap: Record<string, unknown>): RoundFields {
   return { round, ...view, gameSeq, roundScoreboard: null };
 }
 
+/** Sponsor de séance reçu (snapshot, by-code) ; invalide ou absent → aucun sponsor affiché. */
+function readSessionSponsor(value: unknown): SponsorDisplay | null {
+  const parsed = sessionSponsorSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 function hasGame(s: Pick<PlayerState, 'gameView' | 'gameViewInvalid'>): boolean {
   return s.gameView != null || s.gameViewInvalid;
 }
@@ -196,6 +207,7 @@ const INITIAL = {
   cinemaName: null,
   quizTitle: null,
   brandingJson: null,
+  sessionSponsor: null,
   uiState: 'lobby' as PlayerUiState,
   state: null,
   totalPlayers: 0,
@@ -235,6 +247,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       cinemaName: data.cinemaName ?? null,
       quizTitle: data.quizTitle ?? null,
       brandingJson: data.brandingJson ?? null,
+      sessionSponsor: readSessionSponsor(data.sessionSponsor),
       scoreTotal: data.scoreTotal ?? 0,
       joinedLate: data.joinedQuestionPosition != null,
       uiState,
@@ -285,6 +298,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       slugShort: session.slugShort,
       state: session.state,
       totalPlayers: session.totalPlayers,
+      // Absent d'un ancien snapshot : on garde la valeur connue (by-code au join).
+      sessionSponsor:
+        snap.sessionSponsor === undefined
+          ? get().sessionSponsor
+          : readSessionSponsor(snap.sessionSponsor),
       ...roundFieldsFromSnapshot(snap),
     };
 

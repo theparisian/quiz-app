@@ -3,18 +3,28 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AppLogo } from '@quiz-app/ui';
+import { homePathFor, useAuth } from '@/lib/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 interface InvitationInfo {
   email: string;
   role: string;
-  cinemaName: string;
+  cinemaName: string | null;
+  /** Invitation d'un contact sponsor (C4). */
+  sponsorName?: string | null;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  projectionist: 'Projectionniste',
+  cinema_admin: 'Administrateur cinéma',
+  sponsor: 'Contact sponsor',
+};
 
 function AcceptInvitationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { refetch } = useAuth();
   const token = searchParams.get('token');
 
   const [info, setInfo] = useState<InvitationInfo | null>(null);
@@ -67,7 +77,10 @@ function AcceptInvitationContent() {
         throw new Error(body?.error?.message ?? "Erreur lors de l'acceptation.");
       }
 
-      router.replace('/');
+      const body = (await res.json().catch(() => ({}))) as { user?: { role?: string } };
+      // Session à jour avant de quitter la page (sinon l'accueil croit l'utilisateur déconnecté).
+      await refetch();
+      router.replace(body.user?.role ? homePathFor(body.user.role) : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur');
       setSubmitting(false);
@@ -125,15 +138,22 @@ function AcceptInvitationContent() {
             <p className="mt-1 text-sm font-medium text-gray-900">{info?.email}</p>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500">Cinéma</label>
-            <p className="mt-1 text-sm font-medium text-gray-900">{info?.cinemaName}</p>
-          </div>
+          {info?.sponsorName ? (
+            <div>
+              <label className="block text-xs font-medium text-gray-500">Sponsor</label>
+              <p className="mt-1 text-sm font-medium text-gray-900">{info.sponsorName}</p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-gray-500">Cinéma</label>
+              <p className="mt-1 text-sm font-medium text-gray-900">{info?.cinemaName}</p>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-gray-500">Rôle</label>
             <p className="mt-1 text-sm font-medium text-gray-900">
-              {info?.role === 'projectionist' ? 'Projectionniste' : 'Administrateur cinéma'}
+              {ROLE_LABELS[info?.role ?? ''] ?? info?.role}
             </p>
           </div>
 
