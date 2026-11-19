@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Gear, SignOut } from '@phosphor-icons/react';
+import { Gear, ListNumbers, SignOut } from '@phosphor-icons/react';
 import { AppLogo } from '@quiz-app/ui';
 import { useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
@@ -22,6 +22,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   const selectedScreenId = useSelectedScreenId();
 
   const isSettingsActive = pathname === '/settings';
+  const isProgramsActive = pathname === '/programmation';
 
   useEffect(() => {
     if (!loading && !user) {
@@ -58,6 +59,24 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
 
         {hasCinema ? (
           <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="px-2 pt-3">
+              <Link
+                href="/programmation"
+                aria-current={isProgramsActive ? 'page' : undefined}
+                className={`flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium transition ${
+                  isProgramsActive
+                    ? 'bg-blue-50 text-blue-800 ring-1 ring-inset ring-blue-200'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <ListNumbers
+                  size={18}
+                  weight={isProgramsActive ? 'fill' : 'duotone'}
+                  className={isProgramsActive ? 'text-blue-600' : 'text-gray-400'}
+                />
+                Programmation
+              </Link>
+            </div>
             <div className="flex items-center justify-between px-4 pb-1 pt-3">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                 Salles

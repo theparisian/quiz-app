@@ -197,3 +197,46 @@ export const catalogListResponseSchema = z.object({
   items: z.array(catalogGameSchema),
 });
 export type CatalogListResponse = z.infer<typeof catalogListResponseSchema>;
+
+// ─── Programmation des salles (C2) ───────────────────────
+
+/** Nombre maximal de jeux au programme d'une salle (= manches d'une séance). */
+export const MAX_GAMES_PER_SCREEN_PROGRAM = 5;
+
+/** PUT /api/screens/:id/program : remplace le programme (0 à 5 jeux, dans l'ordre). */
+export const screenProgramBodySchema = z.object({
+  gameSlugs: z.array(z.string().min(1).max(100)).max(MAX_GAMES_PER_SCREEN_PROGRAM),
+});
+export type ScreenProgramBody = z.infer<typeof screenProgramBodySchema>;
+
+/** Jeu au programme d'une salle. `available` est faux s'il a quitté le catalogue du cinéma. */
+export const screenProgramItemSchema = z.object({
+  gameSlug: z.string(),
+  title: z.string(),
+  tagline: z.string().nullable(),
+  coverImageUrl: z.string().nullable(),
+  engineKey: z.string(),
+  kind: gameKindSchema,
+  /** Nom du sponsor, pour un jeu sponsorisé seulement (même règle que le catalogue). */
+  sponsorName: z.string().nullable(),
+  durationEstimateSeconds: z.number().int().nullable(),
+  available: z.boolean(),
+});
+export type ScreenProgramItem = z.infer<typeof screenProgramItemSchema>;
+
+/** Une salle et son programme (GET /api/cinemas/:slug/programs, réponse du PUT). */
+export const screenProgramSchema = z.object({
+  screenId: z.string(),
+  name: z.string(),
+  capacity: z.number().int().nullable(),
+  status: z.string(),
+  nuc: z.object({ status: z.string(), lastSeenAt: z.string().nullable() }).nullable(),
+  activeSession: z.object({ id: z.string(), state: z.string() }).nullable(),
+  items: z.array(screenProgramItemSchema),
+});
+export type ScreenProgram = z.infer<typeof screenProgramSchema>;
+
+export const cinemaProgramsResponseSchema = z.object({
+  items: z.array(screenProgramSchema),
+});
+export type CinemaProgramsResponse = z.infer<typeof cinemaProgramsResponseSchema>;

@@ -185,9 +185,10 @@ model Screen {
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
 
-  cinema   Cinema    @relation(fields: [cinemaId], references: [id])
-  nucs     Nuc[]
-  sessions Session[]
+  cinema       Cinema              @relation(fields: [cinemaId], references: [id])
+  nucs         Nuc[]
+  sessions     Session[]
+  programItems ScreenProgramItem[]
 
   @@index([cinemaId])
   @@map("screens")
@@ -618,6 +619,7 @@ model Game {
   sponsor      Sponsor?           @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
   rounds       SessionRound[]
   cinemaAccess GameCinemaAccess[]
+  programItems ScreenProgramItem[]
 
   @@index([sponsorId])
   @@map("games")
@@ -635,6 +637,23 @@ model GameCinemaAccess {
   @@id([gameId, cinemaId])
   @@index([cinemaId])
   @@map("game_cinema_access")
+}
+
+/// Programme d'une salle (C2) : jeux associés, dans l'ordre (position à partir de 1), 5 au plus.
+model ScreenProgramItem {
+  id        BigInt   @id @default(autoincrement())
+  screenId  BigInt   @map("screen_id")
+  gameId    BigInt   @map("game_id")
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  screen Screen @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([screenId, gameId])
+  @@index([screenId])
+  @@index([gameId])
+  @@map("screen_program_items")
 }
 
 model SessionRound {

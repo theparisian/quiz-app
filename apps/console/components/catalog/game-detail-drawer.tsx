@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { CatalogGame, CatalogGameDetail } from '@quiz-app/validation';
 import { Clock, Image as ImageIcon, Users, X } from '@phosphor-icons/react';
@@ -8,29 +8,34 @@ import { api } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { ENGINE_LABEL, estimateGameSeconds, formatDuration } from './format';
 
-interface GameDetailDrawerProps {
+interface GameDetailDrawerBaseProps {
   /** Jeu ouvert (données de la carte, affichées pendant le chargement de la fiche). */
   game: CatalogGame;
   cinemaSlug: string;
+  onClose: () => void;
+}
+
+/** Lanceur de séance : boutons « Choisir » / « Retirer de la séance ». */
+interface GameDetailDrawerSelectionProps extends GameDetailDrawerBaseProps {
   /** Le jeu est déjà dans la séance. */
   selected: boolean;
   /** La séance est pleine : un nouveau jeu ne peut plus être choisi. */
   maxReached: boolean;
   onChoose: (game: CatalogGame) => void;
   onRemove: (slug: string) => void;
-  onClose: () => void;
+  footer?: undefined;
 }
 
+/** Autre usage (programmation, C2) : pied de panneau fourni, ou aucun (`null`). */
+interface GameDetailDrawerFooterProps extends GameDetailDrawerBaseProps {
+  footer: Exclude<ReactNode, undefined>;
+}
+
+type GameDetailDrawerProps = GameDetailDrawerSelectionProps | GameDetailDrawerFooterProps;
+
 /** Panneau latéral droit : fiche complète d'un jeu du catalogue, règles, questions d'exemple. */
-export function GameDetailDrawer({
-  game,
-  cinemaSlug,
-  selected,
-  maxReached,
-  onChoose,
-  onRemove,
-  onClose,
-}: GameDetailDrawerProps) {
+export function GameDetailDrawer(props: GameDetailDrawerProps) {
+  const { game, cinemaSlug, onClose } = props;
   const {
     data: detail,
     isLoading,
@@ -165,34 +170,51 @@ export function GameDetailDrawer({
           </div>
         </div>
 
-        <div className="border-t p-4">
-          {selected ? (
-            <button
-              type="button"
-              onClick={() => onRemove(shown.slug)}
-              className="w-full rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-            >
-              Retirer de la séance
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => onChoose(shown)}
-                disabled={maxReached}
-                className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                Choisir
-              </button>
-              {maxReached && (
-                <p className="mt-2 text-center text-xs text-gray-500">
-                  La séance compte déjà le nombre maximal de manches.
-                </p>
-              )}
-            </>
-          )}
-        </div>
+        {props.footer !== undefined ? (
+          props.footer !== null && <div className="border-t p-4">{props.footer}</div>
+        ) : (
+          <SelectionFooter {...props} slug={shown.slug} shown={shown} />
+        )}
       </aside>
+    </div>
+  );
+}
+
+function SelectionFooter({
+  selected,
+  maxReached,
+  onChoose,
+  onRemove,
+  slug,
+  shown,
+}: GameDetailDrawerSelectionProps & { slug: string; shown: CatalogGame }) {
+  return (
+    <div className="border-t p-4">
+      {selected ? (
+        <button
+          type="button"
+          onClick={() => onRemove(slug)}
+          className="w-full rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+        >
+          Retirer de la séance
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => onChoose(shown)}
+            disabled={maxReached}
+            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            Choisir
+          </button>
+          {maxReached && (
+            <p className="mt-2 text-center text-xs text-gray-500">
+              La séance compte déjà le nombre maximal de manches.
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

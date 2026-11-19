@@ -30,5 +30,10 @@ export const api = {
     if (body != null) init.body = JSON.stringify(body);
     return apiFetch<T>(path, init);
   },
+  put: <T>(path: string, body?: unknown) => {
+    const init: RequestInit = { method: 'PUT' };
+    if (body != null) init.body = JSON.stringify(body);
+    return apiFetch<T>(path, init);
+  },
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 };

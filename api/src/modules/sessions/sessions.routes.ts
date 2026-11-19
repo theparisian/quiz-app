@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
+import type { Server } from 'socket.io';
 import { pseudoSuggestionsResponseSchema } from '@quiz-app/validation';
 import { requireAuth } from '../../shared/auth/index.js';
 import {
@@ -28,6 +29,7 @@ import { SESSION_DETAIL_INCLUDE, sessionsService } from './sessions.service.js';
 import { resolveLobbyQuiz, sessionTitle } from './session-content.service.js';
 import { getSessionRuntime } from './session-runtime.service.js';
 import { clearLobbyTimer } from './lobby-timer.service.js';
+import { notifyScreenSessionStarted } from './screen-session-started.js';
 import {
   buildSessionReport,
   listReportableSessions,
@@ -50,7 +52,7 @@ const REPORT_ROLES = ['super_admin', 'cinema_admin'] as const;
 type SessionDetailRow = Prisma.SessionGetPayload<{ include: typeof SESSION_DETAIL_INCLUDE }>;
 type QuizWithQuestions = NonNullable<SessionDetailRow['quiz']>;
 
-function shapeSessionDetail(s: SessionDetailRow) {
+export function shapeSessionDetail(s: SessionDetailRow) {
   const title = sessionTitle(s);
   // Questions de toutes les manches quiz (séance sans manche : quiz de la séance).
   const totalQuestions =
@@ -123,23 +125,12 @@ router.post('/', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
     await assertCanAccessScreen(req.user!, BigInt(data.screenId));
     const session = await sessionsService.create(data, req.user!.id, req.user!.role);
 
-    const io = req.app.get('io') as import('socket.io').Server | undefined;
-    if (io) {
-      const payload = {
-        sessionId: session.id.toString(),
-        slugShort: session.slugShort,
-        joinToken: session.joinToken,
-      };
-      const playerNsp = io.of('/player');
-      playerNsp.to(`screen:${session.screen.id}`).emit('screen:session_started', payload);
-      const nucs = await prisma.nuc.findMany({
-        where: { screenId: session.screen.id },
-        select: { id: true },
-      });
-      for (const nuc of nucs) {
-        playerNsp.to(`nuc:${nuc.id}`).emit('screen:session_started', payload);
-      }
-    }
+    await notifyScreenSessionStarted(req.app.get('io') as Server | undefined, {
+      id: session.id,
+      slugShort: session.slugShort,
+      joinToken: session.joinToken,
+      screenId: session.screen.id,
+    });
 
     res.status(201).json(shapeSessionDetail(session));
   } catch (error) {
