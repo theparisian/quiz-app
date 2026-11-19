@@ -29,7 +29,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 06 | B2-B4 Moteur et protocole | B1 | — | fait (83bd658 → 0ce7b37), voir B2-B4-NOTES §13 |
 | 07 | B5 Multi-manches | B2-B4 | 0021_session_quiz_nullable | fait (796ff8f) |
 | 08 | B6 Sondage | B5 | — | fait (c44e304 + correctif validate) |
-| 09 | C1 Catalogue | B6, A1 | 0022 | à faire |
+| 09 | C1 Catalogue | B6, A1 | 0022_game_catalog | fait (2 commits C1) |
 | 10 | C2 Programmation | C1 | 0023 | à faire |
 | 11 | C3 Campagnes | C1, B5 | 0024 | à faire |
 | 12 | C4 Sponsor | C3 | 0025 | à faire |
@@ -128,6 +128,14 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   sondage en première manche donne un thème neutre.
 - B6 → C1 — `GET /api/games` et `GET /api/games/:slug` existent déjà (B6) : C1 les étend. Le
   lanceur de la console ne liste encore que les quiz (remplacé par le catalogue en C1).
+- C1 — À trancher par l'utilisateur : un quiz publié après C1 n'arrive dans le catalogue des
+  cinémas qu'une fois activé par le super-admin (`catalogEnabled` faux par défaut, conforme au
+  prompt). Avant C1, publier suffisait.
+- C1 — Jeux quiz : PATCH /api/games refuse aussi description, kind, sponsor et durée (écrasés par
+  la synchro quiz) ; seuls les champs catalogue sont modifiables. Le sponsor n'est montré aux
+  cinémas que pour un jeu `sponsored`. Entrée admin « Sondages » conservée à côté de « Catalogue ».
+- C1 — Catalogue cinéma non paginé ; durée estimée par défaut 5 min si inconnue ; sélecteur de
+  cinémas admin limité aux 100 premiers.
 
 ## Décisions
 
