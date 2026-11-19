@@ -26,7 +26,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 03 | A3 Réponses | A2 (players.service) | — | fait (29d9c33 + correctif reprise) |
 | 04 | A4 Déploiement | — | — | fait (2cc96b7 + commit exact) |
 | 05 | B1 Game / Round / Score | A3 | 0020_games_rounds_scores | fait (1dec890) |
-| 06 | B2-B4 Moteur et protocole | B1 | — | à faire |
+| 06 | B2-B4 Moteur et protocole | B1 | — | fait (83bd658 → 0ce7b37), voir B2-B4-NOTES §13 |
 | 07 | B5 Multi-manches | B2-B4 | 0021 | à faire |
 | 08 | B6 Sondage | B5 | — | à faire |
 | 09 | C1 Catalogue | B6, A1 | 0022 | à faire |
@@ -113,6 +113,11 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 - B1 — Le schéma `createSessionSchema` (quizSlug | gameSlugs) reste dans `api/.../sessions.schemas.ts`
   et n'est pas dans `packages/validation`.
 - B1 — Le jeu archivé d'un quiz supprimé garde son slug ; un nouveau quiz du même nom prend `-2`.
+- B2-B4 — Colonnes `sessions.current_question_started_at` / `current_question_paused_at` plus
+  écrites ; à supprimer par une migration ultérieure (hors chantier, les migrations sont additives).
+- B2-B4 → B5 — Le thème de session (fonds, sons) et `GET /api/sessions/:id/full` (contenu console)
+  viennent encore du quiz de la session : B5 doit les lire sur la manche active / la première manche.
+- B2-B4 — Fuites de l'abstraction listées dans B2-B4-NOTES §13(g).
 
 ## Décisions
 
