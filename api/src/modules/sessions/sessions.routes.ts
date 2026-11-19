@@ -26,7 +26,11 @@ import {
   abortSessionSchema,
 } from './sessions.schemas.js';
 import { SESSION_DETAIL_INCLUDE, sessionsService } from './sessions.service.js';
-import { resolveLobbyQuiz, sessionTitle } from './session-content.service.js';
+import {
+  resolveLobbyQuiz,
+  resolveSessionSponsor,
+  sessionTitle,
+} from './session-content.service.js';
 import { getSessionRuntime } from './session-runtime.service.js';
 import { clearLobbyTimer } from './lobby-timer.service.js';
 import { notifyScreenSessionStarted } from './screen-session-started.js';
@@ -238,7 +242,9 @@ router.get('/:id/full', requireAuth([...ADMIN_ROLES]), async (req, res, next) =>
 });
 
 /** Réponse publique commune à by-code et by-token (sans questions ni réponses). */
-function shapePublicSession(session: Awaited<ReturnType<typeof sessionsService.getBySlugShort>>) {
+async function shapePublicSession(
+  session: Awaited<ReturnType<typeof sessionsService.getBySlugShort>>,
+) {
   // Lobby : jeu de la première manche (son quiz pour l'habillage), sinon quiz de la séance.
   const firstGame = session.rounds[0]?.game ?? null;
   const quiz = firstGame ? firstGame.quiz : session.quiz;
@@ -259,13 +265,15 @@ function shapePublicSession(session: Awaited<ReturnType<typeof sessionsService.g
       sponsor: sponsor ? { name: sponsor.name, logoUrl: sponsor.logoUrl } : null,
     },
     totalPlayers: session.totalPlayers,
+    // C4 : sponsor montré au public (première manche sponsorisée), null sinon.
+    sessionSponsor: await resolveSessionSponsor(session.id),
   };
 }
 
 router.get('/by-code/:slugShort', async (req, res, next) => {
   try {
     const session = await sessionsService.getBySlugShort(param(req, 'slugShort'));
-    res.json(shapePublicSession(session));
+    res.json(await shapePublicSession(session));
   } catch (error) {
     next(error);
   }
@@ -274,7 +282,7 @@ router.get('/by-code/:slugShort', async (req, res, next) => {
 router.get('/by-token/:joinToken', async (req, res, next) => {
   try {
     const session = await sessionsService.getByJoinToken(param(req, 'joinToken'));
-    res.json(shapePublicSession(session));
+    res.json(await shapePublicSession(session));
   } catch (error) {
     next(error);
   }

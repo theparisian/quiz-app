@@ -48,3 +48,23 @@ export async function assertCanAccessSession(
   if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
   await assertCanAccessCinema(user, session.screen.cinemaId);
 }
+
+/** Utilisateur vu par le cloisonnement entre sponsors (C4). */
+export interface SponsorScopeUser {
+  role: string;
+  sponsorId: bigint | null;
+}
+
+/**
+ * Cloisonnement entre sponsors (C4) : super_admin passe toujours ; un utilisateur de rôle
+ * sponsor ne lit que le sponsor auquel il est rattaché. Tout autre rôle est refusé.
+ */
+export async function assertCanAccessSponsor(
+  user: SponsorScopeUser,
+  sponsorId: bigint,
+): Promise<void> {
+  if (user.role === 'super_admin') return;
+  if (user.role !== 'sponsor' || user.sponsorId === null || user.sponsorId !== sponsorId) {
+    throw forbidden();
+  }
+}

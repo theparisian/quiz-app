@@ -10,7 +10,10 @@ export const usersService = {
   async findById(id: bigint) {
     return prisma.user.findUnique({
       where: { id },
-      include: { cinema: { select: { slug: true, name: true } } },
+      include: {
+        cinema: { select: { slug: true, name: true } },
+        sponsor: { select: { slug: true, name: true } },
+      },
     });
   },
 

@@ -4,5 +4,6 @@ export * from './prizes';
 export * from './lobby-timer';
 export * from './audio';
 export * from './campaigns';
+export * from './sponsor-portal';
 export * from './games/quiz';
 export * from './games/poll';

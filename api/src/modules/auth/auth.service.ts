@@ -17,11 +17,12 @@ export const authService = {
       return;
     }
 
-    // Only admin roles can use magic link
+    // Only admin roles (and sponsor contacts, C4: portail dans la console) can use magic link
     if (
       user.role !== 'super_admin' &&
       user.role !== 'projectionist' &&
-      user.role !== 'cinema_admin'
+      user.role !== 'cinema_admin' &&
+      user.role !== 'sponsor'
     ) {
       logger.info({ email, role: user.role }, 'Magic link requested for non-admin role');
       return;
@@ -86,7 +87,7 @@ export const authService = {
 
     const accessToken = await signJwt({
       userId: user.id.toString(),
-      role: user.role as 'super_admin' | 'projectionist' | 'cinema_admin' | 'player',
+      role: user.role,
       cinemaId: user.cinemaId?.toString(),
     });
 

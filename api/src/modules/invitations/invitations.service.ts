@@ -9,10 +9,15 @@ import type { InvitationRole } from '@quiz-app/types';
 
 const INVITATION_EXPIRY_DAYS = 7;
 
+function invitationLink(token: string): string {
+  const consoleUrl = process.env.APP_URL_CONSOLE ?? 'http://localhost:3003';
+  return `${consoleUrl}/invitations/accept?token=${token}`;
+}
+
 export const invitationsService = {
   async create(data: {
     email: string;
-    role: InvitationRole;
+    role: Exclude<InvitationRole, 'sponsor'>;
     cinemaId: bigint;
     invitedBy: { id: bigint; displayName: string | null };
   }) {
@@ -48,8 +53,7 @@ export const invitationsService = {
       include: { cinema: true },
     });
 
-    const consoleUrl = process.env.APP_URL_CONSOLE ?? 'http://localhost:3003';
-    const link = `${consoleUrl}/invitations/accept?token=${token}`;
+    const link = invitationLink(token);
     const roleLabel = data.role === 'projectionist' ? 'projectionniste' : 'administrateur cinéma';
 
     const html = renderTemplate('invitation', {
@@ -77,14 +81,72 @@ export const invitationsService = {
       'Invitation created and email sent',
     );
 
+    return { ...invitation, cinema };
+  },
+
+  /**
+   * Invitation d'un contact sponsor (C4) : l'acceptation crée (ou convertit) un utilisateur de
+   * rôle sponsor rattaché à ce sponsor, sans cinéma.
+   */
+  async createForSponsor(data: {
+    email: string;
+    sponsorId: bigint;
+    invitedBy: { id: bigint; displayName: string | null };
+  }) {
+    const sponsor = await prisma.sponsor.findUnique({ where: { id: data.sponsorId } });
+    if (!sponsor) throw new AppError('Sponsor not found', 404, 'SPONSOR_NOT_FOUND');
+
+    const existing = await prisma.invitation.findFirst({
+      where: { email: data.email, sponsorId: data.sponsorId, status: 'pending' },
+    });
+    if (existing)
+      throw new AppError(
+        'A pending invitation already exists for this email and sponsor',
+        409,
+        'INVITATION_ALREADY_EXISTS',
+      );
+
+    const token = nanoid(32);
+    const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    const invitation = await prisma.invitation.create({
+      data: {
+        email: data.email,
+        role: 'sponsor',
+        sponsorId: data.sponsorId,
+        invitedByUserId: data.invitedBy.id,
+        token,
+        expiresAt,
+      },
+    });
+
+    const link = invitationLink(token);
+    const html = renderTemplate('sponsor-invitation', {
+      inviterName: data.invitedBy.displayName ?? 'Un administrateur',
+      sponsorName: sponsor.name,
+      link,
+      logoUrl: getBrandLogoUrl(),
+    });
+    await sendEmail({
+      to: data.email,
+      subject: `Votre accès à l'espace sponsor ${sponsor.name} — Shh!`,
+      html,
+      text: `Vous êtes invité à consulter les résultats des campagnes de ${sponsor.name}. Lien : ${link}`,
+    });
+
+    logger.info(
+      {
+        invitationId: invitation.id.toString(),
+        email: data.email,
+        sponsorId: data.sponsorId.toString(),
+        role: 'sponsor',
+      },
+      'Sponsor invitation created and email sent',
+    );
     return invitation;
   },
 
   async accept(token: string, displayName: string) {
-    const invitation = await prisma.invitation.findUnique({
-      where: { token },
-      include: { cinema: true },
-    });
+    const invitation = await prisma.invitation.findUnique({ where: { token } });
 
     if (!invitation) throw new AppError('Invitation not found', 404, 'INVITATION_NOT_FOUND');
     if (invitation.status !== 'pending')
@@ -94,8 +156,10 @@ export const invitationsService = {
       throw new AppError('Invitation has expired', 400, 'INVITATION_EXPIRED');
     }
 
-    const userRole =
-      invitation.role === 'projectionist' ? ('projectionist' as const) : ('cinema_admin' as const);
+    // Une invitation porte soit un cinéma (rôles cinéma), soit un sponsor (rôle sponsor, C4).
+    const userRole = invitation.role;
+    const cinemaId = userRole === 'sponsor' ? null : invitation.cinemaId;
+    const sponsorId = userRole === 'sponsor' ? invitation.sponsorId : null;
 
     let user = await prisma.user.findUnique({ where: { email: invitation.email } });
 
@@ -104,7 +168,8 @@ export const invitationsService = {
         where: { id: user.id },
         data: {
           role: userRole,
-          cinemaId: invitation.cinemaId,
+          cinemaId,
+          sponsorId,
           displayName,
           lastLoginAt: new Date(),
         },
@@ -116,7 +181,8 @@ export const invitationsService = {
           email: invitation.email,
           displayName,
           role: userRole,
-          cinemaId: invitation.cinemaId,
+          cinemaId,
+          sponsorId,
         },
       });
     }
@@ -128,7 +194,7 @@ export const invitationsService = {
 
     const accessToken = await signJwt({
       userId: user.id.toString(),
-      role: user.role as 'projectionist' | 'cinema_admin',
+      role: user.role,
       cinemaId: user.cinemaId?.toString(),
     });
 
@@ -149,6 +215,7 @@ export const invitationsService = {
         displayName: user.displayName,
         role: user.role,
         cinemaId: user.cinemaId?.toString() ?? null,
+        sponsorId: user.sponsorId?.toString() ?? null,
       },
     };
   },
@@ -170,7 +237,10 @@ export const invitationsService = {
   async getByToken(token: string) {
     const invitation = await prisma.invitation.findUnique({
       where: { token },
-      include: { cinema: { select: { name: true, slug: true } } },
+      include: {
+        cinema: { select: { name: true, slug: true } },
+        sponsor: { select: { name: true } },
+      },
     });
 
     if (!invitation) throw new AppError('Invitation not found', 404, 'INVITATION_NOT_FOUND');
@@ -184,8 +254,9 @@ export const invitationsService = {
     return {
       email: invitation.email,
       role: invitation.role,
-      cinemaName: invitation.cinema.name,
-      cinemaSlug: invitation.cinema.slug,
+      cinemaName: invitation.cinema?.name ?? null,
+      cinemaSlug: invitation.cinema?.slug ?? null,
+      sponsorName: invitation.sponsor?.name ?? null,
     };
   },
 
@@ -204,6 +275,7 @@ export const invitationsService = {
         where,
         include: {
           cinema: { select: { name: true, slug: true } },
+          sponsor: { select: { name: true, slug: true } },
           invitedBy: { select: { displayName: true, email: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -219,8 +291,10 @@ export const invitationsService = {
         email: i.email,
         role: i.role,
         status: i.status,
-        cinemaName: i.cinema.name,
-        cinemaSlug: i.cinema.slug,
+        cinemaName: i.cinema?.name ?? null,
+        cinemaSlug: i.cinema?.slug ?? null,
+        sponsorName: i.sponsor?.name ?? null,
+        sponsorSlug: i.sponsor?.slug ?? null,
         invitedBy: i.invitedBy.displayName ?? i.invitedBy.email,
         createdAt: i.createdAt.toISOString(),
         expiresAt: i.expiresAt.toISOString(),

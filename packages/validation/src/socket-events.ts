@@ -163,6 +163,22 @@ export const sessionAbortedSchema = z.object({
 
 // ─── Manches (protocole commun à tous les moteurs) ───────
 
+/** Sponsor tel qu'il s'affiche au public (badge « Présenté par », carton d'ouverture). */
+export const sponsorDisplaySchema = z.object({
+  name: z.string(),
+  logoUrl: z.string().nullable(),
+  brandColorPrimary: z.string().nullable(),
+});
+export type SponsorDisplay = z.infer<typeof sponsorDisplaySchema>;
+
+/**
+ * Sponsor de la séance (C4), affiché au lobby et sur l'écran final du joueur : celui de la
+ * première manche sponsorisée (`kind = sponsored` avec un sponsor), null sinon. Clé
+ * `sessionSponsor` des snapshots écran et mobile et des réponses by-code / by-token.
+ */
+export const sessionSponsorSchema = sponsorDisplaySchema.nullable();
+export type SessionSponsor = z.infer<typeof sessionSponsorSchema>;
+
 /** Manche annoncée par `round:started` et portée par `session:state_snapshot.round`. */
 export const roundInfoSchema = z.object({
   roundId: z.string(),
@@ -174,16 +190,22 @@ export const roundInfoSchema = z.object({
     slug: z.string(),
     title: z.string(),
     kind: z.enum(['internal', 'sponsored']),
-    sponsor: z
-      .object({
-        name: z.string(),
-        logoUrl: z.string().nullable(),
-        brandColorPrimary: z.string().nullable(),
-      })
-      .nullable(),
+    sponsor: sponsorDisplaySchema.nullable(),
   }),
 });
 export type RoundInfo = z.infer<typeof roundInfoSchema>;
+
+/**
+ * Sponsor à montrer au public pendant une manche (C4) : seulement pour un jeu `sponsored`
+ * qui a un sponsor (même règle que le catalogue des cinémas, C1). Jamais pour une manche
+ * non sponsorisée.
+ */
+export function displayedRoundSponsor(
+  round: Pick<RoundInfo, 'game'> | null | undefined,
+): SponsorDisplay | null {
+  if (!round || round.game.kind !== 'sponsored') return null;
+  return round.game.sponsor ?? null;
+}
 
 export const roundStartedSchema = roundInfoSchema;
 export type RoundStartedPayload = RoundInfo;

@@ -3,6 +3,7 @@ import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { extractKeyFromPublicUrl } from '../../shared/storage/storage-url.js';
 import type { StorageProvider } from '../../shared/storage/storage-provider.js';
+import type { SponsorAccess } from '@quiz-app/validation';
 import type { CreateSponsorInput, UpdateSponsorInput } from './sponsors.schemas.js';
 
 function slugify(name: string): string {
@@ -43,6 +44,50 @@ export const sponsorsService = {
         active: true,
       },
     });
+  },
+
+  /** Bloc « Accès » de la fiche sponsor (C4) : comptes sponsor actifs et invitations en attente. */
+  async getAccess(slug: string): Promise<SponsorAccess> {
+    const sponsor = await prisma.sponsor.findUnique({ where: { slug }, select: { id: true } });
+    if (!sponsor) throw new AppError('Sponsor not found', 404, 'SPONSOR_NOT_FOUND');
+    const [users, invitations] = await Promise.all([
+      prisma.user.findMany({
+        where: { sponsorId: sponsor.id, role: 'sponsor', deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.invitation.findMany({
+        where: { sponsorId: sponsor.id, status: 'pending', expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+    return {
+      users: users.map((u) => ({
+        id: u.id.toString(),
+        email: u.email,
+        displayName: u.displayName,
+        lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
+      })),
+      invitations: invitations.map((i) => ({
+        id: i.id.toString(),
+        email: i.email,
+        createdAt: i.createdAt.toISOString(),
+        expiresAt: i.expiresAt.toISOString(),
+      })),
+    };
+  },
+
+  /**
+   * Révoque l'accès d'un contact sponsor (C4) : il perd le rôle sponsor (redevient `player`,
+   * sans sponsor). L'effet est immédiat, le rôle étant relu en base à chaque requête.
+   */
+  async revokeUserAccess(slug: string, userId: bigint): Promise<void> {
+    const sponsor = await prisma.sponsor.findUnique({ where: { slug }, select: { id: true } });
+    if (!sponsor) throw new AppError('Sponsor not found', 404, 'SPONSOR_NOT_FOUND');
+    const res = await prisma.user.updateMany({
+      where: { id: userId, sponsorId: sponsor.id, role: 'sponsor' },
+      data: { role: 'player', sponsorId: null, magicLinkToken: null, magicLinkExpiresAt: null },
+    });
+    if (res.count === 0) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
   },
 
   async getBySlug(slug: string) {

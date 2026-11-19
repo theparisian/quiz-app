@@ -21,6 +21,10 @@ router.get('/me', requireAuth(), async (req, res, next) => {
       cinemaId: user.cinemaId?.toString() ?? null,
       cinemaSlug: user.cinema?.slug ?? null,
       cinemaName: user.cinema?.name ?? null,
+      // Rôle sponsor (C4) : sponsor dont l'utilisateur consulte le portail.
+      sponsorId: user.sponsorId?.toString() ?? null,
+      sponsorSlug: user.sponsor?.slug ?? null,
+      sponsorName: user.sponsor?.name ?? null,
       createdAt: user.createdAt.toISOString(),
     });
   } catch (error) {

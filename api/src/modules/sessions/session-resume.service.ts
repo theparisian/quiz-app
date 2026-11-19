@@ -1,6 +1,10 @@
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import { resolveRoundThemeQuiz, shapeThemePayload } from './session-content.service.js';
+import {
+  resolveRoundThemeQuiz,
+  resolveSessionSponsor,
+  shapeThemePayload,
+} from './session-content.service.js';
 import { getSessionRuntime } from './session-runtime.service.js';
 import { getLobbyTimerRemainingMs } from './lobby-timer.service.js';
 import {
@@ -130,6 +134,8 @@ export async function buildMobilePlayerStateSnapshot(
       totalPlayers: ranked.length,
       audioMuted: session.audioMuted,
     },
+    // C4 : sponsor de la séance (lobby, écran final), première manche sponsorisée.
+    sessionSponsor: await resolveSessionSponsor(sessionId),
     ...getSessionRuntime().roundSnapshot(sessionId, 'mobile', playerId),
   };
 
@@ -195,6 +201,8 @@ export async function buildNucStateSnapshot(params: {
     ...(await shapeThemePayload(
       await resolveRoundThemeQuiz(session.id, getSessionRuntime().currentRoundId(session.id)),
     )),
+    // C4 : sponsor de la séance (lobby), première manche sponsorisée.
+    sessionSponsor: await resolveSessionSponsor(session.id),
     players: byArrival.map(playerListEntry),
     scoreboard: ranked.slice(0, session.state === 'ended' ? 3 : 5).map(boardEntry),
     ...lobbyTimerField(session.id, session.state),

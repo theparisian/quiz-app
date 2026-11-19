@@ -18,6 +18,8 @@ import {
   createPrizeTemplateBodySchema,
 } from '../prizes/prizes.schemas.js';
 import { prizeTemplateService } from '../prizes/prize-template.service.js';
+import { sponsorInvitationBodySchema } from '@quiz-app/validation';
+import { invitationsService } from '../invitations/invitations.service.js';
 
 const router = Router();
 
@@ -195,6 +197,50 @@ router.delete('/:slug/logo', requireAuth(['super_admin']), async (req, res, next
     const sponsor = await sponsorsService.removeLogo(param(req, 'slug'), storage);
     logger.info({ sponsorSlug: sponsor.slug }, 'Sponsor logo removed');
     res.json(shapeSponsor(sponsor));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Accès des contacts sponsor au portail (C4) ─────────
+
+router.get('/:slug/access', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    res.json(await sponsorsService.getAccess(param(req, 'slug')));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:slug/invitations', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const { email } = validate(sponsorInvitationBodySchema, req.body);
+    const sponsor = await sponsorsService.getBySlug(param(req, 'slug'));
+    const invitation = await invitationsService.createForSponsor({
+      email,
+      sponsorId: sponsor.id,
+      invitedBy: { id: req.user!.id, displayName: req.user!.displayName },
+    });
+    res.status(201).json({
+      id: invitation.id.toString(),
+      email: invitation.email,
+      role: invitation.role,
+      status: invitation.status,
+      sponsorName: sponsor.name,
+      expiresAt: invitation.expiresAt.toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:slug/users/:userId/revoke', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const raw = param(req, 'userId');
+    if (!/^\d{1,20}$/.test(raw)) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    await sponsorsService.revokeUserAccess(param(req, 'slug'), BigInt(raw));
+    logger.info({ sponsorSlug: param(req, 'slug'), userId: raw }, 'Sponsor access revoked');
+    res.json({ message: 'Access revoked' });
   } catch (error) {
     next(error);
   }

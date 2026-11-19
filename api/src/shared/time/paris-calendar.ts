@@ -34,3 +34,20 @@ export function parisMonthRange(month: string): { start: Date; end: Date } {
     end: fromZonedTime(`${nextY}-${pad(nextM)}-01T00:00:00`, PARIS_TZ),
   };
 }
+
+/** Jour civil parisien (`YYYY-MM-DD`) contenant `at`. */
+export function parisDayOf(at: Date): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: PARIS_TZ }).format(at);
+}
+
+/** Bornes [début, fin) d'un jour civil parisien donné (`YYYY-MM-DD`). */
+export function parisDayBounds(day: string): { start: Date; end: Date } {
+  return parisDayRange(fromZonedTime(`${day}T12:00:00`, PARIS_TZ));
+}
+
+/** Jour civil suivant (`YYYY-MM-DD`), sans fuseau (arithmétique de calendrier). */
+export function nextCalendarDay(day: string): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}

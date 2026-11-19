@@ -20,6 +20,7 @@ import { gamesRouter } from './modules/games/games.routes.js';
 import { catalogRouter } from './modules/catalog/catalog.routes.js';
 import { programsRouter } from './modules/programs/programs.routes.js';
 import { campaignsRouter, statementsRouter } from './modules/campaigns/campaigns.routes.js';
+import { sponsorPortalRouter } from './modules/sponsor-portal/sponsor-portal.routes.js';
 import { aiRouter } from './modules/ai/ai.routes.js';
 import { sessionsRouter, sessionsNestedRouter } from './modules/sessions/sessions.routes.js';
 import { playersRouter, playersPublicRouter } from './modules/players/players.routes.js';
@@ -71,6 +72,7 @@ export function buildApp(): Express {
   app.use('/api/catalog', catalogRouter);
   app.use('/api', programsRouter);
   app.use('/api/campaigns', campaignsRouter);
+  app.use('/api/sponsor-portal', sponsorPortalRouter);
   app.use('/api', statementsRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/dashboard', dashboardRouter);

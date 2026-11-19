@@ -11,6 +11,8 @@ export interface AuthUser {
   displayName: string | null;
   role: UserRole;
   cinemaId: bigint | null;
+  /** Rôle sponsor (C4) : sponsor dont l'utilisateur lit les chiffres, null sinon. */
+  sponsorId: bigint | null;
 }
 
 export function requireAuth(roles?: UserRole[]) {
@@ -41,6 +43,7 @@ export function requireAuth(roles?: UserRole[]) {
         displayName: user.displayName,
         role: user.role as UserRole,
         cinemaId: user.cinemaId,
+        sponsorId: user.sponsorId,
       };
 
       next();

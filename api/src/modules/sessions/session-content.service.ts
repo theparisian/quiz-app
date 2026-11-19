@@ -115,3 +115,34 @@ export async function shapeThemePayload(quiz: Quiz | null) {
   }
   return { quiz: shapeQuizBackgroundPayload(quiz), audio: await resolveQuizAudioPayload(quiz) };
 }
+
+const SPONSOR_DISPLAY_SELECT = {
+  name: true,
+  logoUrl: true,
+  brandColorPrimary: true,
+} satisfies Prisma.SponsorSelect;
+
+/**
+ * Sponsor de la séance montré au public (C4, `sessionSponsor`) : celui de la première manche
+ * sponsorisée (jeu `kind = sponsored` avec un sponsor, même règle que le catalogue C1). Séance
+ * sans manche (convention 9) : le quiz de la séance s'il est sponsorisé. Null sinon.
+ */
+export async function resolveSessionSponsor(
+  sessionId: bigint,
+): Promise<{ name: string; logoUrl: string | null; brandColorPrimary: string | null } | null> {
+  const rounds = await prisma.sessionRound.findMany({
+    where: { sessionId },
+    orderBy: { position: 'asc' },
+    select: { game: { select: { kind: true, sponsor: { select: SPONSOR_DISPLAY_SELECT } } } },
+  });
+  if (rounds.length > 0) {
+    const sponsored = rounds.find((r) => r.game.kind === 'sponsored' && r.game.sponsor !== null);
+    return sponsored?.game.sponsor ?? null;
+  }
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { quiz: { select: { type: true, sponsor: { select: SPONSOR_DISPLAY_SELECT } } } },
+  });
+  if (session?.quiz?.type === 'sponsored') return session.quiz.sponsor ?? null;
+  return null;
+}

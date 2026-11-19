@@ -33,6 +33,7 @@ enum UserRole {
   projectionist
   cinema_admin
   super_admin
+  sponsor
 }
 
 enum OAuthProvider {
@@ -117,6 +118,7 @@ enum InvitationStatus {
 enum InvitationRole {
   projectionist
   cinema_admin
+  sponsor
 }
 
 enum GameKind {
@@ -240,17 +242,21 @@ model User {
   passwordHash       String?       @map("password_hash") @db.VarChar(255)
   role               UserRole      @default(player)
   cinemaId           BigInt?       @map("cinema_id")
+  /// Rôle sponsor (C4) : le sponsor dont l'utilisateur consulte les chiffres.
+  sponsorId          BigInt?       @map("sponsor_id")
   createdAt          DateTime      @default(now()) @map("created_at")
   lastLoginAt        DateTime?     @map("last_login_at")
   deletedAt          DateTime?     @map("deleted_at")
 
   cinema         Cinema?         @relation(fields: [cinemaId], references: [id])
+  sponsor        Sponsor?        @relation(fields: [sponsorId], references: [id])
   quizzes        Quiz[]
   sessions       Session[]       @relation("ProjectionistSessions")
   aiGenerations  AiGeneration[]
   invitationsSent Invitation[]   @relation("InvitedByUser")
 
   @@index([cinemaId])
+  @@index([sponsorId])
   @@index([magicLinkToken])
   @@map("users")
 }
@@ -259,7 +265,9 @@ model Invitation {
   id              BigInt           @id @default(autoincrement())
   email           String           @db.VarChar(255)
   role            InvitationRole
-  cinemaId        BigInt           @map("cinema_id")
+  /// Une invitation porte soit un cinéma (rôles cinéma), soit un sponsor (rôle sponsor, C4).
+  cinemaId        BigInt?          @map("cinema_id")
+  sponsorId       BigInt?          @map("sponsor_id")
   invitedByUserId BigInt           @map("invited_by_user_id")
   token           String           @unique @db.VarChar(100)
   expiresAt       DateTime         @map("expires_at")
@@ -267,10 +275,12 @@ model Invitation {
   createdAt       DateTime         @default(now()) @map("created_at")
   acceptedAt      DateTime?        @map("accepted_at")
 
-  cinema    Cinema @relation(fields: [cinemaId], references: [id])
-  invitedBy User   @relation("InvitedByUser", fields: [invitedByUserId], references: [id])
+  cinema    Cinema?  @relation(fields: [cinemaId], references: [id], onDelete: Restrict)
+  sponsor   Sponsor? @relation(fields: [sponsorId], references: [id])
+  invitedBy User     @relation("InvitedByUser", fields: [invitedByUserId], references: [id])
 
   @@index([cinemaId])
+  @@index([sponsorId])
   @@index([invitedByUserId])
   @@index([token])
   @@index([status])
@@ -529,6 +539,8 @@ model Sponsor {
   prizeTemplates PrizeTemplate[]
   games          Game[]
   campaigns      Campaign[]
+  users          User[]
+  invitations    Invitation[]
 
   @@map("sponsors")
 }

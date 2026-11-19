@@ -15,6 +15,7 @@ declare module 'express-serve-static-core' {
           displayName: string | null;
           role: UserRole;
           cinemaId: bigint | null;
+          sponsorId: bigint | null;
         }
       | undefined;
     nuc?:
