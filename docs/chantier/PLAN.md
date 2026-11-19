@@ -131,4 +131,9 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 - 2026-11-18 — Déploiement automatique : on déploie le commit exact validé par la CI
   (`workflow_run.head_sha`), un seul déploiement à la fois, et jamais un commit plus ancien que la
   version en place.
+- 2026-11-19 — B2-B4 validé par l'utilisateur (après test navigateur de bout en bout, captures
+  dans le scratchpad de session).
+- 2026-11-19 — La dernière question d'une manche quiz affiche sa révélation (`reveal`, avec
+  `endsAt` = maintenant + RESULTS_DISPLAY_MS) avant la fin de manche, comme les autres questions.
+  Réalisé avec B5.
 - 2026-11-18 — Validations humaines réduites au minimum : après B2-B4 et en fin de chantier.
