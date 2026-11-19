@@ -38,18 +38,12 @@ export const playerJoinPayloadSchema = z
     path: ['joinToken'],
   });
 
-export const playerSubmitAnswerPayloadSchema = z.object({
-  questionId: z.string().min(1),
-  answerId: z.string().min(1),
-});
-
 export const playerResumePayloadSchema = z.object({
   resumeToken: z.string().min(1),
   sessionId: z.string().min(1),
 });
 
 export type PlayerJoinPayload = z.infer<typeof playerJoinPayloadSchema>;
-export type PlayerSubmitAnswerPayload = z.infer<typeof playerSubmitAnswerPayloadSchema>;
 export type PlayerResumePayload = z.infer<typeof playerResumePayloadSchema>;
 
 // ─── Client → Server: Player (NUC) ───────────────────────
@@ -104,63 +98,11 @@ export const sessionStateChangedSchema = z.object({
 
 export const sessionStartedSchema = z.object({
   sessionId: z.string(),
-  totalQuestions: z.number().int(),
   audio: resolvedQuizAudioSchema.optional(),
-});
-
-export const sessionQuestionStartedSchema = z.object({
-  questionId: z.string(),
-  questionPosition: z.number().int(),
-  questionText: z.string(),
-  questionImageUrl: z.string().nullable(),
-  answers: z.array(
-    z.object({
-      id: z.string(),
-      position: z.string(),
-      text: z.string(),
-    }),
-  ),
-  timeLimitMs: z.number().int(),
-  startedAt: z.string().datetime(),
-});
-
-export const sessionTimerUpdateSchema = z.object({
-  remainingMs: z.number().int(),
 });
 
 export const sessionLobbyTimerUpdateSchema = z.object({
   remainingMs: z.number().int(),
-});
-
-export const sessionAnswerSubmittedCountSchema = z.object({
-  count: z.number().int(),
-  total: z.number().int(),
-});
-
-/** Diffusé au seul namespace /player : alimente le pseudo éphémère + le SFX « joueur a répondu ». */
-export const sessionPlayerAnsweredSchema = z.object({
-  playerId: z.string(),
-  pseudo: z.string(),
-  avatarUrl: z.string().nullable().optional(),
-  answeredCount: z.number().int().optional(),
-});
-
-export const sessionQuestionEndedSchema = z.object({
-  correctAnswerId: z.string().nullable(),
-  explanationText: z.string().nullable(),
-  scoreboard: z.array(
-    z.object({
-      playerId: z.string(),
-      pseudo: z.string(),
-      avatarUrl: z.string().nullable().optional(),
-      scoreTotal: z.number().int(),
-      scoreThisQuestion: z.number().int(),
-    }),
-  ),
-});
-
-export const sessionNextQuestionInSchema = z.object({
-  ms: z.number().int(),
 });
 
 export const sessionPausedSchema = z.object({
@@ -199,6 +141,95 @@ export const sessionEndedSchema = z.object({
 export const sessionAbortedSchema = z.object({
   reason: z.string().nullable(),
 });
+
+// ─── Manches (protocole commun à tous les moteurs) ───────
+
+/** Manche annoncée par `round:started` et portée par `session:state_snapshot.round`. */
+export const roundInfoSchema = z.object({
+  roundId: z.string(),
+  /** Position de la manche dans la séance, à partir de 1. */
+  position: z.number().int().positive(),
+  totalRounds: z.number().int().positive(),
+  engineKey: z.string(),
+  game: z.object({
+    slug: z.string(),
+    title: z.string(),
+    kind: z.enum(['internal', 'sponsored']),
+    sponsor: z
+      .object({
+        name: z.string(),
+        logoUrl: z.string().nullable(),
+        brandColorPrimary: z.string().nullable(),
+      })
+      .nullable(),
+  }),
+});
+export type RoundInfo = z.infer<typeof roundInfoSchema>;
+
+export const roundStartedSchema = roundInfoSchema;
+export type RoundStartedPayload = RoundInfo;
+
+export const roundScoreboardEntrySchema = z.object({
+  playerId: z.string(),
+  pseudo: z.string(),
+  avatarUrl: z.string().nullable(),
+  scoreTotal: z.number().int(),
+  scoreThisRound: z.number().int(),
+});
+
+/** Fin de manche, vers les trois audiences ; classement trié par score total décroissant. */
+export const roundEndedSchema = z.object({
+  roundId: z.string(),
+  position: z.number().int().positive(),
+  totalRounds: z.number().int().positive(),
+  scoreboard: z.array(roundScoreboardEntrySchema),
+});
+export type RoundEndedPayload = z.infer<typeof roundEndedSchema>;
+
+/**
+ * Vue complète d'un moteur pour une audience (`view` : schéma du moteur, voir `games/<clé>`).
+ * `seq` croît strictement par manche et par destinataire : ignorer un `seq` <= au dernier
+ * appliqué. `serverNow` (ISO) sert à calculer le décalage d'horloge.
+ */
+export const gameStateSchema = z.object({
+  roundId: z.string(),
+  engineKey: z.string(),
+  seq: z.number().int().positive(),
+  serverNow: z.string().datetime(),
+  view: z.unknown(),
+});
+export type GameStatePayload = z.infer<typeof gameStateSchema>;
+
+/** Signal éphémère (son, animation). Ne porte jamais d'état : le perdre ne change rien. */
+export const gameCueSchema = z.object({
+  roundId: z.string(),
+  cue: z.string(),
+  data: z.unknown().optional(),
+});
+export type GameCuePayload = z.infer<typeof gameCueSchema>;
+
+/** Mobile → serveur, avec accusé. Le joueur est celui du socket. */
+export const gameActionPayloadSchema = z.object({
+  roundId: z.string().regex(/^\d+$/),
+  type: z.string().min(1).max(50),
+  payload: z.unknown(),
+});
+export type GameActionPayload = z.infer<typeof gameActionPayloadSchema>;
+
+export const gameActionAckSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), result: z.unknown() }),
+  z.object({ ok: z.literal(false), code: z.string(), message: z.string() }),
+]);
+export type GameActionAck = z.infer<typeof gameActionAckSchema>;
+
+/** Champs de manche de tout `session:state_snapshot` (règle 5). */
+export const snapshotRoundFieldsSchema = z.object({
+  round: roundInfoSchema.nullable(),
+  gameView: z.unknown(),
+  /** `seq` de la dernière vue émise vers ce destinataire (0 si aucune). */
+  gameSeq: z.number().int().nonnegative(),
+});
+export type SnapshotRoundFields = z.infer<typeof snapshotRoundFieldsSchema>;
 
 // ─── Server → Client: Player events ──────────────────────
 
@@ -281,13 +312,7 @@ export const nucStatusChangedSchema = z.object({
 
 export type SessionStateChangedPayload = z.infer<typeof sessionStateChangedSchema>;
 export type SessionStartedPayload = z.infer<typeof sessionStartedSchema>;
-export type SessionQuestionStartedPayload = z.infer<typeof sessionQuestionStartedSchema>;
-export type SessionTimerUpdatePayload = z.infer<typeof sessionTimerUpdateSchema>;
 export type SessionLobbyTimerUpdatePayload = z.infer<typeof sessionLobbyTimerUpdateSchema>;
-export type SessionAnswerSubmittedCountPayload = z.infer<typeof sessionAnswerSubmittedCountSchema>;
-export type SessionPlayerAnsweredPayload = z.infer<typeof sessionPlayerAnsweredSchema>;
-export type SessionQuestionEndedPayload = z.infer<typeof sessionQuestionEndedSchema>;
-export type SessionNextQuestionInPayload = z.infer<typeof sessionNextQuestionInSchema>;
 export type SessionPausedPayload = z.infer<typeof sessionPausedSchema>;
 export type SessionResumedPayload = z.infer<typeof sessionResumedSchema>;
 export type SessionAudioMutedPayload = z.infer<typeof sessionAudioMutedSchema>;

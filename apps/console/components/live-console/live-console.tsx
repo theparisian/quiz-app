@@ -173,7 +173,7 @@ export function LiveConsole({
             <ControlsPanel
               onPause={() => doAction(`/api/sessions/${sessionId}/pause`)}
               onResume={() => doAction(`/api/sessions/${sessionId}/resume`)}
-              onForceEnd={() => doAction(`/api/sessions/${sessionId}/force-end-question`)}
+              onForceEnd={() => doAction(`/api/sessions/${sessionId}/force-advance`)}
               onAbort={() => setAbortModalOpen(true)}
             />
           </div>

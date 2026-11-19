@@ -11,6 +11,7 @@ import { resolvePrizeConfig } from '../prizes/prize-config.service.js';
 import { resolvePrizesPayload } from '../prizes/prize-display.service.js';
 import { getEngine } from '../games/engine-registry.js';
 import { ensureGameForQuiz } from '../games/games.service.js';
+import type { RoundEndedPayload, RoundInfo } from '@quiz-app/validation';
 import type {
   Audience,
   GameAction,
@@ -47,6 +48,8 @@ interface ActiveRound {
   roundId: bigint;
   position: number;
   engineKey: string;
+  /** Payload de `round:started`, repris tel quel par les snapshots. */
+  info: RoundInfo;
   round: GameRound | null;
   /** round.start() a été appelé : les nouveaux joueurs passent par onPlayerJoined. */
   started: boolean;
@@ -99,10 +102,9 @@ function broadcastToSession(sessionId: bigint, event: string, payload: unknown) 
   ioInstance.of('/console').to(room).emit(event, payload);
 }
 
-/** Réservé aux cues purement écran cinéma (audio, animations) : inutile ailleurs. */
-function broadcastToScreen(sessionId: bigint, event: string, payload: unknown) {
-  if (!ioInstance) return;
-  ioInstance.of('/player').to(`session:${sessionId}`).emit(event, payload);
+/** Clé du compteur `seq` d'un destinataire : une audience, ou un joueur (mobile ciblé). */
+function seqKey(audience: Audience, playerId?: bigint | string): string {
+  return playerId !== undefined ? `mobile:${playerId}` : audience;
 }
 
 function getRunning(sessionId: bigint): RunningSession {
@@ -128,7 +130,11 @@ async function loadActivePlayers(sessionId: bigint): Promise<Map<string, RoundPl
   return players;
 }
 
-const ROUND_INCLUDE = { game: true } satisfies Prisma.SessionRoundInclude;
+const ROUND_INCLUDE = {
+  game: {
+    include: { sponsor: { select: { name: true, logoUrl: true, brandColorPrimary: true } } },
+  },
+} satisfies Prisma.SessionRoundInclude;
 type RoundRow = Prisma.SessionRoundGetPayload<{ include: typeof ROUND_INCLUDE }>;
 
 /**
@@ -229,6 +235,7 @@ function buildRoundContext(rs: RunningSession, active: ActiveRound): RoundContex
     active.seq.set(key, value);
     return value;
   };
+  const roundId = active.roundId.toString();
 
   return {
     sessionId,
@@ -239,14 +246,15 @@ function buildRoundContext(rs: RunningSession, active: ActiveRound): RoundContex
       meta: (id) => rs.players.get(id),
     },
     emitState(audience, view, playerId) {
+      // Le seq avance même sans io (tests) : il reste cohérent avec les snapshots.
+      const seq = nextSeq(seqKey(audience, playerId));
       if (!ioInstance) return;
       const target = playerId !== undefined ? `player:${playerId}` : `session:${sessionId}`;
-      const seq = nextSeq(playerId !== undefined ? `mobile:${playerId}` : audience);
       ioInstance.of(AUDIENCE_NAMESPACE[audience]).to(target).emit('game:state', {
-        roundId: active.roundId.toString(),
+        roundId,
         engineKey: active.engineKey,
         seq,
-        serverNow: Date.now(),
+        serverNow: new Date().toISOString(),
         view,
       });
     },
@@ -255,7 +263,7 @@ function buildRoundContext(rs: RunningSession, active: ActiveRound): RoundContex
       ioInstance
         .of(AUDIENCE_NAMESPACE[audience])
         .to(`session:${sessionId}`)
-        .emit('game:cue', { roundId: active.roundId.toString(), cue, data });
+        .emit('game:cue', data === undefined ? { roundId, cue } : { roundId, cue, data });
     },
     async award(entries: ScoreAward[]) {
       const scored = entries.filter((e) => e.points !== 0);
@@ -319,10 +327,6 @@ function buildRoundContext(rs: RunningSession, active: ActiveRound): RoundContex
       roundId: active.roundId.toString(),
       engine: active.engineKey,
     }),
-    legacy: {
-      broadcast: (event, payload) => broadcastToSession(sessionId, event, payload),
-      toScreen: (event, payload) => broadcastToScreen(sessionId, event, payload),
-    },
   };
 }
 
@@ -333,10 +337,29 @@ async function createActiveRound(
   restore?: RoundRestore & { participants: string[] },
 ): Promise<ActiveRound> {
   const engine = getEngine(row.game.engineKey);
+  const totalRounds = await prisma.sessionRound.count({ where: { sessionId: rs.sessionId } });
   const active: ActiveRound = {
     roundId: row.id,
     position: row.position,
     engineKey: engine.key,
+    info: {
+      roundId: row.id.toString(),
+      position: row.position,
+      totalRounds: Math.max(totalRounds, row.position),
+      engineKey: engine.key,
+      game: {
+        slug: row.game.slug,
+        title: row.game.title,
+        kind: row.game.kind,
+        sponsor: row.game.sponsor
+          ? {
+              name: row.game.sponsor.name,
+              logoUrl: row.game.sponsor.logoUrl,
+              brandColorPrimary: row.game.sponsor.brandColorPrimary,
+            }
+          : null,
+      },
+    },
     round: null,
     started: false,
     finished: false,
@@ -356,9 +379,43 @@ async function createActiveRound(
   return active;
 }
 
-async function startActiveRound(active: ActiveRound) {
+/** Annonce la manche (`round:started`, avant toute vue) puis la démarre. */
+async function startActiveRound(rs: RunningSession, active: ActiveRound) {
   active.started = true;
+  broadcastToSession(rs.sessionId, 'round:started', active.info);
   await active.round!.start();
+}
+
+/** Classement de fin de manche : joueurs actifs, points marqués pendant la manche. */
+async function buildRoundEnded(
+  rs: RunningSession,
+  active: ActiveRound,
+): Promise<RoundEndedPayload> {
+  const [players, sums] = await Promise.all([
+    prisma.player.findMany({
+      where: { sessionId: rs.sessionId, status: 'active' },
+      orderBy: [{ scoreTotal: 'desc' }, { joinedAt: 'asc' }],
+      select: { id: true, pseudo: true, scoreTotal: true, avatar: { select: { imageUrl: true } } },
+    }),
+    prisma.scoreEvent.groupBy({
+      by: ['playerId'],
+      where: { roundId: active.roundId },
+      _sum: { points: true },
+    }),
+  ]);
+  const thisRound = new Map(sums.map((s) => [s.playerId.toString(), s._sum.points ?? 0]));
+  return {
+    roundId: active.info.roundId,
+    position: active.info.position,
+    totalRounds: active.info.totalRounds,
+    scoreboard: players.map((p) => ({
+      playerId: p.id.toString(),
+      pseudo: p.pseudo,
+      avatarUrl: p.avatar?.imageUrl ?? null,
+      scoreTotal: p.scoreTotal,
+      scoreThisRound: thisRound.get(p.id.toString()) ?? 0,
+    })),
+  };
 }
 
 /** Fin de manche signalée par le moteur (une seule fois). */
@@ -377,6 +434,7 @@ async function finishRound(rs: RunningSession, active: ActiveRound): Promise<voi
     where: { id: active.roundId },
     data: { state: 'ended', endedAt: new Date() },
   });
+  broadcastToSession(rs.sessionId, 'round:ended', await buildRoundEnded(rs, active));
   await advanceOrEnd(rs.sessionId);
 }
 
@@ -536,7 +594,7 @@ async function rehydrateSession(session: RehydrateSessionRow) {
   // Séance en pause : la manche reprend en pause (une question interrompue est tout de même
   // close et notée), la suite attend la reprise par le projectionniste.
   if (session.state === 'paused') await active.round!.pause();
-  await startActiveRound(active);
+  await startActiveRound(rs, active);
 }
 
 /** Reconstruit en mémoire les séances interrompues par un redémarrage du serveur. */
@@ -656,7 +714,6 @@ export function getSessionRuntime() {
       const totalQuestions = session.quiz.questions.length;
       broadcastToSession(sessionId, 'session:started', {
         sessionId: sessionId.toString(),
-        totalQuestions,
         quiz: shapeQuizBackgroundPayload(session.quiz),
         audio: await resolveQuizAudioPayload(session.quiz),
       });
@@ -677,7 +734,7 @@ export function getSessionRuntime() {
         payload: { totalQuestions },
       });
 
-      await startActiveRound(active);
+      await startActiveRound(rs, active);
     },
 
     async pauseSession(sessionId: bigint) {
@@ -803,19 +860,6 @@ export function getSessionRuntime() {
 
     handleAction,
 
-    /** TEMPORAIRE (commit 1) : ancien `player:submit_answer`, remplacé par `game:action`. */
-    submitAnswer(input: {
-      sessionId: bigint;
-      playerId: bigint;
-      questionId: bigint;
-      answerId: bigint;
-    }): Promise<{ timeToAnswerMs: number }> {
-      return handleAction(input.sessionId, input.playerId, {
-        type: 'answer',
-        payload: { questionId: input.questionId, answerId: input.answerId },
-      }) as Promise<{ timeToAnswerMs: number }>;
-    },
-
     /**
      * Ajoute un joueur à la partie en cours (retardataire, ou reprise d'un joueur reparti).
      * Sans effet si la séance n'est pas en mémoire ou si le joueur y est déjà.
@@ -855,6 +899,22 @@ export function getSessionRuntime() {
       return runningSessions.get(sessionKey(sessionId))?.active?.round ?? undefined;
     },
 
+    /**
+     * Champs de manche d'un `session:state_snapshot` (règle 5) : la manche active, la vue
+     * courante du destinataire (`round.snapshot`) et le `seq` de sa dernière vue émise.
+     */
+    roundSnapshot(sessionId: bigint, audience: Audience, playerId?: bigint): RoundSnapshotFields {
+      const active = runningSessions.get(sessionKey(sessionId))?.active;
+      if (!active?.round || !active.started || active.finished) {
+        return { round: null, gameView: null, gameSeq: 0 };
+      }
+      return {
+        round: active.info,
+        gameView: active.round.snapshot(audience, playerId),
+        gameSeq: active.seq.get(seqKey(audience, playerId)) ?? 0,
+      };
+    },
+
     isRunning(sessionId: bigint): boolean {
       return runningSessions.has(sessionKey(sessionId));
     },
@@ -871,3 +931,9 @@ export function resetRunningSessionsForTests(): void {
 }
 
 export type SessionRuntime = ReturnType<typeof getSessionRuntime>;
+
+export interface RoundSnapshotFields {
+  round: RoundInfo | null;
+  gameView: unknown;
+  gameSeq: number;
+}

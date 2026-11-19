@@ -16,6 +16,7 @@ import {
   setLobbyTimerIo,
 } from '../src/modules/sessions/lobby-timer.service.js';
 import { truncateQuizRelatedTables, minimalCinemaAndScreen } from './helpers/integration.js';
+import { answerPayload, sendGameAction, waitForQuizQuestion } from './helpers/game-protocol.js';
 
 describe('late-join', () => {
   let httpServer: HttpServer;
@@ -146,10 +147,15 @@ describe('late-join', () => {
     expect(res.status).toBe(201);
     const body = (await res.json()) as {
       player: { joinedQuestionPosition: number | null };
-      stateSnapshot: { canAnswerCurrentQuestion: boolean };
+      stateSnapshot: {
+        round: { roundId: string; engineKey: string } | null;
+        gameView: { phase: string; me: { locked: boolean } } | null;
+      };
     };
     expect(body.player.joinedQuestionPosition).toBe(1);
-    expect(body.stateSnapshot.canAnswerCurrentQuestion).toBe(false);
+    // Il ne peut pas répondre à la question en cours : sa vue est bloquée.
+    expect(body.stateSnapshot.round?.engineKey).toBe('quiz');
+    expect(body.stateSnapshot.gameView).toMatchObject({ phase: 'question', me: { locked: true } });
 
     const player = await prisma.player.findFirst({ where: { pseudo: 'LatePlayer' } });
     expect(player?.joinedQuestionPosition).toBe(1);
@@ -212,6 +218,7 @@ describe('late-join', () => {
     const joinBody = (await requestJoin(session.slugShort, 'LateBlock')) as {
       player: { id: string };
       resumeToken: string;
+      stateSnapshot: { round: { roundId: string } };
     };
 
     const q1 = await prisma.question.findFirst({
@@ -238,20 +245,11 @@ describe('late-join', () => {
       );
     });
 
-    const errorPromise = new Promise<{ code: string }>((resolve) => {
-      socket.on('error', (data: { code: string }) => resolve(data));
+    const ack = await sendGameAction(socket, {
+      roundId: joinBody.stateSnapshot.round.roundId,
+      ...answerPayload(q1!.id, correct.id),
     });
-
-    socket.emit('player:submit_answer', {
-      questionId: q1!.id.toString(),
-      answerId: correct.id.toString(),
-    });
-
-    const err = await Promise.race([
-      errorPromise,
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
-    ]);
-    expect(err.code).toBe('LATE_JOIN_LOCKED');
+    expect(ack).toMatchObject({ ok: false, code: 'LATE_JOIN_LOCKED' });
   }, 15_000);
 
   it('allows late-joiner to answer next question', async () => {
@@ -276,9 +274,7 @@ describe('late-join', () => {
       );
     });
 
-    await new Promise<void>((resolve) => {
-      socket.on('session:question_started', () => resolve());
-    });
+    await waitForQuizQuestion(socket, 1, 15_000);
 
     const q2 = await prisma.question.findFirst({
       where: {
@@ -289,12 +285,11 @@ describe('late-join', () => {
     });
     const correct = q2!.answers.find((a) => a.isCorrect)!;
 
-    await getSessionRuntime().submitAnswer({
-      sessionId: BigInt(session.id),
-      playerId: BigInt(joinBody.player.id),
-      questionId: q2!.id,
-      answerId: correct.id,
-    });
+    await getSessionRuntime().handleAction(
+      BigInt(session.id),
+      BigInt(joinBody.player.id),
+      answerPayload(q2!.id, correct.id),
+    );
 
     const answer = await prisma.playerAnswer.findUnique({
       where: {

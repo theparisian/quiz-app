@@ -13,6 +13,7 @@ import {
   setIoInstance,
 } from '../src/modules/sessions/session-runtime.service.js';
 import { truncateQuizRelatedTables, minimalCinemaAndScreen } from './helpers/integration.js';
+import { answerPayload, waitForQuizQuestion } from './helpers/game-protocol.js';
 
 /** Plateforme : manche créée à la volée, participants, joueurs retirés, reprise, redémarrage. */
 describe('session-runtime platform', () => {
@@ -145,6 +146,26 @@ describe('session-runtime platform', () => {
 
   type QuestionStarted = { questionId: string; answers: { id: string; text: string }[] };
   const correctOf = (q: QuestionStarted) => BigInt(q.answers.find((a) => a.text === 'Correct')!.id);
+  /** Ouverture de la question `index` vue par ce joueur (protocole game:state). */
+  const questionOpened = (socket: ClientSocket, index = 0) =>
+    waitForQuizQuestion(socket, index).then(
+      ({ question }): QuestionStarted & { position: number } => ({
+        questionId: question.id,
+        answers: question.answers,
+        position: question.position,
+      }),
+    );
+  const submit = (input: {
+    sessionId: bigint;
+    playerId: bigint;
+    questionId: bigint;
+    answerId: bigint;
+  }) =>
+    getSessionRuntime().handleAction(
+      input.sessionId,
+      input.playerId,
+      answerPayload(input.questionId, input.answerId),
+    ) as Promise<{ timeToAnswerMs: number }>;
 
   it('session without round: round 1 created at start; participants persisted under the platform key', async () => {
     const quiz = await createQuiz(1, 1);
@@ -159,7 +180,7 @@ describe('session-runtime platform', () => {
     const socket = await connectAs(sessionId, answering);
     expect(await prisma.sessionRound.count({ where: { sessionId: session.id } })).toBe(0);
 
-    const started = nextEvent<QuestionStarted>(socket, 'session:question_started');
+    const started = questionOpened(socket);
     expect((await post(`/sessions/${sessionId}/start`)).ok).toBe(true);
     const q = await started;
 
@@ -171,7 +192,7 @@ describe('session-runtime platform', () => {
     expect(round.state).toBe('running');
     expect(round.game.quizId).toBe(quiz.id);
 
-    await getSessionRuntime().submitAnswer({
+    await submit({
       sessionId: session.id,
       playerId: answering.id,
       questionId: BigInt(q.questionId),
@@ -207,7 +228,7 @@ describe('session-runtime platform', () => {
       await new Promise<void>((resolve) => setTimeout(resolve, 20));
     }
 
-    const started = nextEvent<QuestionStarted>(listenerSocket, 'session:question_started');
+    const started = questionOpened(listenerSocket);
     await post(`/sessions/${session.id}/start`);
     const q = await started;
     const input = (playerId: bigint) => ({
@@ -217,12 +238,12 @@ describe('session-runtime platform', () => {
       answerId: correctOf(q),
     });
 
-    await expect(getSessionRuntime().submitAnswer(input(leaver.id))).rejects.toMatchObject({
+    await expect(submit(input(leaver.id))).rejects.toMatchObject({
       code: 'PLAYER_NOT_IN_SESSION',
     });
 
     expect((await post(`/players/${kicked.id}/kick`)).ok).toBe(true);
-    await expect(getSessionRuntime().submitAnswer(input(kicked.id))).rejects.toMatchObject({
+    await expect(submit(input(kicked.id))).rejects.toMatchObject({
       code: 'PLAYER_NOT_IN_SESSION',
     });
 
@@ -230,7 +251,7 @@ describe('session-runtime platform', () => {
     const snapshot = nextEvent(leaverSocket, 'session:state_snapshot');
     leaverSocket.emit('player:resume', { resumeToken: leaver.resumeToken, sessionId: session.id });
     await snapshot;
-    const res = await getSessionRuntime().submitAnswer(input(leaver.id));
+    const res = await submit(input(leaver.id));
     expect(res.timeToAnswerMs).toBeGreaterThanOrEqual(1);
 
     // Un joueur exclu ne revient pas.
@@ -240,7 +261,7 @@ describe('session-runtime platform', () => {
     expect((await prisma.player.findUniqueOrThrow({ where: { id: kicked.id } })).status).toBe(
       'kicked',
     );
-    await expect(getSessionRuntime().submitAnswer(input(kicked.id))).rejects.toMatchObject({
+    await expect(submit(input(kicked.id))).rejects.toMatchObject({
       code: 'PLAYER_NOT_IN_SESSION',
     });
 
@@ -253,10 +274,10 @@ describe('session-runtime platform', () => {
     const player = await seedPlayer(session.id, 'Restart');
     const socket = await connectAs(session.id, player);
 
-    const started = nextEvent<QuestionStarted>(socket, 'session:question_started');
+    const started = questionOpened(socket);
     await post(`/sessions/${session.id}/start`);
     const q = await started;
-    await getSessionRuntime().submitAnswer({
+    await submit({
       sessionId,
       playerId: player.id,
       questionId: BigInt(q.questionId),
@@ -284,7 +305,7 @@ describe('session-runtime platform', () => {
     const player = await seedPlayer(session.id, 'Paused');
     const socket = await connectAs(session.id, player);
 
-    const started = nextEvent<QuestionStarted>(socket, 'session:question_started');
+    const started = questionOpened(socket);
     await post(`/sessions/${session.id}/start`);
     await started;
     expect((await post(`/sessions/${session.id}/pause`)).ok).toBe(true);
@@ -298,9 +319,9 @@ describe('session-runtime platform', () => {
     const round = await prisma.sessionRound.findFirstOrThrow({ where: { sessionId } });
     expect(round.stateJson).toMatchObject({ engine: { phase: 'results', questionIndex: 0 } });
 
-    const second = nextEvent<{ questionPosition: number }>(socket, 'session:question_started');
+    const second = questionOpened(socket, 1);
     expect((await post(`/sessions/${session.id}/resume`)).ok).toBe(true);
-    expect((await second).questionPosition).toBe(2);
+    expect((await second).position).toBe(2);
 
     await post(`/sessions/${session.id}/abort`, { reason: 'test' });
   }, 30_000);

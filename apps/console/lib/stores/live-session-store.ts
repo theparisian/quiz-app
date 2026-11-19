@@ -1,13 +1,8 @@
 import { create } from 'zustand';
 import type {
   SessionStateChangedPayload,
-  SessionStartedPayload,
-  SessionQuestionStartedPayload,
-  SessionTimerUpdatePayload,
+  SessionStartedPayload as SessionStartedPlatformPayload,
   SessionLobbyTimerUpdatePayload,
-  SessionAnswerSubmittedCountPayload,
-  SessionQuestionEndedPayload,
-  SessionNextQuestionInPayload,
   SessionAudioMutedPayload,
   SessionEndedPayload,
   SessionAbortedPayload,
@@ -15,6 +10,36 @@ import type {
   PlayerLeftPayload,
 } from '@quiz-app/validation/socket-events';
 import type { SessionPrizesDisplay } from '@quiz-app/validation';
+
+/*
+ * TEMPORAIRE (B2-B4, commit 2) : formes des anciens événements `session:question_*`, retirés de
+ * `@quiz-app/validation` par le protocole de manche. Gardées ici pour que la console compile ;
+ * le commit 3 migre ce store sur `round:*` / `game:state` et supprime ce bloc.
+ */
+type SessionStartedPayload = SessionStartedPlatformPayload & { totalQuestions: number };
+type SessionQuestionStartedPayload = {
+  questionId: string;
+  questionPosition: number;
+  questionText: string;
+  questionImageUrl: string | null;
+  answers: { id: string; position: string; text: string }[];
+  timeLimitMs: number;
+  startedAt: string;
+};
+type SessionTimerUpdatePayload = { remainingMs: number };
+type SessionAnswerSubmittedCountPayload = { count: number; total: number };
+type SessionQuestionEndedPayload = {
+  correctAnswerId: string | null;
+  explanationText: string | null;
+  scoreboard: {
+    playerId: string;
+    pseudo: string;
+    avatarUrl?: string | null;
+    scoreTotal: number;
+    scoreThisQuestion: number;
+  }[];
+};
+type SessionNextQuestionInPayload = { ms: number };
 
 export interface QuestionFull {
   id: string;

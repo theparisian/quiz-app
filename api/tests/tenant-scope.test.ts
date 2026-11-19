@@ -120,7 +120,7 @@ describe('tenant scope (cloisonnement entre cinémas)', () => {
     await forbidden(request(app).post(`/api/sessions/${b.sessionId}/start`));
     await forbidden(request(app).post(`/api/sessions/${b.sessionId}/pause`));
     await forbidden(request(app).post(`/api/sessions/${b.sessionId}/resume`));
-    await forbidden(request(app).post(`/api/sessions/${b.sessionId}/force-end-question`));
+    await forbidden(request(app).post(`/api/sessions/${b.sessionId}/force-advance`));
     await forbidden(request(app).post(`/api/sessions/${b.sessionId}/toggle-mute`));
     await forbidden(request(app).post(`/api/sessions/${b.sessionId}/abort`).send({}));
     await forbidden(request(app).get(`/api/sessions/${b.sessionId}`));

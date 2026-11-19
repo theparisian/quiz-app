@@ -213,7 +213,7 @@ export function setupConsoleHandlers(io: Server): void {
       }
     });
 
-    socket.on('console:force_end_question', async () => {
+    socket.on('console:force_advance', async () => {
       const cd = socket.data as SocketConsoleData | undefined;
       if (!cd || cd.type !== 'console') return;
       try {
@@ -221,7 +221,7 @@ export function setupConsoleHandlers(io: Server): void {
       } catch (err: unknown) {
         const error = err as { code?: string; message?: string };
         socket.emit('error', {
-          code: error.code ?? 'FORCE_END_ERROR',
+          code: error.code ?? 'FORCE_ADVANCE_ERROR',
           message: error.message ?? 'Failed',
         });
       }

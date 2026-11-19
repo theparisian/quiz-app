@@ -380,12 +380,12 @@ router.post('/:id/resume', requireAuth([...ADMIN_ROLES]), async (req, res, next)
   }
 });
 
-router.post('/:id/force-end-question', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
+router.post('/:id/force-advance', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
     await assertCanAccessSession(req.user!, sessionId);
     await getSessionRuntime().forceAdvance(sessionId);
-    res.json({ message: 'Question ended' });
+    res.json({ message: 'Round advanced' });
   } catch (error) {
     next(error);
   }

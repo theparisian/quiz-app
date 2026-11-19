@@ -1,6 +1,11 @@
 import type { Server, Socket } from 'socket.io';
 import { z } from 'zod';
-import { playerResumePayloadSchema, playerJoinPayloadSchema } from '@quiz-app/validation';
+import {
+  gameActionPayloadSchema,
+  playerResumePayloadSchema,
+  playerJoinPayloadSchema,
+  type GameActionAck,
+} from '@quiz-app/validation';
 import { logger } from '../../logger/index.js';
 import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';
@@ -14,11 +19,6 @@ import { playerJoinIpLimiter, sessionCodeFailureLimiter } from '../../rate-limit
 
 const playerJoinSchema = playerJoinPayloadSchema;
 
-const submitAnswerSchema = z.object({
-  questionId: z.string().min(1),
-  answerId: z.string().min(1),
-});
-
 const rejoinRoomSchema = z.object({
   sessionId: z.string().min(1),
   playerId: z.string().min(1),
@@ -27,10 +27,33 @@ const rejoinRoomSchema = z.object({
 
 const DISCONNECT_GRACE_MS = 10_000;
 
+/** `game:action` : au plus 20 actions par seconde et par socket. */
+const ACTION_RATE_MAX = 20;
+const ACTION_RATE_WINDOW_MS = 1000;
+
+/** Rooms d'un joueur : la séance (diffusions), les joueurs de la séance, et lui seul (vues). */
+async function joinPlayerRooms(socket: Socket, sessionId: bigint, playerId: bigint) {
+  await socket.join([`session:${sessionId}`, `session:${sessionId}:players`, `player:${playerId}`]);
+}
+
+/** Fenêtre glissante synchrone, propre à un socket (aucun état partagé). */
+function createActionLimiter() {
+  const stamps: number[] = [];
+  return (): boolean => {
+    const now = Date.now();
+    while (stamps.length > 0 && now - stamps[0]! >= ACTION_RATE_WINDOW_MS) stamps.shift();
+    if (stamps.length >= ACTION_RATE_MAX) return false;
+    stamps.push(now);
+    return true;
+  };
+}
+
 export function setupMobileHandlers(io: Server): void {
   const nsp = io.of('/mobile');
 
   nsp.on('connection', (socket: Socket) => {
+    const allowAction = createActionLimiter();
+
     socket.on('player:join', async (data: unknown, callback?: (res: unknown) => void) => {
       // 300 joins / min par IP (salle entière derrière une IP) ; codes inconnus : 10 échecs / min.
       const clientIp = socketClientIp(socket);
@@ -75,8 +98,7 @@ export function setupMobileHandlers(io: Server): void {
         };
         socket.data = socketData;
 
-        await socket.join(`session:${result.sessionId}`);
-        await socket.join(`session:${result.sessionId}:players`);
+        await joinPlayerRooms(socket, result.sessionId, result.playerId);
 
         const response = {
           ok: true,
@@ -152,8 +174,7 @@ export function setupMobileHandlers(io: Server): void {
         };
         socket.data = socketData;
 
-        await socket.join(`session:${sessionId}`);
-        await socket.join(`session:${sessionId}:players`);
+        await joinPlayerRooms(socket, sessionId, player.id);
 
         const response = {
           playerId: player.id.toString(),
@@ -181,35 +202,51 @@ export function setupMobileHandlers(io: Server): void {
       }
     });
 
-    socket.on('player:submit_answer', (data: unknown) => {
-      const parsed = submitAnswerSchema.safeParse(data);
+    /**
+     * Action de jeu, pour la manche active. Le joueur est celui du socket (jamais le payload).
+     * Aucun await avant `handleAction` : la réservation synchrone du moteur reste atomique.
+     */
+    socket.on('game:action', (data: unknown, callback?: (res: GameActionAck) => void) => {
+      const reply = (ack: GameActionAck) => {
+        if (typeof callback === 'function') callback(ack);
+        else if (!ack.ok) socket.emit('error', { code: ack.code, message: ack.message });
+      };
+
+      if (!allowAction()) {
+        reply({ ok: false, code: 'RATE_LIMITED', message: 'Too many actions' });
+        return;
+      }
+
+      const parsed = gameActionPayloadSchema.safeParse(data);
       if (!parsed.success) {
-        socket.emit('error', { code: 'VALIDATION_ERROR', message: 'Invalid answer payload' });
+        reply({ ok: false, code: 'VALIDATION_ERROR', message: 'Invalid game action payload' });
         return;
       }
 
       const playerData = socket.data as SocketPlayerData | undefined;
       if (!playerData || playerData.type !== 'player') {
-        socket.emit('error', { code: 'NOT_JOINED', message: 'Join a session first' });
+        reply({ ok: false, code: 'NOT_JOINED', message: 'Join a session first' });
         return;
       }
 
-      void (async () => {
-        try {
-          await getSessionRuntime().submitAnswer({
-            sessionId: playerData.sessionId,
-            playerId: playerData.playerId,
-            questionId: BigInt(parsed.data.questionId),
-            answerId: BigInt(parsed.data.answerId),
-          });
-        } catch (err: unknown) {
-          const error = err as { code?: string; message?: string };
-          socket.emit('error', {
-            code: error.code ?? 'SUBMIT_ERROR',
-            message: error.message ?? 'Failed to submit answer',
-          });
-        }
-      })();
+      getSessionRuntime()
+        .handleAction(
+          playerData.sessionId,
+          playerData.playerId,
+          { type: parsed.data.type, payload: parsed.data.payload },
+          BigInt(parsed.data.roundId),
+        )
+        .then(
+          (result) => reply({ ok: true, result: result ?? null }),
+          (err: unknown) => {
+            const error = err as { code?: string; message?: string };
+            reply({
+              ok: false,
+              code: error.code ?? 'ACTION_ERROR',
+              message: error.message ?? 'Action failed',
+            });
+          },
+        );
     });
 
     socket.on('player:leave', async () => {
@@ -287,8 +324,7 @@ export function setupMobileHandlers(io: Server): void {
         };
         socket.data = socketData;
 
-        await socket.join(`session:${sessionId}`);
-        await socket.join(`session:${sessionId}:players`);
+        await joinPlayerRooms(socket, sessionId, player.id);
 
         const snapshot = await buildMobilePlayerStateSnapshot(player.id, sessionId);
         socket.emit('session:state_snapshot', snapshot);

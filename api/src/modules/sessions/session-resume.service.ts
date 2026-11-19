@@ -3,11 +3,6 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { shapeQuizBackgroundPayload } from '../quizzes/quiz-background.js';
 import { resolveQuizAudioPayload } from '../quizzes/quiz-audio.js';
 import { getSessionRuntime } from './session-runtime.service.js';
-import {
-  QuizRound,
-  getResultsDisplayMs,
-  type QuizLegacyMemory,
-} from '../games/engines/quiz/quiz.engine.js';
 import { getLobbyTimerRemainingMs } from './lobby-timer.service.js';
 import {
   resolvePrizeConfig,
@@ -15,169 +10,99 @@ import {
 } from '../prizes/prize-config.service.js';
 import { resolvePrizesPayload } from '../prizes/prize-display.service.js';
 
-/** TEMPORAIRE (commit 1) : mémoire de la manche quiz active, en attendant round.snapshot(). */
-function quizMemory(sessionId: bigint): QuizLegacyMemory | undefined {
-  const round = getSessionRuntime().getActiveRound(sessionId);
-  return round instanceof QuizRound ? round.legacyMemory() : undefined;
-}
+/**
+ * Snapshots `session:state_snapshot` (règle 5 du protocole) : champs de plateforme, plus
+ * `round` (même forme que `round:started`, ou null), `gameView` (`round.snapshot(audience,
+ * playerId)`, ou null) et `gameSeq`. Aucune logique de moteur ici.
+ */
 
-function resultsPhaseRemainingMs(mem: QuizLegacyMemory): number {
-  const start = mem.resultsPhaseStartedAt;
-  if (start == null) return getResultsDisplayMs();
-  return Math.max(0, getResultsDisplayMs() - (Date.now() - start));
-}
+type PlayerRow = {
+  id: bigint;
+  pseudo: string;
+  scoreTotal: number;
+  joinedAt: Date;
+  avatar: { imageUrl: string } | null;
+};
 
-/** remainingMs question courante (spec PR6) — mémoire de la manche + état DB session. */
-function questionRemainingMsFromMem(
-  sessionState: string,
-  mem: QuizLegacyMemory,
-  timeLimitMs: number,
-): number {
-  const started = mem.currentQuestionStartedAt;
-  if (!started || timeLimitMs <= 0) return 0;
-  if (sessionState === 'paused' && mem.currentQuestionPausedAt) {
-    return Math.max(0, timeLimitMs - (mem.currentQuestionPausedAt - started));
-  }
-  return Math.max(0, timeLimitMs - (Date.now() - started));
-}
+const PLAYER_SELECT = {
+  id: true,
+  pseudo: true,
+  scoreTotal: true,
+  joinedAt: true,
+  avatar: { select: { imageUrl: true } },
+} as const;
 
-async function activePlayersRanked(sessionId: bigint) {
+/** Joueurs actifs, classés (score décroissant, puis ordre d'arrivée). */
+function activePlayersRanked(sessionId: bigint): Promise<PlayerRow[]> {
   return prisma.player.findMany({
     where: { sessionId, status: 'active' },
     orderBy: [{ scoreTotal: 'desc' }, { joinedAt: 'asc' }],
-    include: { avatar: { select: { imageUrl: true } } },
+    select: PLAYER_SELECT,
   });
 }
 
-async function lastAnsweredQuestionPosition(playerId: bigint, quizId: bigint): Promise<number> {
-  const rows = await prisma.playerAnswer.findMany({
-    where: {
-      playerId,
-      chosenAnswerId: { not: null },
-      question: { quizId },
-    },
-    select: { question: { select: { position: true } } },
-  });
-  if (rows.length === 0) return 0;
-  return Math.max(...rows.map((r) => r.question.position));
+function boardEntry(p: PlayerRow) {
+  return {
+    playerId: p.id.toString(),
+    pseudo: p.pseudo,
+    avatarUrl: p.avatar?.imageUrl ?? null,
+    scoreTotal: p.scoreTotal,
+  };
 }
 
-async function countMissedPlayerAnswers(playerId: bigint, quizId: bigint) {
-  return prisma.playerAnswer.count({
-    where: { playerId, chosenAnswerId: null, question: { quizId } },
-  });
+function rankedBoard(players: PlayerRow[]) {
+  return players.map((p, i) => ({ ...boardEntry(p), rank: i + 1 }));
 }
 
-async function loadSessionFull(sessionId: bigint) {
+function playerListEntry(p: PlayerRow) {
+  return { ...boardEntry(p), joinedAt: p.joinedAt.toISOString() };
+}
+
+async function prizeAvailabilityByRank(sessionId: bigint): Promise<Record<string, boolean>> {
+  const out: Record<string, boolean> = {};
+  for (const rank of [1, 2, 3] as const) {
+    out[`rank${rank}`] = (await resolvePrizeConfig(sessionId, rank)) !== null;
+  }
+  return out;
+}
+
+async function loadSession(sessionId: bigint) {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
-    include: {
-      quiz: {
-        include: {
-          questions: {
-            include: { answers: true },
-            orderBy: { position: 'asc' },
-          },
-        },
-      },
-      screen: { include: { cinema: true } },
-    },
+    include: { quiz: true },
   });
   if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
   return session;
 }
 
-function resolveJoinedQuestionPosition(
-  session: { currentQuestionPosition: number | null; state: string },
-  mem: QuizLegacyMemory | undefined,
-): number {
-  const dbPos = session.currentQuestionPosition ?? 0;
-  if (dbPos > 0) return dbPos;
-  if (mem && mem.currentQuestionIndex >= 0 && mem.currentQuestionIndex < mem.questions.length) {
-    return mem.questions[mem.currentQuestionIndex]!.position;
-  }
-  return 0;
+function lobbyTimerField(sessionId: bigint, state: string) {
+  if (state !== 'lobby') return {};
+  const remaining = getLobbyTimerRemainingMs(sessionId);
+  return remaining !== null ? { lobbyTimerRemainingMs: remaining } : {};
 }
 
-function isLateJoinerOnCurrentQuestion(
-  joinedQuestionPosition: number | null,
-  questionPosition: number,
-): boolean {
-  return joinedQuestionPosition != null && joinedQuestionPosition === questionPosition;
-}
-
+/** Snapshot joint à la réponse d'un join pendant la partie (retardataire). */
 export async function buildPlayerJoinSnapshot(
   sessionId: bigint,
   playerId: bigint,
 ): Promise<Record<string, unknown>> {
-  const session = await loadSessionFull(sessionId);
-  const player = await prisma.player.findUnique({ where: { id: playerId } });
-  if (!player || player.sessionId !== sessionId) {
-    throw new AppError('Session mismatch', 403, 'SESSION_MISMATCH');
-  }
-
-  const totalQuestions = session.quiz.questions.length;
-  const mem = quizMemory(sessionId);
-  const currentQuestionPosition = resolveJoinedQuestionPosition(session, mem);
-
-  const base = {
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { state: true },
+  });
+  if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
+  return {
     sessionState: session.state,
-    currentQuestionPosition,
-    totalQuestions,
-    canAnswerCurrentQuestion: false as const,
+    ...getSessionRuntime().roundSnapshot(sessionId, 'mobile', playerId),
   };
-
-  if (session.state === 'paused' && mem) {
-    return base;
-  }
-
-  if (!mem) {
-    return base;
-  }
-
-  if (
-    !mem.questionEnded &&
-    mem.currentQuestionStartedAt &&
-    mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length
-  ) {
-    return {
-      ...base,
-      timerRemainingMs: questionRemainingMsFromMem(
-        session.state,
-        mem,
-        mem.currentQuestionTimeLimitMs,
-      ),
-    };
-  }
-
-  if (
-    mem.questionEnded &&
-    mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length
-  ) {
-    const hasNext = mem.currentQuestionIndex + 1 < mem.questions.length;
-    if (!hasNext) {
-      return {
-        ...base,
-        showFinalImmediately: true,
-        timerRemainingMs: resultsPhaseRemainingMs(mem),
-      };
-    }
-    return {
-      ...base,
-      timerRemainingMs: resultsPhaseRemainingMs(mem),
-    };
-  }
-
-  return base;
 }
 
+/** `player:resume` : snapshot d'un joueur (mobile). */
 export async function buildMobilePlayerStateSnapshot(
   playerId: bigint,
   sessionId: bigint,
 ): Promise<Record<string, unknown>> {
-  const session = await loadSessionFull(sessionId);
+  const session = await loadSession(sessionId);
   const player = await prisma.player.findUnique({
     where: { id: playerId },
     include: { avatar: { select: { imageUrl: true } } },
@@ -188,186 +113,43 @@ export async function buildMobilePlayerStateSnapshot(
 
   const ranked = await activePlayersRanked(sessionId);
   const rankIdx = ranked.findIndex((p) => p.id === playerId);
-  const currentRank =
-    session.state !== 'running' && session.state !== 'paused'
-      ? null
-      : rankIdx >= 0
-        ? rankIdx + 1
-        : null;
+  const inGame = session.state === 'running' || session.state === 'paused';
 
-  const totalActive = ranked.length;
-  const mem = quizMemory(sessionId);
-
-  const base = {
+  const out: Record<string, unknown> = {
     player: {
       playerId: player.id.toString(),
       pseudo: player.pseudo,
       avatarUrl: player.avatar?.imageUrl ?? null,
       scoreTotal: player.scoreTotal,
-      currentRank: session.state === 'running' || session.state === 'paused' ? currentRank : null,
-      joinedQuestionPosition: player.joinedQuestionPosition,
+      currentRank: inGame && rankIdx >= 0 ? rankIdx + 1 : null,
     },
     session: {
       sessionId: session.id.toString(),
       slugShort: session.slugShort,
       state: session.state,
-      totalQuestions: session.quiz.questions.length,
-      totalPlayers: totalActive,
+      totalPlayers: ranked.length,
       audioMuted: session.audioMuted,
     },
+    ...getSessionRuntime().roundSnapshot(sessionId, 'mobile', playerId),
   };
 
-  if (session.state === 'lobby') {
-    const prizes = await resolvePrizesPayload(sessionId);
-    return prizes ? { ...base, prizes } : { ...base };
-  }
-
-  if (session.state === 'aborted') {
-    return { ...base };
-  }
-
   if (session.state === 'ended') {
-    const r = player.rankFinal;
-    const board = ranked.map((p, i) => ({
-      playerId: p.id.toString(),
-      pseudo: p.pseudo,
-      avatarUrl: p.avatar?.imageUrl ?? null,
-      scoreTotal: p.scoreTotal,
-      rank: i + 1,
-    }));
-    const prizeAvailabilityByRank: Record<string, boolean> = {};
-    for (const rank of [1, 2, 3] as const) {
-      const cfg = await resolvePrizeConfig(sessionId, rank);
-      prizeAvailabilityByRank[`rank${rank}`] = cfg !== null;
-    }
-    const eligible = await resolveEligiblePrizeForPlayer(sessionId, r ?? rankIdx + 1);
-    const prizes = await resolvePrizesPayload(sessionId);
-    return {
-      ...base,
-      finalResults: {
-        rank: r ?? rankIdx + 1,
-        finalScoreboard: board,
-        eligibleForPrize: eligible !== null,
-      },
-      prizeAvailabilityByRank,
-      ...(prizes ? { prizes } : {}),
+    const rank = player.rankFinal ?? rankIdx + 1;
+    out.finalResults = {
+      rank,
+      finalScoreboard: rankedBoard(ranked),
+      eligibleForPrize: (await resolveEligiblePrizeForPlayer(sessionId, rank)) !== null,
     };
+    out.prizeAvailabilityByRank = await prizeAvailabilityByRank(sessionId);
   }
-
-  const missedFromNull = await countMissedPlayerAnswers(playerId, session.quizId);
-  const lastAnswered = await lastAnsweredQuestionPosition(playerId, session.quizId);
-  const dbQPos = session.currentQuestionPosition ?? 0;
-  const gapMissed = Math.max(0, dbQPos - lastAnswered - 1);
-  const missedDisplay =
-    session.state === 'running' || session.state === 'paused'
-      ? Math.max(missedFromNull, gapMissed)
-      : missedFromNull;
-
-  const out: Record<string, unknown> = { ...base };
-
-  if (missedDisplay > 0 && (session.state === 'running' || session.state === 'paused')) {
-    out.missedQuestions = { count: missedDisplay };
+  if (session.state === 'lobby' || session.state === 'ended') {
+    const prizes = await resolvePrizesPayload(sessionId);
+    if (prizes) out.prizes = prizes;
   }
-
-  if (
-    mem &&
-    !mem.questionEnded &&
-    mem.currentQuestionStartedAt &&
-    mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length
-  ) {
-    const q = mem.questions[mem.currentQuestionIndex]!;
-    const lockedForLateJoiner = isLateJoinerOnCurrentQuestion(
-      player.joinedQuestionPosition,
-      q.position,
-    );
-
-    if (lockedForLateJoiner) {
-      out.lateJoinWait = {
-        timerRemainingMs: questionRemainingMsFromMem(
-          session.state,
-          mem,
-          mem.currentQuestionTimeLimitMs,
-        ),
-      };
-    } else {
-      const pa = await prisma.playerAnswer.findUnique({
-        where: {
-          playerId_questionId: { playerId, questionId: q.id },
-        },
-      });
-      let alreadyPosition: string | null = null;
-      if (pa?.chosenAnswerId) {
-        const ans = q.answers.find((a) => a.id === pa.chosenAnswerId);
-        alreadyPosition = ans ? ans.position : null;
-      }
-
-      out.currentQuestion = {
-        position: q.position,
-        questionId: q.id.toString(),
-        text: q.text,
-        imageUrl: q.imageUrl,
-        answers: q.answers.map((a) => ({
-          id: a.id.toString(),
-          position: a.position as 'A' | 'B' | 'C' | 'D',
-          text: a.text,
-        })),
-        timeLimitMs: mem.currentQuestionTimeLimitMs,
-        remainingMs: questionRemainingMsFromMem(session.state, mem, mem.currentQuestionTimeLimitMs),
-        alreadyAnsweredPosition: alreadyPosition,
-      };
-    }
-  }
-
-  if (
-    mem &&
-    mem.questionEnded &&
-    mem.currentQuestionStartedAt === null &&
-    mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length
-  ) {
-    const q = mem.questions[mem.currentQuestionIndex]!;
-    const hasNext = mem.currentQuestionIndex + 1 < mem.questions.length;
-    const lockedForLateJoiner = isLateJoinerOnCurrentQuestion(
-      player.joinedQuestionPosition,
-      q.position,
-    );
-
-    if (lockedForLateJoiner && !hasNext) {
-      const board = ranked.map((p, i) => ({
-        playerId: p.id.toString(),
-        pseudo: p.pseudo,
-        avatarUrl: p.avatar?.imageUrl ?? null,
-        scoreTotal: p.scoreTotal,
-        rank: i + 1,
-      }));
-      out.finalResults = {
-        rank: rankIdx >= 0 ? rankIdx + 1 : ranked.length,
-        finalScoreboard: board,
-        eligibleForPrize: false,
-      };
-    } else if (lockedForLateJoiner && hasNext) {
-      out.lateJoinWait = {
-        timerRemainingMs: resultsPhaseRemainingMs(mem),
-      };
-    } else {
-      const correct = q.answers.find((a) => a.isCorrect);
-      const pa = await prisma.playerAnswer.findUnique({
-        where: { playerId_questionId: { playerId, questionId: q.id } },
-      });
-      const isCorrect = !!(pa?.chosenAnswerId && correct && pa.chosenAnswerId === correct.id);
-      out.showingResults = {
-        correctAnswerId: correct?.id.toString() ?? '',
-        pointsAwarded: pa?.pointsAwarded ?? 0,
-        isCorrect,
-        nextQuestionInMs: resultsPhaseRemainingMs(mem),
-      };
-    }
-  }
-
   return out;
 }
 
+/** `nuc:resume` : snapshot de l'écran cinéma (avec ou sans séance). */
 export async function buildNucStateSnapshot(params: {
   nucId: bigint;
   screenId: bigint;
@@ -388,295 +170,67 @@ export async function buildNucStateSnapshot(params: {
     cinemaLogoUrl: cinema.logoUrl,
     backgroundMusicUrl: cinema.backgroundMusicUrl,
   };
+  if (!params.sessionId) return { nuc: nucBlock, session: null, audioMuted: false };
 
-  if (!params.sessionId) {
-    return {
-      nuc: nucBlock,
-      session: null,
-      audioMuted: false,
-    };
-  }
-
-  const session = await loadSessionFull(params.sessionId);
+  const session = await loadSession(params.sessionId);
   if (session.screenId !== params.screenId) {
     throw new AppError('Session not on this screen', 403, 'SESSION_SCREEN_MISMATCH');
   }
 
-  const players = await prisma.player.findMany({
-    where: { sessionId: session.id, status: 'active' },
-    orderBy: { joinedAt: 'asc' },
-    select: {
-      id: true,
-      pseudo: true,
-      scoreTotal: true,
-      joinedAt: true,
-      avatar: { select: { imageUrl: true } },
-    },
-  });
-
   const ranked = await activePlayersRanked(session.id);
-  const mem = quizMemory(session.id);
-
-  const scoreboard = ranked.slice(0, 5).map((p) => ({
-    playerId: p.id.toString(),
-    pseudo: p.pseudo,
-    avatarUrl: p.avatar?.imageUrl ?? null,
-    scoreTotal: p.scoreTotal,
-  }));
-
-  const fullBoard = ranked.map((p, i) => ({
-    playerId: p.id.toString(),
-    pseudo: p.pseudo,
-    avatarUrl: p.avatar?.imageUrl ?? null,
-    scoreTotal: p.scoreTotal,
-    rank: i + 1,
-  }));
-
-  const baseSession = {
-    sessionId: session.id.toString(),
-    slugShort: session.slugShort,
-    joinToken: session.joinToken,
-    state: session.state,
-    totalQuestions: session.quiz.questions.length,
-    totalPlayers: players.length,
-    audioMuted: session.audioMuted,
-  };
-
+  const byArrival = [...ranked].sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
   const out: Record<string, unknown> = {
     nuc: nucBlock,
-    session: baseSession,
-    audioMuted: session.audioMuted,
-    quiz: shapeQuizBackgroundPayload(session.quiz),
-    audio: await resolveQuizAudioPayload(session.quiz),
-    players: players.map((p) => ({
-      playerId: p.id.toString(),
-      pseudo: p.pseudo,
-      avatarUrl: p.avatar?.imageUrl ?? null,
-      scoreTotal: p.scoreTotal,
-      joinedAt: p.joinedAt.toISOString(),
-    })),
-    scoreboard,
-  };
-
-  if (session.state === 'lobby') {
-    const lobbyTimerRemainingMs = getLobbyTimerRemainingMs(session.id);
-    if (lobbyTimerRemainingMs !== null) {
-      out.lobbyTimerRemainingMs = lobbyTimerRemainingMs;
-    }
-    const prizes = await resolvePrizesPayload(session.id);
-    return prizes ? { ...out, prizes } : out;
-  }
-
-  if (session.state === 'ended') {
-    const top3 = fullBoard.slice(0, 3);
-    out.finalScoreboard = fullBoard;
-    out.scoreboard = top3.map((e) => ({
-      playerId: e.playerId,
-      pseudo: e.pseudo,
-      avatarUrl: e.avatarUrl,
-      scoreTotal: e.scoreTotal,
-    }));
-    const prizes = await resolvePrizesPayload(session.id);
-    if (prizes) out.prizes = prizes;
-    return out;
-  }
-
-  if (session.state === 'aborted') {
-    return out;
-  }
-
-  if (
-    mem &&
-    !mem.questionEnded &&
-    mem.currentQuestionStartedAt &&
-    mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length
-  ) {
-    const q = mem.questions[mem.currentQuestionIndex]!;
-    out.currentQuestion = {
-      position: q.position,
-      questionId: q.id.toString(),
-      text: q.text,
-      imageUrl: q.imageUrl,
-      answers: q.answers.map((a) => ({
-        position: a.position,
-        text: a.text,
-      })),
-      timeLimitMs: mem.currentQuestionTimeLimitMs,
-      remainingMs: questionRemainingMsFromMem(session.state, mem, mem.currentQuestionTimeLimitMs),
-    };
-  }
-
-  if (
-    mem &&
-    mem.questionEnded &&
-    mem.currentQuestionStartedAt === null &&
-    mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length
-  ) {
-    const q = mem.questions[mem.currentQuestionIndex]!;
-    const correct = q.answers.find((a) => a.isCorrect);
-    const lastRows = await prisma.playerAnswer.findMany({
-      where: {
-        questionId: q.id,
-        playerId: { in: ranked.map((p) => p.id) },
-      },
-      include: {
-        player: { select: { id: true, pseudo: true, avatar: { select: { imageUrl: true } } } },
-      },
-    });
-    const sb = lastRows
-      .map((r) => ({
-        playerId: r.playerId.toString(),
-        pseudo: r.player.pseudo,
-        avatarUrl: r.player.avatar?.imageUrl ?? null,
-        scoreTotal: ranked.find((x) => x.id === r.playerId)?.scoreTotal ?? 0,
-        scoreThisQuestion: r.pointsAwarded,
-      }))
-      .sort((a, b) => b.scoreTotal - a.scoreTotal)
-      .slice(0, 5);
-    out.lastResults = {
-      correctAnswerId: correct?.id.toString() ?? '',
-      scoreboard: sb,
-      explanation: q.explanation,
-      nextQuestionInMs:
-        mem.currentQuestionIndex + 1 < mem.questions.length ? resultsPhaseRemainingMs(mem) : 0,
-    };
-  }
-
-  return out;
-}
-
-export async function buildConsoleStateSnapshot(
-  sessionId: bigint,
-): Promise<Record<string, unknown>> {
-  const session = await loadSessionFull(sessionId);
-  const players = await prisma.player.findMany({
-    where: { sessionId: session.id, status: 'active' },
-    orderBy: [{ scoreTotal: 'desc' }, { joinedAt: 'asc' }],
-    select: {
-      id: true,
-      pseudo: true,
-      scoreTotal: true,
-      joinedAt: true,
-      avatar: { select: { imageUrl: true } },
-    },
-  });
-
-  const mem = quizMemory(session.id);
-
-  const quiz = {
-    id: session.quiz.id.toString(),
-    slug: session.quiz.slug,
-    title: session.quiz.title,
-    questions: session.quiz.questions.map((q) => ({
-      id: q.id.toString(),
-      position: q.position,
-      text: q.text,
-      imageUrl: q.imageUrl,
-      timeLimitSeconds: q.timeLimitSeconds,
-      pointsMax: q.pointsMax,
-      pointsFloor: q.pointsFloor,
-      explanation: q.explanation,
-      answers: q.answers.map((a) => ({
-        id: a.id.toString(),
-        position: String(a.position),
-        text: a.text,
-        isCorrect: a.isCorrect,
-      })),
-    })),
-  };
-
-  const base: Record<string, unknown> = {
     session: {
       sessionId: session.id.toString(),
       slugShort: session.slugShort,
       joinToken: session.joinToken,
       state: session.state,
-      totalQuestions: session.quiz.questions.length,
-      totalPlayers: players.length,
+      totalPlayers: ranked.length,
       audioMuted: session.audioMuted,
     },
-    ...(session.state === 'lobby'
-      ? (() => {
-          const remaining = getLobbyTimerRemainingMs(session.id);
-          return remaining !== null ? { lobbyTimerRemainingMs: remaining } : {};
-        })()
-      : {}),
-    quiz,
-    players: players.map((p) => ({
-      playerId: p.id.toString(),
-      pseudo: p.pseudo,
-      avatarUrl: p.avatar?.imageUrl ?? null,
-      scoreTotal: p.scoreTotal,
-      joinedAt: p.joinedAt.toISOString(),
-    })),
-    scoreboard: players.slice(0, 5).map((p) => ({
-      playerId: p.id.toString(),
-      pseudo: p.pseudo,
-      avatarUrl: p.avatar?.imageUrl ?? null,
-      scoreTotal: p.scoreTotal,
-    })),
+    audioMuted: session.audioMuted,
+    // Habillage et sons de la séance (plateforme : lobby, musique, fin).
+    quiz: shapeQuizBackgroundPayload(session.quiz),
+    audio: await resolveQuizAudioPayload(session.quiz),
+    players: byArrival.map(playerListEntry),
+    scoreboard: ranked.slice(0, session.state === 'ended' ? 3 : 5).map(boardEntry),
+    ...lobbyTimerField(session.id, session.state),
+    ...getSessionRuntime().roundSnapshot(session.id, 'screen'),
   };
 
-  if (
-    mem &&
-    !mem.questionEnded &&
-    mem.currentQuestionStartedAt &&
-    mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length
-  ) {
-    const q = mem.questions[mem.currentQuestionIndex]!;
-    base.currentQuestion = {
-      position: q.position,
-      questionId: q.id.toString(),
-      text: q.text,
-      imageUrl: q.imageUrl,
-      answers: q.answers.map((a) => ({
-        position: a.position,
-        text: a.text,
-        isCorrect: a.isCorrect,
-      })),
-      timeLimitMs: mem.currentQuestionTimeLimitMs,
-      remainingMs: questionRemainingMsFromMem(session.state, mem, mem.currentQuestionTimeLimitMs),
-    };
+  if (session.state === 'ended') out.finalScoreboard = rankedBoard(ranked);
+  if (session.state === 'lobby' || session.state === 'ended') {
+    const prizes = await resolvePrizesPayload(session.id);
+    if (prizes) out.prizes = prizes;
   }
+  return out;
+}
 
-  if (
-    mem &&
-    mem.questionEnded &&
-    mem.currentQuestionStartedAt === null &&
-    mem.currentQuestionIndex >= 0 &&
-    mem.currentQuestionIndex < mem.questions.length
-  ) {
-    const q = mem.questions[mem.currentQuestionIndex]!;
-    const correct = q.answers.find((a) => a.isCorrect);
-    base.lastResults = {
-      correctAnswerId: correct?.id.toString() ?? '',
-      scoreboard: players.slice(0, 5).map((p) => ({
-        playerId: p.id.toString(),
-        pseudo: p.pseudo,
-        avatarUrl: p.avatar?.imageUrl ?? null,
-        scoreTotal: p.scoreTotal,
-      })),
-      explanation: q.explanation,
-      nextQuestionInMs:
-        mem.currentQuestionIndex + 1 < mem.questions.length ? resultsPhaseRemainingMs(mem) : 0,
-    };
-  }
+/** `console:resume` : snapshot de la console du cinéma. */
+export async function buildConsoleStateSnapshot(
+  sessionId: bigint,
+): Promise<Record<string, unknown>> {
+  const session = await loadSession(sessionId);
+  const ranked = await activePlayersRanked(sessionId);
 
-  if (session.state === 'ended') {
-    base.finalScoreboard = players.map((p, i) => ({
-      playerId: p.id.toString(),
-      pseudo: p.pseudo,
-      avatarUrl: p.avatar?.imageUrl ?? null,
-      scoreTotal: p.scoreTotal,
-      rank: i + 1,
-    }));
-  }
+  const out: Record<string, unknown> = {
+    session: {
+      sessionId: session.id.toString(),
+      slugShort: session.slugShort,
+      joinToken: session.joinToken,
+      state: session.state,
+      totalPlayers: ranked.length,
+      audioMuted: session.audioMuted,
+    },
+    players: ranked.map(playerListEntry),
+    scoreboard: ranked.slice(0, 5).map(boardEntry),
+    ...lobbyTimerField(session.id, session.state),
+    ...getSessionRuntime().roundSnapshot(sessionId, 'console'),
+  };
 
+  if (session.state === 'ended') out.finalScoreboard = rankedBoard(ranked);
   const prizes = await resolvePrizesPayload(sessionId);
-  if (prizes) base.prizes = prizes;
-
-  return base;
+  if (prizes) out.prizes = prizes;
+  return out;
 }

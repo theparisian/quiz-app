@@ -12,6 +12,26 @@ import {
   setIoInstance,
 } from '../src/modules/sessions/session-runtime.service.js';
 import { truncateQuizRelatedTables, minimalCinemaAndScreen } from './helpers/integration.js';
+import {
+  answerPayload,
+  waitForQuizQuestion,
+  type GameStateEnvelope,
+  type QuizViewLike,
+} from './helpers/game-protocol.js';
+
+type QuestionStarted = { questionId: string; answers: { id: string; text: string }[] };
+
+function answerVia(
+  sessionId: bigint,
+  playerId: bigint,
+  questionId: string | bigint,
+  answerId: string | bigint,
+) {
+  const action = answerPayload(questionId, answerId);
+  return getSessionRuntime().handleAction(sessionId, playerId, action) as Promise<{
+    timeToAnswerMs: number;
+  }>;
+}
 
 describe('session-runtime (integration)', () => {
   let httpServer: HttpServer;
@@ -243,24 +263,33 @@ describe('session-runtime (integration)', () => {
     return socket;
   }
 
-  async function startAndWaitFirstQuestion(sessionId: string, socket: ClientSocket) {
-    const started = new Promise<{ questionId: string; answers: { id: string; text: string }[] }>(
-      (resolve) => {
-        socket.once('session:question_started', (data: unknown) =>
-          resolve(data as { questionId: string; answers: { id: string; text: string }[] }),
-        );
-      },
-    );
+  async function startAndWaitFirstQuestion(
+    sessionId: string,
+    socket: ClientSocket,
+  ): Promise<QuestionStarted> {
+    const started = waitForQuizQuestion(socket, 0);
     await fetch(`${baseUrl}/api/sessions/${sessionId}/start`, {
       method: 'POST',
       headers: { Cookie: `token=${adminToken}` },
     });
-    return Promise.race([
-      started,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('question not started')), 5000),
-      ),
-    ]);
+    const { question } = await started;
+    return { questionId: question.id, answers: question.answers };
+  }
+
+  /** Console du cinéma dans la room de la séance : reçoit les vues `console`. */
+  async function connectConsole(sessionId: string) {
+    const s = ioClient(`${baseUrl}/console`, {
+      transports: ['websocket'],
+      forceNew: true,
+      extraHeaders: { Cookie: `token=${adminToken}` },
+    });
+    sockets.push(s);
+    await new Promise<void>((resolve) => s.on('connect', resolve));
+    await new Promise<void>((resolve, reject) => {
+      s.once('error', (e: unknown) => reject(new Error(JSON.stringify(e))));
+      s.emit('console:join', { sessionId }, () => resolve());
+    });
+    return s;
   }
 
   it('double submit by the same player: only the first answer is kept', async () => {
@@ -270,20 +299,9 @@ describe('session-runtime (integration)', () => {
     const q = await startAndWaitFirstQuestion(session.id, socket);
 
     const [first, second] = q.answers;
-    const orch = getSessionRuntime();
     const results = await Promise.allSettled([
-      orch.submitAnswer({
-        sessionId: BigInt(session.id),
-        playerId: player!.id,
-        questionId: BigInt(q.questionId),
-        answerId: BigInt(first!.id),
-      }),
-      orch.submitAnswer({
-        sessionId: BigInt(session.id),
-        playerId: player!.id,
-        questionId: BigInt(q.questionId),
-        answerId: BigInt(second!.id),
-      }),
+      answerVia(BigInt(session.id), player!.id, q.questionId, first!.id),
+      answerVia(BigInt(session.id), player!.id, q.questionId, second!.id),
     ]);
 
     expect(results[0]!.status).toBe('fulfilled');
@@ -310,13 +328,8 @@ describe('session-runtime (integration)', () => {
     });
     expect(pauseRes.ok).toBe(true);
 
-    const input = {
-      sessionId: BigInt(session.id),
-      playerId: player!.id,
-      questionId: BigInt(q.questionId),
-      answerId: BigInt(q.answers[0]!.id),
-    };
-    await expect(getSessionRuntime().submitAnswer(input)).rejects.toMatchObject({
+    const submit = () => answerVia(BigInt(session.id), player!.id, q.questionId, q.answers[0]!.id);
+    await expect(submit()).rejects.toMatchObject({
       code: 'SESSION_PAUSED',
     });
 
@@ -326,7 +339,7 @@ describe('session-runtime (integration)', () => {
     });
     expect(resumeRes.ok).toBe(true);
 
-    const res = await getSessionRuntime().submitAnswer(input);
+    const res = await submit();
     expect(res.timeToAnswerMs).toBeGreaterThanOrEqual(1);
 
     const row = await prisma.playerAnswer.findUnique({
@@ -335,20 +348,28 @@ describe('session-runtime (integration)', () => {
     expect(row?.chosenAnswerId).toBe(BigInt(q.answers[0]!.id));
   }, 20_000);
 
-  it('batches answer_submitted_count: fewer than 20 events, last one before question_ended is 20', async () => {
+  it('batches the answer count: fewer than 20 console views, last one before the reveal is 20', async () => {
     const session = await createSessionWith3Questions();
     const players = await seedPlayers(session.id, 20);
     const socket = await listenAs(session.id, players[0]!);
+    const consoleSocket = await connectConsole(session.id);
 
+    // Vues console de la question 1 émises après son ouverture (mises à jour du compteur).
     const counts: number[] = [];
     let countBeforeEnd: number | null = null;
-    socket.on('session:answer_submitted_count', (data: { count: number }) => {
-      counts.push(data.count);
-    });
+    let opened = false;
     const ended = new Promise<void>((resolve) => {
-      socket.once('session:question_ended', () => {
-        countBeforeEnd = counts.at(-1) ?? null;
-        resolve();
+      consoleSocket.on('game:state', (env: GameStateEnvelope<QuizViewLike>) => {
+        const v = env.view;
+        if (v.questionIndex !== 0) return;
+        if (v.phase === 'question') {
+          if (opened) counts.push(v.answeredCount);
+          opened = true;
+        } else if (v.phase === 'reveal' && countBeforeEnd === null) {
+          countBeforeEnd = counts.at(-1) ?? null;
+          expect(v.answeredCount).toBe(20);
+          resolve();
+        }
       });
     });
 
@@ -356,12 +377,7 @@ describe('session-runtime (integration)', () => {
 
     await Promise.all(
       players.map((p, i) =>
-        getSessionRuntime().submitAnswer({
-          sessionId: BigInt(session.id),
-          playerId: p.id,
-          questionId: BigInt(q.questionId),
-          answerId: BigInt(q.answers[i % 2]!.id),
-        }),
+        answerVia(BigInt(session.id), p.id, q.questionId, q.answers[i % 2]!.id),
       ),
     );
 
@@ -400,20 +416,18 @@ describe('session-runtime (integration)', () => {
       for (const [i, p] of players.entries()) {
         // Joueur 2 : faux à la première question, juste ensuite.
         const answer = i === 1 && index === 0 ? wrong : correct;
-        await getSessionRuntime().submitAnswer({
-          sessionId,
-          playerId: p.id,
-          questionId: BigInt(q.questionId),
-          answerId: BigInt(answer.id),
-        });
+        await answerVia(sessionId, p.id, q.questionId, answer.id);
       }
     };
-    socket.on(
-      'session:question_started',
-      (q: { questionId: string; answers: { id: string; text: string }[] }) => {
-        if (questionIndex > 0) void answerAll(q);
-      },
-    );
+    let opened = 0;
+    socket.on('game:state', (env: GameStateEnvelope<QuizViewLike>) => {
+      const v = env.view;
+      // Ouverture d'une nouvelle question (une vue par joueur à chaque ouverture).
+      if (v.phase !== 'question' || v.questionIndex < opened || v.me?.answerId) return;
+      opened = v.questionIndex + 1;
+      if (questionIndex > 0)
+        void answerAll({ questionId: v.question!.id, answers: v.question!.answers });
+    });
 
     const first = await startAndWaitFirstQuestion(session.id, socket);
     const running = await prisma.sessionRound.findFirstOrThrow({ where: { sessionId } });

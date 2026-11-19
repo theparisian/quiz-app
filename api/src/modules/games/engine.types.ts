@@ -39,9 +39,13 @@ export interface RoundContext {
     has(id: string): boolean;
     meta(id: string): RoundPlayerMeta | undefined;
   };
-  /** Vue complète pour une audience. Avec playerId : vers ce seul joueur (audience 'mobile'). */
+  /**
+   * Vue complète pour une audience (`game:state`). Avec playerId : vers ce seul joueur
+   * (audience 'mobile', room `player:<id>`). La plateforme ajoute `seq` (par destinataire) et
+   * `serverNow`. La vue doit être exactement ce que `snapshot(audience, playerId)` renverrait.
+   */
   emitState(audience: Audience, view: unknown, playerId?: bigint): void;
-  /** Signal éphémère sans état (son, animation). Jamais nécessaire à la reprise. */
+  /** Signal éphémère sans état (son, animation), vers la room de la séance de l'audience. */
   emitCue(audience: Audience, cue: string, data?: unknown): void;
   /**
    * Écrit les ScoreEvent et incrémente Player.scoreTotal, dans une seule transaction.
@@ -64,16 +68,6 @@ export interface RoundContext {
   /** Minuteur injectable (tests). Tous les délais du moteur passent par ici. */
   setTimer(ms: number, fn: () => void): CancelTimer;
   log: Logger;
-  /**
-   * TEMPORAIRE (B2-B4, commit 1 seulement) : émission des anciens événements `session:*`.
-   * Supprimé au commit 2, remplacé par `emitState` / `emitCue`.
-   */
-  legacy: {
-    /** Vers les trois namespaces de la session. */
-    broadcast(event: string, payload: unknown): void;
-    /** Vers l'écran cinéma seulement (`/player`). */
-    toScreen(event: string, payload: unknown): void;
-  };
 }
 
 export interface GameAction {

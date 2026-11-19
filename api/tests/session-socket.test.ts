@@ -8,6 +8,12 @@ import { buildApp } from '../src/create-app.js';
 import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
 import { setIoInstance } from '../src/modules/sessions/session-runtime.service.js';
 import { truncateQuizRelatedTables, minimalCinemaAndScreen } from './helpers/integration.js';
+import {
+  answerPayload,
+  sendGameAction,
+  waitForGameState,
+  waitForQuizQuestion,
+} from './helpers/game-protocol.js';
 
 function waitForEvent<T = unknown>(
   socket: ClientSocket,
@@ -196,28 +202,25 @@ describe('session-socket (integration)', () => {
     expect(receivedCrossEvent).toBe(false);
   });
 
-  it('question_started payload does NOT contain isCorrect', async () => {
+  it('question view does NOT contain isCorrect', async () => {
     await joinPlayer('Checker');
 
     const cookie = `token=${adminToken}`;
     const checkerSocket = sockets[0]!;
 
-    const questionPromise = waitForEvent<Record<string, unknown>>(
-      checkerSocket,
-      'session:question_started',
-    );
+    const questionPromise = waitForQuizQuestion(checkerSocket, 0);
 
     await fetch(`${baseUrl}/api/sessions/${sessionId}/start`, {
       method: 'POST',
       headers: { Cookie: cookie },
     });
 
-    const payload = await questionPromise;
+    const { question, view } = await questionPromise;
 
-    expect(payload.questionText).toBeDefined();
-    expect(payload.answers).toBeDefined();
+    expect(question.id).toBeDefined();
+    expect(question.answers).toBeDefined();
 
-    const answers = payload.answers as {
+    const answers = question.answers as {
       id: string;
       position: string;
       text: string;
@@ -226,22 +229,26 @@ describe('session-socket (integration)', () => {
     for (const a of answers) {
       expect(a.isCorrect).toBeUndefined();
     }
+    expect(JSON.stringify(view)).not.toContain('isCorrect');
   });
 
-  it('submit_answer increments answer_submitted_count', async () => {
+  it('game:action answer increments the answered count', async () => {
     const { socket: s1 } = await joinPlayer('Sub1');
-    const { socket: s2 } = await joinPlayer('Sub2');
+    await joinPlayer('Sub2');
+
+    const consoleSocket = ioClient(`${baseUrl}/console`, {
+      transports: ['websocket'],
+      forceNew: true,
+      extraHeaders: { Cookie: `token=${adminToken}` },
+    });
+    sockets.push(consoleSocket);
+    await new Promise<void>((resolve) => consoleSocket.on('connect', resolve));
+    await new Promise<void>((resolve) =>
+      consoleSocket.emit('console:join', { sessionId }, () => resolve()),
+    );
 
     const cookie = `token=${adminToken}`;
-
-    const qPromise1 = waitForEvent<{ questionId: string; answers: { id: string }[] }>(
-      s1,
-      'session:question_started',
-    );
-    const qPromise2 = waitForEvent<{ questionId: string; answers: { id: string }[] }>(
-      s2,
-      'session:question_started',
-    );
+    const qPromise1 = waitForQuizQuestion(s1, 0);
 
     await fetch(`${baseUrl}/api/sessions/${sessionId}/start`, {
       method: 'POST',
@@ -249,20 +256,20 @@ describe('session-socket (integration)', () => {
     });
 
     const q1 = await qPromise1;
-    await qPromise2;
 
-    const countPromise = waitForEvent<{ count: number; total: number }>(
-      s2,
-      'session:answer_submitted_count',
+    const countPromise = waitForGameState(
+      consoleSocket,
+      (v) => v.phase === 'question' && v.answeredCount === 1,
     );
 
-    s1.emit('player:submit_answer', {
-      questionId: q1.questionId,
-      answerId: q1.answers[0]!.id,
+    const ack = await sendGameAction(s1, {
+      roundId: q1.roundId,
+      ...answerPayload(q1.question.id, q1.question.answers[0]!.id),
     });
+    expect(ack.ok).toBe(true);
 
-    const countPayload = await countPromise;
-    expect(countPayload.count).toBe(1);
-    expect(countPayload.total).toBe(2);
+    const countPayload = (await countPromise).view;
+    expect(countPayload.answeredCount).toBe(1);
+    expect(countPayload.totalPlayers).toBe(2);
   });
 });
