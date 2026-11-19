@@ -138,6 +138,8 @@ export function useNucInit(): void {
       stopHeartbeat();
       disconnectPlayerSocket();
       setConnectionStatus('disconnected');
+      // La socket est détruite : un remontage (StrictMode en dev) doit pouvoir la recréer.
+      initRef.current = false;
     };
   }, [router]);
 }

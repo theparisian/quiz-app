@@ -339,6 +339,8 @@ describe('quiz engine (fake RoundContext, simulated clock)', () => {
     f.advance(300);
     await answer(r, bob, questions[1]!.id, questions[1]!.correct);
     await answer(r, alice, questions[1]!.id, questions[1]!.wrong);
+    // Le retardataire bloqué ne compte pas dans le total de la question en cours.
+    expect(r.snapshot('screen')).toMatchObject({ answeredCount: 2, totalPlayers: 2 });
 
     // Joueur retiré par la plateforme (exclu / parti) : refusé.
     players.delete(alice.toString());

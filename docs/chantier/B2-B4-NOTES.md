@@ -815,7 +815,7 @@ reçue par la console) 258 à 280 ms ; révélation reçue par les 300 mobiles e
 Rien de visuel ni de sonore n'a pu être regardé ou écouté ici (pas d'écran ni de son) ; seuls
 `next build`, les tests et des rendus serveur jetables ont été faits. Parcours conseillé : une
 séance réelle avec un quiz de 3 questions, l'écran cinéma (`apps/player`, `/screen`, son activé),
-la console (`/sessions/<id>`) et 2 ou 3 téléphones (`apps/mobile`), dont un qui rejoint en
+la console (`/screens/<screenId>`, avec un compte rattaché au cinéma) et 2 ou 3 téléphones (`apps/mobile`), dont un qui rejoint en
 cours de partie.
 
 1. **Écran, lobby → Q1** : après « Lancer », le lobby reste affiché pendant le compte à rebours

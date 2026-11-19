@@ -8,6 +8,7 @@ const config: Config = {
     './components/**/*.{ts,tsx}',
     './lib/**/*.{ts,tsx}',
     './hooks/**/*.{ts,tsx}',
+    './games/**/*.{ts,tsx}',
     '../../packages/ui/src/**/*.{ts,tsx}',
   ],
   theme: {

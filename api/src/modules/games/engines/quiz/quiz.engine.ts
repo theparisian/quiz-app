@@ -784,8 +784,15 @@ export class QuizRound implements GameRound {
       totalQuestions: this.questions.length,
       ...this.timing(phase),
       answeredCount,
-      totalPlayers: this.ctx.players.ids().length,
+      totalPlayers: this.eligiblePlayerCount(phase),
     };
+  }
+
+  /** Joueurs pouvant répondre à la question courante : les retardataires bloqués n'en font pas partie. */
+  private eligiblePlayerCount(phase: QuizScreenView['phase']): number {
+    const ids = this.ctx.players.ids();
+    if (phase !== 'question' && phase !== 'reveal') return ids.length;
+    return ids.filter((id) => !this.lockedPlayerIds.has(id)).length;
   }
 
   /** Vue écran (5 premiers en `reveal`) ou console (classement complet). */
