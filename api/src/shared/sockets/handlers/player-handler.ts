@@ -1,6 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 import { z } from 'zod';
-import { nucResumePayloadSchema } from '@quiz-app/validation';
+import { nucResumePayloadSchema, nucRoundDisplayedPayloadSchema } from '@quiz-app/validation';
 import { logger } from '../../logger/index.js';
 import { prisma } from '../../db/index.js';
 import { AppError } from '../../errors/app-error.js';
@@ -10,6 +10,7 @@ import { buildNucStateSnapshot } from '../../../modules/sessions/session-resume.
 import { nucsService } from '../../../modules/nucs/nucs.service.js';
 import { broadcastNucStatusChanged } from '../../nuc-monitor/broadcast-nuc-status.js';
 import { socketClientIp } from '../client-ip.js';
+import { deliveriesService } from '../../../modules/campaigns/deliveries.service.js';
 
 const nucJoinSchema = z.object({
   nucUid: z.string().min(1),
@@ -300,6 +301,51 @@ export function setupPlayerHandlers(io: Server): void {
           code: error.code ?? 'NUC_RESUME_ERROR',
           message: error.message ?? 'Failed to resume NUC',
         });
+      }
+    });
+
+    /**
+     * Preuve de diffusion (C3) : le rendu de la manche est monté et visible sur l'écran.
+     * Socket de NUC seulement ; la manche doit appartenir à une séance de sa salle.
+     */
+    socket.on('nuc:round_displayed', async (data: unknown, callback?: (res: unknown) => void) => {
+      const reply = (res: { ok: true } | { ok: false; code: string; message: string }) => {
+        if (typeof callback === 'function') callback(res);
+        else if (!res.ok) socket.emit('error', { code: res.code, message: res.message });
+      };
+      const parsed = nucRoundDisplayedPayloadSchema.safeParse(data);
+      if (!parsed.success) {
+        reply({
+          ok: false,
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid nuc:round_displayed payload',
+        });
+        return;
+      }
+      const nucData = socket.data as Partial<SocketNucData> | undefined;
+      if (nucData?.type !== 'nuc' || nucData.screenId === undefined) {
+        reply({ ok: false, code: 'NUC_NOT_ON_SCREEN', message: 'Call nuc:join_screen first' });
+        return;
+      }
+      try {
+        const { recorded } = await deliveriesService.recordProofDisplayed({
+          screenId: nucData.screenId,
+          roundId: BigInt(parsed.data.roundId),
+        });
+        if (recorded) {
+          logger.info(
+            { nucId: nucData.nucId?.toString(), roundId: parsed.data.roundId },
+            'Round display proof recorded',
+          );
+        }
+        reply({ ok: true });
+      } catch (err: unknown) {
+        if (err instanceof AppError) {
+          reply({ ok: false, code: err.code, message: err.message });
+          return;
+        }
+        logger.error({ err, roundId: parsed.data.roundId }, 'Recording round display proof failed');
+        reply({ ok: false, code: 'ROUND_DISPLAYED_ERROR', message: 'Failed to record display' });
       }
     });
 

@@ -281,6 +281,15 @@ export const nucJoinSessionPayloadSchema = z.object({
 export type NucJoinScreenPayload = z.infer<typeof nucJoinScreenPayloadSchema>;
 export type NucJoinSessionPayload = z.infer<typeof nucJoinSessionPayloadSchema>;
 
+/**
+ * Preuve de diffusion (C3) : l'écran signale, une fois par manche, que le rendu de la manche est
+ * monté et visible. Accusé facultatif : `{ ok: true }` ou `{ ok: false, code, message }`.
+ */
+export const nucRoundDisplayedPayloadSchema = z.object({
+  roundId: z.string().regex(/^\d{1,20}$/),
+});
+export type NucRoundDisplayedPayload = z.infer<typeof nucRoundDisplayedPayloadSchema>;
+
 // ─── Server → Client: NUC discovery (PR5c) ──────────────
 
 export const screenSessionStartedSchema = z.object({

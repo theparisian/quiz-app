@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import type { Server } from 'socket.io';
-import { pseudoSuggestionsResponseSchema } from '@quiz-app/validation';
+import { pseudoSuggestionsResponseSchema, sessionAttendanceBodySchema } from '@quiz-app/validation';
 import { requireAuth } from '../../shared/auth/index.js';
 import {
   assertCanAccessCinema,
@@ -37,6 +37,7 @@ import {
   resolveReportScope,
   assertCinemaAccess,
 } from './session-report.service.js';
+import { deliveriesService } from '../campaigns/deliveries.service.js';
 
 const router = Router();
 
@@ -90,6 +91,7 @@ export function shapeSessionDetail(s: SessionDetailRow) {
     createdAt: s.createdAt.toISOString(),
     startedAt: s.startedAt?.toISOString() ?? null,
     endedAt: s.endedAt?.toISOString() ?? null,
+    attendance: s.attendance,
   };
 }
 
@@ -439,6 +441,17 @@ router.post('/:id/toggle-mute', requireAuth([...ADMIN_ROLES]), async (req, res, 
     await assertCanAccessSession(req.user!, sessionId);
     const muted = await getSessionRuntime().toggleMute(sessionId);
     res.json({ muted });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Entrées de la séance (C3), saisies par le cinéma dans les 7 jours suivant la fin. */
+router.patch('/:id/attendance', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
+  try {
+    const { attendance } = validate(sessionAttendanceBodySchema, req.body);
+    const sessionId = BigInt(param(req, 'id'));
+    res.json(await deliveriesService.setSessionAttendance(req.user!, sessionId, attendance));
   } catch (error) {
     next(error);
   }

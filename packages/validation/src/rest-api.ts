@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { sessionPrizesDisplaySchema } from './prizes.js';
 import { resolvedQuizAudioSchema } from './audio.js';
+import { catalogRevenueSchema } from './campaigns.js';
 
 export const pseudoSuggestionsResponseSchema = z.object({
   suggestions: z.tuple([z.string(), z.string(), z.string()]),
@@ -174,6 +175,8 @@ export const catalogGameSchema = z.object({
   sponsor: z.object({ name: z.string(), logoUrl: z.string().nullable() }).nullable(),
   durationEstimateSeconds: z.number().int().nullable(),
   tags: z.array(z.string()),
+  /** Campagne active couvrant aujourd'hui (C3) : part du cinéma par séance ou par participant. */
+  revenue: catalogRevenueSchema.nullable(),
 });
 export type CatalogGame = z.infer<typeof catalogGameSchema>;
 

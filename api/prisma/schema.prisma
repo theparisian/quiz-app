@@ -142,6 +142,18 @@ enum RoundState {
   skipped
 }
 
+enum CampaignStatus {
+  draft
+  active
+  paused
+  ended
+}
+
+enum CampaignPricing {
+  per_session
+  per_participant
+}
+
 // ─── MODELS ─────────────────────────────────────────────────────────────────────
 
 model Cinema {
@@ -172,6 +184,7 @@ model Cinema {
   events         EventLog[]
   prizeTemplates PrizeTemplate[]
   gameAccess     GameCinemaAccess[]
+  deliveries     Delivery[]
 
   @@map("cinemas")
 }
@@ -189,6 +202,7 @@ model Screen {
   nucs         Nuc[]
   sessions     Session[]
   programItems ScreenProgramItem[]
+  deliveries   Delivery[]
 
   @@index([cinemaId])
   @@map("screens")
@@ -424,6 +438,8 @@ model Session {
   currentQuestionPausedAt  DateTime?   @map("current_question_paused_at")
   audioMuted               Boolean     @default(false) @map("audio_muted")
   superPrizeTemplateId     BigInt?      @map("super_prize_template_id")
+  /// Entrées de la séance, saisies par le cinéma après la séance (C3).
+  attendance               Int?
   createdAt               DateTime     @default(now()) @map("created_at")
   updatedAt               DateTime     @updatedAt @map("updated_at")
 
@@ -436,6 +452,7 @@ model Session {
   events        EventLog[]
   rounds        SessionRound[]
   scoreEvents   ScoreEvent[]
+  deliveries    Delivery[]
 
   @@index([quizId])
   @@index([screenId])
@@ -511,6 +528,7 @@ model Sponsor {
   quizzes        Quiz[]
   prizeTemplates PrizeTemplate[]
   games          Game[]
+  campaigns      Campaign[]
 
   @@map("sponsors")
 }
@@ -620,6 +638,7 @@ model Game {
   rounds       SessionRound[]
   cinemaAccess GameCinemaAccess[]
   programItems ScreenProgramItem[]
+  campaigns    Campaign[]
 
   @@index([sponsorId])
   @@map("games")
@@ -665,10 +684,13 @@ model SessionRound {
   startedAt DateTime?  @map("started_at")
   endedAt   DateTime?  @map("ended_at")
   stateJson Json?      @map("state_json")
+  /// Premier affichage du rendu de la manche par l'écran de la salle (preuve de diffusion, C3).
+  proofDisplayedAt DateTime? @map("proof_displayed_at")
 
   session     Session      @relation(fields: [sessionId], references: [id])
   game        Game         @relation(fields: [gameId], references: [id])
   scoreEvents ScoreEvent[]
+  delivery    Delivery?
 
   @@unique([sessionId, position])
   @@index([sessionId])
@@ -695,6 +717,68 @@ model ScoreEvent {
   @@index([roundId])
   @@index([playerId])
   @@map("score_events")
+}
+
+/// Campagne d'un sponsor sur un jeu (C3) : période, tarif et part reversée au cinéma.
+/// Montants en centimes. Une seule campagne active par jeu sur une période donnée (service).
+model Campaign {
+  id                         BigInt          @id @default(autoincrement())
+  sponsorId                  BigInt          @map("sponsor_id")
+  gameId                     BigInt          @map("game_id")
+  name                       String          @db.VarChar(255)
+  status                     CampaignStatus  @default(draft)
+  startsAt                   DateTime        @map("starts_at")
+  endsAt                     DateTime        @map("ends_at")
+  pricing                    CampaignPricing
+  unitPriceCents             Int             @map("unit_price_cents")
+  cinemaSharePercent         Int             @map("cinema_share_percent")
+  maxSessions                Int?            @map("max_sessions")
+  maxSessionsPerScreenPerDay Int?            @default(3) @map("max_sessions_per_screen_per_day")
+  emailSharingEnabled        Boolean         @default(false) @map("email_sharing_enabled")
+  notes                      String?         @db.Text
+  createdAt                  DateTime        @default(now()) @map("created_at")
+  updatedAt                  DateTime        @updatedAt @map("updated_at")
+
+  sponsor    Sponsor    @relation(fields: [sponsorId], references: [id])
+  game       Game       @relation(fields: [gameId], references: [id])
+  deliveries Delivery[]
+
+  @@index([sponsorId])
+  @@index([gameId, status])
+  @@map("campaigns")
+}
+
+/// Diffusion d'une manche sponsorisée terminée (C3) : une ligne par manche, base du relevé.
+model Delivery {
+  id                BigInt    @id @default(autoincrement())
+  campaignId        BigInt    @map("campaign_id")
+  sessionId         BigInt    @map("session_id")
+  roundId           BigInt    @unique @map("round_id")
+  screenId          BigInt    @map("screen_id")
+  cinemaId          BigInt    @map("cinema_id")
+  playedAt          DateTime  @map("played_at")
+  proofDisplayedAt  DateTime? @map("proof_displayed_at")
+  participants      Int
+  finishers         Int
+  prizesIssued      Int       @default(0) @map("prizes_issued")
+  attendance        Int?
+  billable          Boolean
+  nonBillableReason String?   @map("non_billable_reason") @db.VarChar(50)
+  amountCents       Int       @map("amount_cents")
+  cinemaShareCents  Int       @map("cinema_share_cents")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  campaign Campaign     @relation(fields: [campaignId], references: [id])
+  session  Session      @relation(fields: [sessionId], references: [id])
+  round    SessionRound @relation(fields: [roundId], references: [id])
+  screen   Screen       @relation(fields: [screenId], references: [id])
+  cinema   Cinema       @relation(fields: [cinemaId], references: [id])
+
+  @@index([campaignId, playedAt])
+  @@index([cinemaId, playedAt])
+  @@index([sessionId])
+  @@index([screenId])
+  @@map("deliveries")
 }
 
 model AiGeneration {

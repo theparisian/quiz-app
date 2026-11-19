@@ -110,6 +110,7 @@ describe('helpers', () => {
       engineKey: 'poll',
       kind: 'sponsored',
       sponsor: { name: 'Pop', logoUrl: 'http://x/l.png' },
+      revenue: null,
       durationEstimateSeconds: null,
       tags: ['fun'],
     };

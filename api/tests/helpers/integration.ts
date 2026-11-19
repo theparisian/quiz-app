@@ -48,6 +48,8 @@ export function authed(agent: supertest.Test, token: string) {
 }
 
 export async function truncateQuizRelatedTables() {
+  await prisma.delivery.deleteMany({});
+  await prisma.campaign.deleteMany({});
   await prisma.aiGeneration.deleteMany({});
   await prisma.scoreEvent.deleteMany({});
   await prisma.playerAnswer.deleteMany({});
@@ -78,6 +80,8 @@ export async function truncateQuizRelatedTables() {
 }
 
 export async function truncateSponsorsOnly() {
+  await prisma.delivery.deleteMany({});
+  await prisma.campaign.deleteMany({});
   await prisma.game.deleteMany({});
   await prisma.quiz.deleteMany({});
   await prisma.sponsor.deleteMany({});

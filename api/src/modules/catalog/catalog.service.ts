@@ -6,12 +6,14 @@ import {
   type CatalogGame,
   type CatalogGameDetail,
   type CatalogQuery,
+  type CatalogRevenue,
 } from '@quiz-app/validation';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { assertCanAccessCinema, type TenantScopeUser } from '../../shared/auth/tenant-scope.js';
 import { QUIZ_ENGINE_KEY } from '../games/games.schemas.js';
 import { gamesService } from '../games/games.service.js';
+import { campaignsService } from '../campaigns/campaigns.service.js';
 
 /**
  * Catalogue vu par un cinéma (C1) : jeux disponibles selon `gamesService.availableWhere`.
@@ -58,7 +60,10 @@ function readTags(json: unknown): string[] {
   return Array.isArray(json) ? json.filter((t): t is string => typeof t === 'string') : [];
 }
 
-function shapeCatalogGame(game: CatalogRow): CatalogGame {
+/**
+ * `revenue` : part du cinéma pour un jeu sous campagne active aujourd'hui (C3), sinon null.
+ */
+function shapeCatalogGame(game: CatalogRow, revenue: CatalogRevenue | null): CatalogGame {
   return {
     slug: game.slug,
     title: game.title,
@@ -73,6 +78,7 @@ function shapeCatalogGame(game: CatalogRow): CatalogGame {
         : null,
     durationEstimateSeconds: game.durationEstimateSeconds,
     tags: readTags(game.tags),
+    revenue,
   };
 }
 
@@ -109,7 +115,8 @@ async function list(user: TenantScopeUser, query: CatalogQuery): Promise<Catalog
     include: CATALOG_INCLUDE,
     orderBy: { title: 'asc' },
   });
-  return games.map(shapeCatalogGame);
+  const revenue = await campaignsService.revenueByGame(games.map((g) => g.id));
+  return games.map((g) => shapeCatalogGame(g, revenue.get(g.id.toString()) ?? null));
 }
 
 /** Fiche d'un jeu ; 404 GAME_NOT_FOUND s'il n'est pas disponible pour ce cinéma. */
@@ -124,8 +131,9 @@ async function detail(
     include: CATALOG_DETAIL_INCLUDE,
   });
   if (!game) throw new AppError('Game not found', 404, 'GAME_NOT_FOUND');
+  const revenue = await campaignsService.revenueByGame([game.id]);
   return {
-    ...shapeCatalogGame(game),
+    ...shapeCatalogGame(game, revenue.get(game.id.toString()) ?? null),
     description: game.description,
     rulesText: game.rulesText,
     minPlayers: game.minPlayers,

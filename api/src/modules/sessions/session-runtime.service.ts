@@ -9,6 +9,7 @@ import { resolvePrizeConfig } from '../prizes/prize-config.service.js';
 import { resolvePrizesPayload } from '../prizes/prize-display.service.js';
 import { getEngine } from '../games/engine-registry.js';
 import { ensureGameForQuiz } from '../games/games.service.js';
+import { deliveriesService } from '../campaigns/deliveries.service.js';
 import { resolveRoundThemeQuiz, shapeThemePayload } from './session-content.service.js';
 import type { RoundEndedPayload, RoundInfo } from '@quiz-app/validation';
 import type {
@@ -471,6 +472,32 @@ async function closeRound(
   });
   rs.lastRoundEnded = payload;
   broadcastToSession(rs.sessionId, 'round:ended', payload);
+  if (state === 'ended') await recordDeliverySafely(rs, active.roundId);
+}
+
+/**
+ * Journal des diffusions (C3) : Delivery d'une manche terminée dont le jeu est sous campagne.
+ * Ne fait jamais échouer la fin de manche.
+ */
+async function recordDeliverySafely(rs: RunningSession, roundId: bigint): Promise<void> {
+  try {
+    await deliveriesService.recordRoundDelivery(roundId);
+  } catch (err) {
+    logger.error(
+      { err, sessionId: rs.sessionId.toString(), roundId: roundId.toString() },
+      'Recording round delivery failed',
+    );
+    logEvent({
+      level: 'error',
+      eventType: 'campaign.delivery_failed',
+      sessionId: rs.sessionId,
+      cinemaId: rs.cinemaId,
+      payload: {
+        roundId: roundId.toString(),
+        message: err instanceof Error ? err.message : String(err),
+      },
+    });
+  }
 }
 
 /** Fin de manche signalée par le moteur (une seule fois). */

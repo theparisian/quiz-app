@@ -103,6 +103,8 @@ export function catalogGameFromProgramItem(item: ScreenProgramItem): CatalogGame
     sponsor: item.sponsorName ? { name: item.sponsorName, logoUrl: null } : null,
     durationEstimateSeconds: item.durationEstimateSeconds,
     tags: [],
+    // La fiche (GET /api/catalog/:slug) donne le revenu à jour.
+    revenue: null,
   };
 }
 

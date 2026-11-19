@@ -576,7 +576,7 @@ export async function listReportableSessions(scope: CinemaScope): Promise<Report
   });
 }
 
-function csvCell(value: string | number | null): string {
+export function csvCell(value: string | number | null): string {
   if (value === null) return '';
   const str = String(value);
   if (/[",\n;]/.test(str)) {

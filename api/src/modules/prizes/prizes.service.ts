@@ -14,6 +14,7 @@ import {
   sendPrizeEmailNow,
 } from '../../shared/email/prize-email-queue.service.js';
 import { FIRST_ROUND_SELECT, sessionTitle } from '../sessions/session-content.service.js';
+import { deliveriesService } from '../campaigns/deliveries.service.js';
 
 function prizeNotConfiguredMessage(isConsolationAttempt: boolean): string {
   if (isConsolationAttempt) {
@@ -182,6 +183,16 @@ export const prizesService = {
       },
       'Prize created',
     );
+
+    // Diffusions sponsorisées de la séance (C3) : un lot de plus. Jamais bloquant.
+    try {
+      await deliveriesService.recordPrizeIssued(player.sessionId);
+    } catch (err) {
+      logger.error(
+        { err, sessionId: player.sessionId.toString() },
+        'Counting prize on deliveries failed',
+      );
+    }
 
     enqueuePrizeEmail(prize.id);
 

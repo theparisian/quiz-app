@@ -145,6 +145,7 @@ describe('games catalogue (C1)', () => {
       sponsor: null,
       durationEstimateSeconds: 104,
       tags: ['fun'],
+      revenue: null,
     });
 
     const bToken = (await createCinemaUser('cinema_admin', b.id)).token;
