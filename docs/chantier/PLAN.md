@@ -160,6 +160,10 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   (routes users / invitations) non audités.
 - C5 — Interprétations : l'export sponsor est autorisé si au moins une campagne du sponsor a
   `emailSharingEnabled` ; un nouvel opt-in après désinscription totale efface `unsubscribedAllAt`.
+- Fin de chantier — Test navigateur final complet (captures dans le scratchpad de session) : aucun
+  bug bloquant. Corrigés ensuite (commit « Polish ») : dates de campagne en jour de Paris, libellé
+  du lot sur mobile, choix du boîtier le plus récent dans la console, vouvoiement de la page
+  d'invitation. Restent : badge de salle de la barre latérale rafraîchi avec ~7 s de retard.
 
 ## Décisions
 
