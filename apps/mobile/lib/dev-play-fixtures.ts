@@ -1,5 +1,7 @@
 import { usePlayerStore } from '@/lib/stores/player-store';
 import type {
+  BurgerLayerId,
+  BurgerMobileView,
   PollMobileView,
   QuizMobileView,
   RoundInfo,
@@ -58,7 +60,11 @@ export type DevPlayScreen =
   | 'unknown_game'
   | 'poll_question'
   | 'poll_voted'
-  | 'poll_results';
+  | 'poll_results'
+  | 'burger_countdown'
+  | 'burger_build'
+  | 'burger_finished'
+  | 'burger_results';
 
 export const DEV_PLAY_SCREENS: { id: DevPlayScreen; label: string }[] = [
   { id: 'lobby', label: 'Lobby' },
@@ -76,6 +82,10 @@ export const DEV_PLAY_SCREENS: { id: DevPlayScreen; label: string }[] = [
   { id: 'poll_question', label: 'Sondage' },
   { id: 'poll_voted', label: 'Sondage voté' },
   { id: 'poll_results', label: 'Sondage résultats' },
+  { id: 'burger_countdown', label: 'Burger départ' },
+  { id: 'burger_build', label: 'Burger course' },
+  { id: 'burger_finished', label: 'Burger fini' },
+  { id: 'burger_results', label: 'Burger résultats' },
 ];
 
 const DEFAULT_SCREEN: DevPlayScreen = 'lobby';
@@ -170,6 +180,79 @@ function pollView(phase: 'question' | 'results', myVote: string | null): PollMob
       { optionId: 'd', votes: 4 },
     ],
   };
+}
+
+const DEV_BURGER_ROUND: RoundInfo = {
+  roundId: '3',
+  position: 1,
+  totalRounds: 1,
+  engineKey: 'burger',
+  game: { slug: 'burger-demo', title: 'Burger express — Démo', kind: 'internal', sponsor: null },
+};
+
+/** Burger mélangé de démonstration (bas vers le haut). */
+const DEMO_BURGER_SHUFFLED: BurgerLayerId[] = [
+  'pickles',
+  'bun_top',
+  'tomato',
+  'sauce',
+  'onion',
+  'lettuce',
+  'bun_bottom',
+  'patty_cheese',
+];
+/**
+ * Burger « fini » de démonstration (bas vers le haut). Volontairement PAS la recette : ce fichier
+ * part dans le code du mobile, la recette ne doit vivre que sur le serveur.
+ */
+const DEMO_BURGER_RECIPE: BurgerLayerId[] = [
+  'bun_bottom',
+  'lettuce',
+  'patty_cheese',
+  'sauce',
+  'tomato',
+  'pickles',
+  'onion',
+  'bun_top',
+];
+
+function burgerView(screen: 'countdown' | 'build' | 'finished' | 'results'): BurgerMobileView {
+  const common = {
+    pausedRemainingMs: null,
+    durationMs: 60000,
+    countdownMs: 4000,
+    totalLayers: 8,
+    totalPlayers: 38,
+    finishedCount: screen === 'build' ? 0 : 7,
+  };
+  const none = { correctCount: 0, finishMs: null, rank: null, points: null };
+  switch (screen) {
+    case 'countdown':
+      return { phase: 'countdown', ...common, endsAt: inSeconds(4000), me: { order: [], ...none } };
+    case 'build':
+      return {
+        phase: 'build',
+        ...common,
+        // Long délai : le temps de jouer avec le glisser-déposer.
+        endsAt: inSeconds(10 * 60_000),
+        me: { order: DEMO_BURGER_SHUFFLED, ...none },
+      };
+    case 'finished':
+      return {
+        phase: 'build',
+        ...common,
+        endsAt: inSeconds(35000),
+        me: { order: DEMO_BURGER_RECIPE, correctCount: 8, finishMs: 18400, rank: 3, points: null },
+      };
+    case 'results':
+      return {
+        phase: 'results',
+        ...common,
+        endsAt: inSeconds(8000),
+        recipe: DEMO_BURGER_RECIPE,
+        me: { order: DEMO_BURGER_RECIPE, correctCount: 8, finishMs: 18400, rank: 3, points: 847 },
+      };
+  }
 }
 
 function seedBaseMetadata() {
@@ -339,5 +422,14 @@ export function seedDevPlayScreen(screen: DevPlayScreen): void {
     case 'poll_results':
       store.applySnapshot(gameSnapshot('running', pollView('results', 'b'), DEV_POLL_ROUND));
       break;
+
+    case 'burger_countdown':
+    case 'burger_build':
+    case 'burger_finished':
+    case 'burger_results': {
+      const sub = screen.slice('burger_'.length) as 'countdown' | 'build' | 'finished' | 'results';
+      store.applySnapshot(gameSnapshot('running', burgerView(sub), DEV_BURGER_ROUND));
+      break;
+    }
   }
 }

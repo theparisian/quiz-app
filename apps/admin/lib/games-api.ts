@@ -28,6 +28,7 @@ export interface CatalogGameListResponse {
 export const ENGINE_LABEL: Record<string, string> = {
   quiz: 'Quiz',
   poll: 'Sondage',
+  burger: 'Burger',
 };
 
 export const KIND_LABEL: Record<GameKindValue, string> = {
@@ -40,10 +41,11 @@ export const AUDIENCE_LABEL: Record<GameAudienceValue, string> = {
   selected_cinemas: 'Cinémas choisis',
 };
 
-/** Page d'édition du contenu d'un jeu : éditeur de quiz ou de sondage. */
+/** Page d'édition du contenu d'un jeu : éditeur de quiz, de sondage ou de burger. */
 export function contentEditorHref(game: Pick<CatalogGameRow, 'engineKey' | 'slug'>): string | null {
   if (game.engineKey === 'quiz') return `/quizzes/${encodeURIComponent(game.slug)}/edit`;
   if (game.engineKey === 'poll') return `/games/${encodeURIComponent(game.slug)}/edit-poll`;
+  if (game.engineKey === 'burger') return `/games/${encodeURIComponent(game.slug)}/edit-burger`;
   return null;
 }
 

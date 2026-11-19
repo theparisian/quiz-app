@@ -17,7 +17,11 @@ Aucune modification de la plateforme, des handlers socket, des stores ni de la r
 toucher une, c'est que l'interface a un trou : note-le plutôt que de le contourner dans le moteur.
 
 Exemple suivi tout au long de cette page : le quiz (`quiz`). Le sondage (`poll`, B6) est un second
-exemple, plus court, qui n'utilise que le protocole générique (aucun cue, aucune table propre). Les chemins sont donnés avec `<clé>` pour un
+exemple, plus court, qui n'utilise que le protocole générique (aucun cue, aucune table propre). Le
+mini-jeu burger (`burger`) en est un troisième : une course de vitesse à actions répétées
+(`reorder`, l'ordre complet à chaque dépôt), un cue (`player_finished`) et un secret gardé côté
+serveur (la recette, qui ne figure jamais dans `@quiz-app/validation` puisque ce paquet part dans le
+code des clients). Les chemins sont donnés avec `<clé>` pour un
 nouveau moteur (ex. `poll`).
 
 ---

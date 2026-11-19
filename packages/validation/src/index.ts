@@ -8,4 +8,5 @@ export * from './sponsor-portal';
 export * from './contacts';
 export * from './games/quiz';
 export * from './games/poll';
+export * from './games/burger';
 export * from './paris-day';

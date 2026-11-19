@@ -454,3 +454,50 @@ describe('live-session-store — moteur sondage (B6)', () => {
     expect(useLiveSessionStore.getState().gameViewInvalid).toBe(true);
   });
 });
+
+describe('live-session-store — moteur burger', () => {
+  it('burger views validated by the burger schema, burger rules for the header and force-advance', () => {
+    startRunning();
+    apply('round:started', { ...ROUND, roundId: '13', engineKey: 'burger' });
+    const view = {
+      phase: 'build',
+      endsAt: new Date(Date.now() + 30_000).toISOString(),
+      pausedRemainingMs: null,
+      durationMs: 60000,
+      countdownMs: 4000,
+      totalLayers: 8,
+      totalPlayers: 2,
+      finishedCount: 0,
+      racers: [],
+    };
+    apply('game:state', { ...gameState(1, view, '13'), engineKey: 'burger' });
+    let s = useLiveSessionStore.getState();
+    expect(s.gameViewInvalid).toBe(false);
+    expect(selectProgressLabel(s)).toBe('Burger — course en cours');
+    expect(selectCanForceAdvance(s)).toBe(true);
+
+    const done = {
+      ...view,
+      phase: 'done',
+      endsAt: null,
+      recipe: [
+        'pickles',
+        'bun_top',
+        'tomato',
+        'sauce',
+        'onion',
+        'lettuce',
+        'bun_bottom',
+        'patty_cheese',
+      ],
+    };
+    apply('game:state', { ...gameState(2, done, '13'), engineKey: 'burger' });
+    s = useLiveSessionStore.getState();
+    expect(s.gameViewInvalid).toBe(false);
+    expect(selectCanForceAdvance(s)).toBe(false);
+
+    // Une vue de quiz sur une manche burger : repli.
+    apply('game:state', { ...gameState(3, questionView(), '13'), engineKey: 'burger' });
+    expect(useLiveSessionStore.getState().gameViewInvalid).toBe(true);
+  });
+});

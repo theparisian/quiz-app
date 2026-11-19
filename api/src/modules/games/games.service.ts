@@ -1,11 +1,13 @@
 import { Prisma, type Game, type PrismaClient, type QuizType } from '@prisma/client';
 import {
+  BURGER_ENGINE_KEY,
   POLL_ENGINE_KEY,
+  burgerConfigSchema,
+  burgerDurationEstimateSeconds,
   pollConfigSchema,
   pollDurationEstimateSeconds,
   type CreateGameBody,
   type ListGamesQuery,
-  type PollConfig,
   type UpdateGameBody,
 } from '@quiz-app/validation';
 import { prisma } from '../../shared/db/index.js';
@@ -91,10 +93,10 @@ export async function ensureGameForQuiz(
 // ─── Jeux hors quiz (B6 : sondage), super_admin ─────────
 
 /**
- * Chemins de l'admin sous `/games/` qui ne sont pas des slugs (`/games/new-poll`) : refusés
- * comme slug de jeu pour ne pas masquer une page.
+ * Chemins de l'admin sous `/games/` qui ne sont pas des slugs (`/games/new-poll`,
+ * `/games/new-burger`) : refusés comme slug de jeu pour ne pas masquer une page.
  */
-const RESERVED_GAME_SLUGS = new Set(['new-poll']);
+const RESERVED_GAME_SLUGS = new Set(['new-poll', 'new-burger']);
 
 function slugify(title: string): string {
   return title
@@ -118,7 +120,7 @@ async function isSlugFree(slug: string): Promise<boolean> {
 }
 
 async function allocateGameSlug(title: string): Promise<string> {
-  const base = slugify(title) || 'sondage';
+  const base = slugify(title) || 'jeu';
   let candidate = base;
   for (let suffix = 2; !(await isSlugFree(candidate)); suffix += 1) {
     candidate = `${base}-${suffix}`;
@@ -126,22 +128,56 @@ async function allocateGameSlug(title: string): Promise<string> {
   return candidate;
 }
 
-/** Contenu d'un sondage validé par le schéma du moteur (400 POLL_CONFIG_INVALID sinon). */
-function parsePollConfig(json: unknown): PollConfig {
-  const parsed = pollConfigSchema.safeParse(json);
-  if (!parsed.success) {
-    const message = parsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
-    throw new AppError(`Invalid poll configuration: ${message}`, 400, 'POLL_CONFIG_INVALID');
-  }
-  return parsed.data;
+/** Contenu d'un jeu validé par le schéma de son moteur, avec sa durée estimée. */
+interface ParsedGameConfig {
+  config: unknown;
+  durationEstimateSeconds: number;
 }
 
-/** Seuls les jeux de moteur `poll` sont créés et modifiés par /api/games (B6). */
+/** Moteurs dont le contenu (`configJson`) est créé et modifié par /api/games. */
+const CONFIG_PARSERS: Record<string, (json: unknown) => ParsedGameConfig> = {
+  // 400 POLL_CONFIG_INVALID si le sondage est invalide.
+  [POLL_ENGINE_KEY]: (json) => {
+    const parsed = pollConfigSchema.safeParse(json);
+    if (!parsed.success) {
+      const message = parsed.error.errors
+        .map((e) => `${e.path.join('.')}: ${e.message}`)
+        .join(', ');
+      throw new AppError(`Invalid poll configuration: ${message}`, 400, 'POLL_CONFIG_INVALID');
+    }
+    return {
+      config: parsed.data,
+      durationEstimateSeconds: pollDurationEstimateSeconds(parsed.data),
+    };
+  },
+  // 400 BURGER_CONFIG_INVALID ; un contenu absent prend les réglages par défaut.
+  [BURGER_ENGINE_KEY]: (json) => {
+    const parsed = burgerConfigSchema.safeParse(json ?? {});
+    if (!parsed.success) {
+      const message = parsed.error.errors
+        .map((e) => `${e.path.join('.')}: ${e.message}`)
+        .join(', ');
+      throw new AppError(`Invalid burger configuration: ${message}`, 400, 'BURGER_CONFIG_INVALID');
+    }
+    return {
+      config: parsed.data,
+      durationEstimateSeconds: burgerDurationEstimateSeconds(parsed.data),
+    };
+  },
+};
+
+function parseGameConfig(engineKey: string, json: unknown): ParsedGameConfig {
+  const parse = CONFIG_PARSERS[engineKey];
+  if (!parse) throw new AppError(`Unsupported engine: ${engineKey}`, 400, 'GAME_NOT_SUPPORTED_YET');
+  return parse(json);
+}
+
+/** Seuls les jeux hors quiz à contenu `configJson` (sondage, burger) passent par /api/games. */
 function assertEditableEngine(engineKey: string): void {
   if (engineKey === QUIZ_ENGINE_KEY) {
     throw new AppError('Quiz games are managed by the quiz editor', 400, 'GAME_MANAGED_BY_QUIZ');
   }
-  if (engineKey !== POLL_ENGINE_KEY) {
+  if (!CONFIG_PARSERS[engineKey]) {
     throw new AppError(`Unsupported engine: ${engineKey}`, 400, 'GAME_NOT_SUPPORTED_YET');
   }
 }
@@ -152,10 +188,10 @@ async function getGameOrThrow(slug: string): Promise<Game> {
   return game;
 }
 
-/** POST /api/games : sondage en brouillon. Slug donné : 409 SLUG_TAKEN s'il est pris. */
+/** POST /api/games : jeu hors quiz (sondage, burger) en brouillon. Slug donné : 409 SLUG_TAKEN s'il est pris. */
 async function createGame(input: CreateGameBody): Promise<Game> {
   assertEditableEngine(input.engineKey);
-  const config = parsePollConfig(input.configJson);
+  const { config, durationEstimateSeconds } = parseGameConfig(input.engineKey, input.configJson);
   let slug: string;
   if (input.slug !== undefined) {
     if (!(await isSlugFree(input.slug))) {
@@ -175,7 +211,7 @@ async function createGame(input: CreateGameBody): Promise<Game> {
         configJson: config as unknown as Prisma.InputJsonValue,
         kind: 'internal',
         status: 'draft',
-        durationEstimateSeconds: pollDurationEstimateSeconds(config),
+        durationEstimateSeconds,
       },
     });
     logger.info({ gameSlug: slug, engineKey: input.engineKey }, 'Game created');
@@ -235,7 +271,7 @@ async function updateGame(slug: string, input: UpdateGameBody): Promise<Game> {
   if (input.description !== undefined) data.description = input.description;
   if (input.configJson !== undefined) {
     assertEditableEngine(game.engineKey);
-    const config = parsePollConfig(input.configJson);
+    const { config, durationEstimateSeconds } = parseGameConfig(game.engineKey, input.configJson);
     const inUse = await prisma.sessionRound.count({
       where: { gameId: game.id, state: { in: ['pending', 'running'] } },
     });
@@ -243,7 +279,7 @@ async function updateGame(slug: string, input: UpdateGameBody): Promise<Game> {
       throw new AppError('Game is scheduled or being played', 409, 'GAME_IN_USE');
     }
     data.configJson = config as unknown as Prisma.InputJsonValue;
-    data.durationEstimateSeconds = pollDurationEstimateSeconds(config);
+    data.durationEstimateSeconds = durationEstimateSeconds;
   } else if (input.durationEstimateSeconds !== undefined) {
     data.durationEstimateSeconds = input.durationEstimateSeconds;
   }
@@ -300,7 +336,7 @@ async function publishGame(slug: string): Promise<Game> {
   if (game.status !== 'draft') {
     throw new AppError('Invalid status transition', 403, 'GAME_INVALID_TRANSITION');
   }
-  parsePollConfig(game.configJson);
+  parseGameConfig(game.engineKey, game.configJson);
   const updated = await prisma.game.update({
     where: { id: game.id },
     data: { status: 'published' },

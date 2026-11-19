@@ -1,7 +1,9 @@
 import {
+  BURGER_ENGINE_KEY,
   POLL_ENGINE_KEY,
   QUIZ_ENGINE_KEY,
   pollMobileViewSchema,
+  burgerMobileViewSchema,
   quizMobileViewSchema,
 } from '@quiz-app/validation';
 import type { GameViewSchema } from './types';
@@ -14,6 +16,7 @@ import type { GameViewSchema } from './types';
 export const GAME_VIEW_SCHEMAS: Record<string, GameViewSchema> = {
   [QUIZ_ENGINE_KEY]: quizMobileViewSchema,
   [POLL_ENGINE_KEY]: pollMobileViewSchema,
+  [BURGER_ENGINE_KEY]: burgerMobileViewSchema,
 };
 
 export function getGameViewSchema(engineKey: string): GameViewSchema | null {

@@ -467,6 +467,56 @@ describe('nuc store — moteur sondage (B6)', () => {
   });
 });
 
+describe('nuc store — moteur burger', () => {
+  const BURGER_ROUND: RoundInfo = {
+    ...ROUND,
+    roundId: '12',
+    engineKey: 'burger',
+    game: { slug: 'burger', title: 'Burger', kind: 'internal', sponsor: null },
+  };
+  const build = {
+    phase: 'build',
+    endsAt: new Date(Date.now() + 30_000).toISOString(),
+    pausedRemainingMs: null,
+    durationMs: 60000,
+    countdownMs: 4000,
+    totalLayers: 8,
+    totalPlayers: 2,
+    finishedCount: 0,
+    racers: [
+      {
+        playerId: '1',
+        pseudo: 'Léa',
+        avatarUrl: null,
+        correctCount: 2,
+        placedLayers: ['bun_bottom', 'sauce'],
+        finishMs: null,
+        rank: 1,
+        points: null,
+      },
+    ],
+  };
+  const burgerState = (seq: number, view: unknown) => ({
+    ...gameState(seq, view, BURGER_ROUND.roundId),
+    engineKey: 'burger',
+  });
+
+  it('validates the burger view with the burger schema; the race replaces the lobby', () => {
+    const s = useNucStore.getState();
+    s.setSessionContext({ sessionId: '1', slugShort: 'ABCD', joinToken: 'tok' });
+    s.applyEvent('session:started', { sessionId: '1', audio: null });
+    s.applyEvent('round:started', BURGER_ROUND);
+    s.applyEvent('game:state', burgerState(1, build));
+    expect(selectScreenDisplay(useNucStore.getState())).toBe('game');
+    expect(useNucStore.getState().gameView).toMatchObject({ phase: 'build' });
+
+    // Une vue de quiz sur une manche burger : invalide, repli.
+    s.applyEvent('game:state', burgerState(2, questionView()));
+    expect(useNucStore.getState().gameViewInvalid).toBe(true);
+    expect(reportGameIssue).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('nuc store — sponsor (C4)', () => {
   const SPONSOR = {
     name: 'Popcorn & Co',
