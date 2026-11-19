@@ -130,6 +130,11 @@ enum GameStatus {
   archived
 }
 
+enum GameAudience {
+  all_cinemas
+  selected_cinemas
+}
+
 enum RoundState {
   pending
   running
@@ -166,6 +171,7 @@ model Cinema {
   invitations    Invitation[]
   events         EventLog[]
   prizeTemplates PrizeTemplate[]
+  gameAccess     GameCinemaAccess[]
 
   @@map("cinemas")
 }
@@ -599,18 +605,38 @@ model Game {
   status                  GameStatus @default(draft)
   coverImageUrl           String?    @map("cover_image_url") @db.VarChar(500)
   durationEstimateSeconds Int?       @map("duration_estimate_seconds")
+  tagline                 String?      @db.VarChar(160)
+  rulesText               String?      @map("rules_text") @db.Text
+  catalogEnabled          Boolean      @default(false) @map("catalog_enabled")
+  audience                GameAudience @default(all_cinemas)
+  minPlayers              Int?         @map("min_players")
+  tags                    Json?
   createdAt               DateTime   @default(now()) @map("created_at")
   updatedAt               DateTime   @updatedAt @map("updated_at")
 
-  quiz    Quiz?          @relation(fields: [quizId], references: [id], onDelete: SetNull)
-  sponsor Sponsor?       @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
-  rounds  SessionRound[]
+  quiz         Quiz?              @relation(fields: [quizId], references: [id], onDelete: SetNull)
+  sponsor      Sponsor?           @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+  rounds       SessionRound[]
+  cinemaAccess GameCinemaAccess[]
 
   @@index([sponsorId])
   @@map("games")
 }
 
 /// Manche d'une séance : un jeu joué à une position donnée (à partir de 1).
+/// Cinémas autorisés pour un jeu d'audience `selected_cinemas` (C1).
+model GameCinemaAccess {
+  gameId   BigInt @map("game_id")
+  cinemaId BigInt @map("cinema_id")
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  cinema Cinema @relation(fields: [cinemaId], references: [id], onDelete: Cascade)
+
+  @@id([gameId, cinemaId])
+  @@index([cinemaId])
+  @@map("game_cinema_access")
+}
+
 model SessionRound {
   id        BigInt     @id @default(autoincrement())
   sessionId BigInt     @map("session_id")

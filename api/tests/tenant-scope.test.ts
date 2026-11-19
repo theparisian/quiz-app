@@ -9,6 +9,7 @@ import { buildApp } from '../src/create-app.js';
 import { setupSocketGateway } from '../src/shared/sockets/gateway.js';
 import { setIoInstance } from '../src/modules/sessions/session-runtime.service.js';
 import { assertCanAccessCinema } from '../src/shared/auth/tenant-scope.js';
+import { syncGameFromQuiz } from '../src/modules/games/games.service.js';
 import {
   authed,
   createCinemaUser,
@@ -98,6 +99,9 @@ describe('tenant scope (cloisonnement entre cinémas)', () => {
         },
       },
     });
+    // C1 : le jeu du quiz est dans le catalogue (sinon un projectionniste ne peut pas le lancer).
+    const game = await syncGameFromQuiz(quiz.id);
+    await prisma.game.update({ where: { id: game.id }, data: { catalogEnabled: true } });
     quizSlug = quiz.slug;
 
     a = await createCinemaFixture();

@@ -6,7 +6,7 @@ import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
 import { drawSuperPrizeForSession } from '../prizes/prize-catalog.service.js';
 import { QUIZ_ENGINE_KEY } from '../games/games.schemas.js';
-import { ensureGameForQuiz } from '../games/games.service.js';
+import { ensureGameForQuiz, gamesService } from '../games/games.service.js';
 import { hasEngine } from '../games/engine-registry.js';
 import { FIRST_ROUND_SELECT, resolveLobbyQuiz } from './session-content.service.js';
 import { generateUniqueSessionCode } from './session-code.service.js';
@@ -59,6 +59,33 @@ async function resolveSessionContent(
     throw new AppError('Quiz must be published', 400, 'QUIZ_NOT_PUBLISHED');
   }
   return { games: null, quiz };
+}
+
+/**
+ * C1 : chaque jeu de la séance doit être disponible pour le cinéma de la salle (règle unique
+ * `gamesService.isAvailableForCinema`), sauf pour super_admin. Séance par quizSlug : le jeu du
+ * quiz (absent = non disponible).
+ */
+async function assertGamesAvailable(
+  content: { games: Game[] | null; quiz: Quiz | null },
+  cinemaId: bigint,
+): Promise<void> {
+  let gameIds: bigint[];
+  if (content.games) {
+    gameIds = content.games.map((g) => g.id);
+  } else {
+    const game = await prisma.game.findUnique({
+      where: { quizId: content.quiz!.id },
+      select: { id: true },
+    });
+    if (!game) throw new AppError('Game not available for this cinema', 403, 'GAME_NOT_AVAILABLE');
+    gameIds = [game.id];
+  }
+  for (const gameId of gameIds) {
+    if (!(await gamesService.isAvailableForCinema(gameId, cinemaId))) {
+      throw new AppError('Game not available for this cinema', 403, 'GAME_NOT_AVAILABLE');
+    }
+  }
 }
 
 const QUESTIONS_WITH_ANSWERS = {
@@ -116,7 +143,7 @@ const PUBLIC_SESSION_INCLUDE = {
 } satisfies Prisma.SessionInclude;
 
 export const sessionsService = {
-  async create(input: CreateSessionInput, projectionistUserId: bigint) {
+  async create(input: CreateSessionInput, projectionistUserId: bigint, actorRole: string) {
     const { quiz, games } = await resolveSessionContent(input);
 
     const screenId = BigInt(input.screenId);
@@ -127,6 +154,9 @@ export const sessionsService = {
     if (!screen) throw new AppError('Screen not found', 404, 'SCREEN_NOT_FOUND');
     if (screen.status !== 'active') {
       throw new AppError('Screen is not active', 400, 'SCREEN_NOT_ACTIVE');
+    }
+    if (actorRole !== 'super_admin') {
+      await assertGamesAvailable({ games, quiz }, screen.cinemaId);
     }
 
     const activeSession = await prisma.session.findFirst({

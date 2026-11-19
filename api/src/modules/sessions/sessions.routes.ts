@@ -121,7 +121,7 @@ router.post('/', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const data = validate(createSessionSchema, req.body);
     await assertCanAccessScreen(req.user!, BigInt(data.screenId));
-    const session = await sessionsService.create(data, req.user!.id);
+    const session = await sessionsService.create(data, req.user!.id, req.user!.role);
 
     const io = req.app.get('io') as import('socket.io').Server | undefined;
     if (io) {

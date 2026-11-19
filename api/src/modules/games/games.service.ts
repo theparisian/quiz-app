@@ -9,6 +9,8 @@ import {
   type UpdateGameBody,
 } from '@quiz-app/validation';
 import { prisma } from '../../shared/db/index.js';
+import type { StorageProvider } from '../../shared/storage/storage-provider.js';
+import { extractKeyFromPublicUrl } from '../../shared/storage/storage-url.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
@@ -187,17 +189,52 @@ async function createGame(input: CreateGameBody): Promise<Game> {
   }
 }
 
+/** Champs d'un jeu quiz pilotés par son quiz (`syncGameFromQuiz`) : refusés par PATCH. */
+const QUIZ_MANAGED_FIELDS = [
+  'title',
+  'description',
+  'configJson',
+  'kind',
+  'sponsorId',
+  'durationEstimateSeconds',
+] as const;
+
+function assertNotQuizManaged(game: Game, input: UpdateGameBody): void {
+  if (game.engineKey !== QUIZ_ENGINE_KEY) return;
+  const managed = QUIZ_MANAGED_FIELDS.filter((field) => input[field] !== undefined);
+  if (managed.length > 0) {
+    throw new AppError(
+      `Managed by the quiz editor: ${managed.join(', ')}`,
+      400,
+      'GAME_MANAGED_BY_QUIZ',
+    );
+  }
+}
+
+/** Cinémas existants (non supprimés) ; 404 CINEMA_NOT_FOUND si l'un manque. */
+async function resolveCinemaIds(ids: string[]): Promise<bigint[]> {
+  const unique = [...new Set(ids)].map((id) => BigInt(id));
+  if (unique.length === 0) return [];
+  const found = await prisma.cinema.count({ where: { id: { in: unique }, deletedAt: null } });
+  if (found !== unique.length) throw new AppError('Cinema not found', 404, 'CINEMA_NOT_FOUND');
+  return unique;
+}
+
 /**
- * PATCH /api/games/:slug (convention 6, étendue en C1). Le contenu d'un jeu programmé ou en
- * cours de jeu (manche `pending` ou `running`) ne change pas : 409 GAME_IN_USE.
+ * PATCH /api/games/:slug (convention 6). B6 : titre, description, contenu ; le contenu d'un jeu
+ * programmé ou en cours de jeu (manche `pending` ou `running`) ne change pas : 409 GAME_IN_USE.
+ * C1 : champs du catalogue. Jeu quiz : seuls les champs propres au catalogue (accroche, règles,
+ * audience, cinémas, tags, joueurs minimum) sont modifiables ici, le reste vient du quiz.
+ * `kind = sponsored` exige un sponsor (400 SPONSOR_REQUIRED).
  */
 async function updateGame(slug: string, input: UpdateGameBody): Promise<Game> {
   const game = await getGameOrThrow(slug);
-  assertEditableEngine(game.engineKey);
+  assertNotQuizManaged(game, input);
   const data: Prisma.GameUpdateInput = {};
   if (input.title !== undefined) data.title = input.title;
   if (input.description !== undefined) data.description = input.description;
   if (input.configJson !== undefined) {
+    assertEditableEngine(game.engineKey);
     const config = parsePollConfig(input.configJson);
     const inUse = await prisma.sessionRound.count({
       where: { gameId: game.id, state: { in: ['pending', 'running'] } },
@@ -207,8 +244,51 @@ async function updateGame(slug: string, input: UpdateGameBody): Promise<Game> {
     }
     data.configJson = config as unknown as Prisma.InputJsonValue;
     data.durationEstimateSeconds = pollDurationEstimateSeconds(config);
+  } else if (input.durationEstimateSeconds !== undefined) {
+    data.durationEstimateSeconds = input.durationEstimateSeconds;
   }
-  const updated = await prisma.game.update({ where: { id: game.id }, data });
+  if (input.tagline !== undefined) data.tagline = input.tagline || null;
+  if (input.rulesText !== undefined) data.rulesText = input.rulesText || null;
+  if (input.minPlayers !== undefined) data.minPlayers = input.minPlayers;
+  if (input.audience !== undefined) data.audience = input.audience;
+  if (input.tags !== undefined) {
+    data.tags = input.tags === null ? Prisma.DbNull : [...new Set(input.tags)];
+  }
+
+  if (input.kind !== undefined || input.sponsorId !== undefined) {
+    const kind = input.kind ?? game.kind;
+    const sponsorId =
+      input.sponsorId !== undefined
+        ? input.sponsorId === null
+          ? null
+          : BigInt(input.sponsorId)
+        : game.sponsorId;
+    if (kind === 'sponsored' && sponsorId === null) {
+      throw new AppError('A sponsored game needs a sponsor', 400, 'SPONSOR_REQUIRED');
+    }
+    if (input.sponsorId != null) {
+      const sponsor = await prisma.sponsor.findUnique({ where: { id: sponsorId! } });
+      if (!sponsor) throw new AppError('Sponsor not found', 404, 'SPONSOR_NOT_FOUND');
+    }
+    data.kind = kind;
+    data.sponsor = sponsorId === null ? { disconnect: true } : { connect: { id: sponsorId } };
+  }
+
+  const cinemaIds =
+    input.cinemaIds !== undefined ? await resolveCinemaIds(input.cinemaIds) : undefined;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.game.update({ where: { id: game.id }, data });
+    if (cinemaIds !== undefined) {
+      await tx.gameCinemaAccess.deleteMany({ where: { gameId: game.id } });
+      if (cinemaIds.length > 0) {
+        await tx.gameCinemaAccess.createMany({
+          data: cinemaIds.map((cinemaId) => ({ gameId: game.id, cinemaId })),
+        });
+      }
+    }
+    return row;
+  });
   logger.info({ gameSlug: slug }, 'Game updated');
   return updated;
 }
@@ -238,11 +318,37 @@ async function getGameBySlug(slug: string): Promise<Game> {
   return getGameOrThrow(slug);
 }
 
-async function listGames(query: ListGamesQuery): Promise<{ items: Game[]; total: number }> {
-  const where: Prisma.GameWhereInput = query.engineKey ? { engineKey: query.engineKey } : {};
+/** Jeu tel que le renvoient GET /api/games et GET /api/games/:slug (sponsor, cinémas). */
+export const GAME_ADMIN_INCLUDE = {
+  sponsor: { select: { id: true, name: true, logoUrl: true } },
+  cinemaAccess: {
+    select: { cinema: { select: { id: true, slug: true, name: true } } },
+    orderBy: { cinemaId: 'asc' },
+  },
+} satisfies Prisma.GameInclude;
+export type GameWithAdminInclude = Prisma.GameGetPayload<{ include: typeof GAME_ADMIN_INCLUDE }>;
+
+async function getGameAdminDetail(slug: string): Promise<GameWithAdminInclude> {
+  const game = await prisma.game.findUnique({ where: { slug }, include: GAME_ADMIN_INCLUDE });
+  if (!game) throw new AppError('Game not found', 404, 'GAME_NOT_FOUND');
+  return game;
+}
+
+async function listGames(
+  query: ListGamesQuery,
+): Promise<{ items: GameWithAdminInclude[]; total: number }> {
+  const where: Prisma.GameWhereInput = {};
+  if (query.engineKey) where.engineKey = query.engineKey;
+  if (query.kind) where.kind = query.kind;
+  if (query.status) where.status = query.status;
+  if (query.catalogEnabled !== undefined) where.catalogEnabled = query.catalogEnabled;
+  if (query.search) {
+    where.OR = [{ title: { contains: query.search } }, { slug: { contains: query.search } }];
+  }
   const [items, total] = await Promise.all([
     prisma.game.findMany({
       where,
+      include: GAME_ADMIN_INCLUDE,
       orderBy: { createdAt: 'desc' },
       skip: (query.page - 1) * query.limit,
       take: query.limit,
@@ -250,6 +356,67 @@ async function listGames(query: ListGamesQuery): Promise<{ items: Game[]; total:
     prisma.game.count({ where }),
   ]);
   return { items, total };
+}
+
+// ─── Catalogue (C1) ──────────────────────────────────────
+
+/**
+ * Règle de disponibilité d'un jeu pour un cinéma, écrite UNE fois (C1) : publié, dans le
+ * catalogue, et ouvert à tous les cinémas ou à ce cinéma (`game_cinema_access`).
+ * À réutiliser partout (catalogue, création de séance, programmation…).
+ */
+function availableWhere(cinemaId: bigint): Prisma.GameWhereInput {
+  return {
+    status: 'published',
+    catalogEnabled: true,
+    OR: [{ audience: 'all_cinemas' }, { cinemaAccess: { some: { cinemaId } } }],
+  };
+}
+
+async function isAvailableForCinema(gameId: bigint, cinemaId: bigint, db: Db = prisma) {
+  const count = await db.game.count({ where: { AND: [{ id: gameId }, availableWhere(cinemaId)] } });
+  return count > 0;
+}
+
+/** POST /api/games/:slug/enable et /disable : présence dans le catalogue. */
+async function setCatalogEnabled(slug: string, enabled: boolean): Promise<Game> {
+  const game = await getGameOrThrow(slug);
+  const updated = await prisma.game.update({
+    where: { id: game.id },
+    data: { catalogEnabled: enabled },
+  });
+  logger.info({ gameSlug: slug, catalogEnabled: enabled }, 'Game catalog visibility changed');
+  logEvent({
+    level: 'info',
+    eventType: enabled ? 'game.catalog_enabled' : 'game.catalog_disabled',
+    payload: { gameSlug: slug },
+  });
+  return updated;
+}
+
+function storagePublicBase(): string {
+  return (process.env.STORAGE_PUBLIC_URL ?? 'http://localhost:3000/uploads').replace(/\/+$/, '');
+}
+
+/** Couverture d'un jeu hors quiz (celle d'un jeu quiz vient du quiz). */
+async function getCoverEditableGame(slug: string): Promise<Game> {
+  const game = await getGameOrThrow(slug);
+  if (game.engineKey === QUIZ_ENGINE_KEY) {
+    throw new AppError('Managed by the quiz editor: cover', 400, 'GAME_MANAGED_BY_QUIZ');
+  }
+  return game;
+}
+
+async function setCoverImage(slug: string, url: string): Promise<Game> {
+  const game = await getCoverEditableGame(slug);
+  return prisma.game.update({ where: { id: game.id }, data: { coverImageUrl: url } });
+}
+
+async function removeCoverImage(slug: string, storage: StorageProvider): Promise<Game> {
+  const game = await getCoverEditableGame(slug);
+  const key = extractKeyFromPublicUrl(game.coverImageUrl, storagePublicBase());
+  if (key) await storage.delete(key);
+  return prisma.game.update({ where: { id: game.id }, data: { coverImageUrl: null } });
 }
 
 export const gamesService = {
@@ -260,5 +427,12 @@ export const gamesService = {
   updateGame,
   publishGame,
   getGameBySlug,
+  getCoverEditableGame,
+  getGameAdminDetail,
   listGames,
+  availableWhere,
+  isAvailableForCinema,
+  setCatalogEnabled,
+  setCoverImage,
+  removeCoverImage,
 };

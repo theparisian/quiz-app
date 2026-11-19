@@ -17,6 +17,7 @@ import { avatarsRouter } from './modules/avatars/avatars.routes.js';
 import { audioRouter } from './modules/audio/audio.routes.js';
 import { quizzesRouter } from './modules/quizzes/quizzes.routes.js';
 import { gamesRouter } from './modules/games/games.routes.js';
+import { catalogRouter } from './modules/catalog/catalog.routes.js';
 import { aiRouter } from './modules/ai/ai.routes.js';
 import { sessionsRouter, sessionsNestedRouter } from './modules/sessions/sessions.routes.js';
 import { playersRouter, playersPublicRouter } from './modules/players/players.routes.js';
@@ -65,6 +66,7 @@ export function buildApp(): Express {
   app.use('/api/sound-libraries', audioRouter);
   app.use('/api/quizzes', quizzesRouter);
   app.use('/api/games', gamesRouter);
+  app.use('/api/catalog', catalogRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/sessions', sessionsRouter);
