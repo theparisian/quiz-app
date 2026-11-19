@@ -27,7 +27,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 04 | A4 Déploiement | — | — | fait (2cc96b7 + commit exact) |
 | 05 | B1 Game / Round / Score | A3 | 0020_games_rounds_scores | fait (1dec890) |
 | 06 | B2-B4 Moteur et protocole | B1 | — | fait (83bd658 → 0ce7b37), voir B2-B4-NOTES §13 |
-| 07 | B5 Multi-manches | B2-B4 | 0021 | à faire |
+| 07 | B5 Multi-manches | B2-B4 | 0021_session_quiz_nullable | fait (796ff8f) |
 | 08 | B6 Sondage | B5 | — | à faire |
 | 09 | C1 Catalogue | B6, A1 | 0022 | à faire |
 | 10 | C2 Programmation | C1 | 0023 | à faire |
@@ -118,6 +118,10 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 - B2-B4 → B5 — Le thème de session (fonds, sons) et `GET /api/sessions/:id/full` (contenu console)
   viennent encore du quiz de la session : B5 doit les lire sur la manche active / la première manche.
 - B2-B4 — Fuites de l'abstraction listées dans B2-B4-NOTES §13(g).
+- B5 — Rapports et CSV : les statistiques de réponses restent groupées par position de question
+  toutes manches confondues (taux de complétion approximatif en multi-manches) ; la page de rapport
+  admin n'affiche pas encore `rounds` / `roundPosition`.
+- B5 — `session:theme_changed` n'est consommé que par l'écran ; le mobile garde le thème du join.
 
 ## Décisions
 
