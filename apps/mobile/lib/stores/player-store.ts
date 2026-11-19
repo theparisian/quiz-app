@@ -72,7 +72,10 @@ interface PlayerState {
   finalScoreboard: FinalScoreboardEntry[] | null;
   prizeAvailabilityByRank: { rank1?: boolean; rank2?: boolean; rank3?: boolean } | null;
   prizes: SessionPrizesDisplay | null;
-  /** Arrivé pendant la partie (affiché sur l'écran final). */
+  /**
+   * Arrivé pendant la partie (affiché sur l'écran final). Depuis l'accusé de join, puis
+   * `player.joinedLate` du snapshot (un rechargement de page le conserve).
+   */
   joinedLate: boolean;
 
   players: { playerId: string; pseudo: string; avatarUrl?: string | null }[];
@@ -257,6 +260,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           avatarUrl?: string | null;
           scoreTotal: number;
           currentRank: number | null;
+          joinedLate?: boolean;
         }
       | undefined;
     const session = snap.session as
@@ -270,6 +274,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       avatarUrl: player.avatarUrl ?? get().avatarUrl,
       scoreTotal: player.scoreTotal,
       currentRank: player.currentRank,
+      // Absent d'un ancien snapshot : on garde la valeur connue (accusé de join).
+      joinedLate: typeof player.joinedLate === 'boolean' ? player.joinedLate : get().joinedLate,
       sessionId: session.sessionId,
       slugShort: session.slugShort,
       state: session.state,

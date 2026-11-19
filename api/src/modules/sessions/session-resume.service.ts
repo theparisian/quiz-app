@@ -122,6 +122,8 @@ export async function buildMobilePlayerStateSnapshot(
       avatarUrl: player.avatar?.imageUrl ?? null,
       scoreTotal: player.scoreTotal,
       currentRank: inGame && rankIdx >= 0 ? rankIdx + 1 : null,
+      // Plateforme : arrivé pendant la partie (libellé de l'écran final après un rechargement).
+      joinedLate: player.joinedQuestionPosition != null,
     },
     session: {
       sessionId: session.id.toString(),

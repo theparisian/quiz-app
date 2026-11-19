@@ -145,24 +145,25 @@ Un NUC est rattaché à exactement une salle. Une salle appartient à exactement
 
 ### 3.4 Reconnexion : comment ça marche
 
-Chaque connecté reçoit un **token de session** (`resume_token`) au moment où il rejoint, stocké :
+Chaque acteur sait se faire reconnaître après une coupure :
 
-- Téléphone : `localStorage` (clé `quiz_player_token`).
-- NUC : filesystem local.
-- Console : `localStorage`.
+- Téléphone : `resume_token` (nanoid) remis au join, stocké en `localStorage` (`quiz_resume_token`, avec `quiz_player_id` et `quiz_session_id`).
+- NUC : `nuc_uid` en `localStorage` + cookie httpOnly JWT NUC.
+- Console : cookie de session du projectionniste + identifiant de la séance.
 
-À la reconnexion :
+À chaque (re)connexion du socket :
 
-1. Le client se reconnecte au WebSocket.
-2. Il émet `resume` avec son token.
-3. Le serveur valide le token, retrouve l'état persisté.
-4. Le serveur émet `session:state_snapshot` avec tout pour reprendre l'affichage.
+1. Le client émet `player:resume { resumeToken, sessionId }`, `nuc:resume { nucUid, sessionId? }` ou `console:resume { sessionId }`.
+2. Le serveur valide l'identité, rejoint les rooms (pour le téléphone : `session:<id>`, `session:<id>:players` et `player:<id>`) et, pour un joueur sorti de la partie en mémoire (départ au lobby), l'y remet (`onPlayerJoined` avec `rejoin: true`). Un joueur exclu reçoit `error { code: 'PLAYER_KICKED' }` et n'est pas réactivé.
+3. Le serveur émet `session:state_snapshot` au seul socket demandeur : les champs de **plateforme** (séance, joueurs, classement, lots, audio, `joinToken` pour l'écran et la console, `joinedLate` pour le joueur) + `round` (même forme que `round:started`, ou null) + `gameView` (la vue courante du moteur pour ce destinataire, `round.snapshot(audience, playerId)`) + `gameSeq` (le `seq` de la dernière vue émise vers ce destinataire).
+4. Le client remplace tout son état de jeu par `round` / `gameView` / `gameSeq`, puis ignore tout `game:state` de `seq <= gameSeq`. La reprise n'a aucun code propre à un moteur : c'est le protocole lui-même (règle 5, section 7.5).
 
-Cas de la question en cours pendant la déconnexion :
+Ce que voit le joueur selon le moment de la coupure (moteur quiz) :
 
-- Si le joueur n'avait pas encore répondu et que la question est encore active → il peut répondre.
-- Si la question s'est terminée pendant sa déco → il rate la question (0 point), reprend à la suivante.
-- Si la session est terminée → il voit l'écran de fin avec le classement final.
+- Question encore ouverte, pas encore répondu → il peut répondre (`me.answerId = null`, `me.locked = false`).
+- Question close pendant la coupure → vue `reveal` avec son résultat (0 point s'il n'a pas répondu), puis la suite.
+- Séance terminée → écran final avec le classement, ses lots, et la mention « Arrivé en cours de partie » s'il est arrivé après le lancement.
+- Redémarrage du serveur : les séances `running` / `paused` sont réhydratées ; la question interrompue est close et notée avec les réponses déjà enregistrées, une séance en pause reste en pause.
 
 ---
 
@@ -261,14 +262,14 @@ Un joueur anonyme doit pouvoir terminer une partie et recevoir son lot par email
 **Principes non négociables** :
 
 - Le son sort **uniquement sur l'écran cinéma (interface A)**. Les téléphones des joueurs restent **toujours** silencieux.
-- Toute cue est décrite par un **slot** du registre `AUDIO_SLOTS` (`packages/validation/src/audio.ts`), source de vérité unique partagée API / admin / player. Ajouter un son = ajouter une entrée dans ce registre puis un `playSfx('<slot>')` dans le directeur audio du player ; le reste (DB, API, écran d'admin, résolution des URLs) est génarique et n'a pas à être touché.
+- Toute cue est décrite par un **slot** du registre `AUDIO_SLOTS` (`packages/validation/src/audio.ts`), source de vérité unique partagée API / admin / player. Ajouter un son = ajouter une entrée dans ce registre puis le déclencher depuis les règles d'écran du moteur (`apps/player/games/<clé>/screen-rules.ts` : sons d'entrée d'une étape, son calé sur une échéance, son d'un cue), lues par le directeur audio du player ; le reste (DB, API, écran d'admin, résolution des URLs) est génarique et n'a pas à être touché.
 - L'audio est **non bloquant par construction** : un son supprimé, introuvable ou refusé par le navigateur retombe sur le son intégré au player puis sur le silence. **Aucune session ne doit échouer à cause de l'audio.**
 - Deux niveaux de stockage : des **bibliothèques de sons** réutilisables (interface D, menu _Audio_) et des **sons propres à un quiz** (onglet _Audio_ de l'éditeur), pour les cas non réutilisables.
 - Le contenu réel des fichiers uploadés est vérifié par **lecture de la signature binaire** (`sniffAudioMime`), le MIME déclaré par le navigateur n'étant pas fiable.
 - Slots musique (`lobbyMusic`, `gameMusic`, `scoresMusic`) : joués en boucle avec **fondu enchaîné** entre les phases. La case **« une seule musique, sans interruption »** fait jouer la piste du lobby du début à la fin, sans relance ni fondu.
 - Slots SFX : `questionStart`, `answerReveal` (rejoué à chaque réponse qui apparaît, calé sur `ANSWER_REVEAL_STAGGER_MS`), `lastSeconds` (calé sur `TIMER_URGENT_THRESHOLD_SEC`, donc synchrone avec l'animation du timer), `questionEnd`, `playerAnswered`, `final`.
 - Les volumes sont résolus **côté serveur** (volume du slot × volume général) et transmis au player en 0..1 : le player ne fait aucun calcul de mixage.
-- Quand un joueur répond, l'écran affiche son **pseudo éphémère** (arrivée par le bas, court affichage, disparition) synchronisé avec le SFX `playerAnswered`. L'event `session:player_answered` est diffusé **au seul namespace `/player`** et ne contient **jamais** la réponse choisie.
+- Quand un joueur répond, l'écran affiche son **pseudo éphémère** (arrivée par le bas, court affichage, disparition) synchronisé avec le SFX `playerAnswered`. Le signal est le cue `player_answered` (`game:cue`, audience écran seulement, namespace `/player`) ; il ne contient **jamais** la réponse choisie.
 
 ---
 
@@ -505,55 +506,89 @@ ai_generations (audit des générations IA)
 
 ## 7. CONVENTIONS SOCKET.IO
 
+Le temps réel est séparé en deux couches : la **plateforme** (séance, lobby, joueurs, pause, classement final, lots, reprise) et le **moteur de jeu** (ce qui se passe pendant une manche : quiz aujourd'hui). Tous les moteurs parlent le **même protocole** (`round:*`, `game:*`) ; aucun événement n'est propre à un moteur. Ajouter un moteur ne touche ni aux handlers, ni aux stores, ni à la reprise : voir `docs/ajouter-un-moteur.md`.
+
 ### 7.1 Namespaces
 
-- `/player` (NUCs, interface A)
-- `/mobile` (téléphones, interface B)
-- `/console` (projectionnistes, interface C)
+- `/player` (écran cinéma / NUC, interface A) — audience `screen`
+- `/mobile` (téléphones, interface B) — audience `mobile`
+- `/console` (projectionnistes, interface C) — audience `console`
 - `/admin` (super-admin, interface D)
 
 ### 7.2 Rooms
 
-- `session:{sessionId}` : tous les acteurs d'une session live.
-- `cinema:{cinemaId}` : projectionniste voit ses sessions, super-admin filtre.
-- `admin:global` : super-admin reçoit heartbeats et events critiques globaux.
+- `session:{sessionId}` : dans `/player`, `/mobile` et `/console`, tous les acteurs d'une séance. Les événements de plateforme et de manche « vers tous » partent dans cette room des trois namespaces.
+- `session:{sessionId}:players` (`/mobile`), `session:{sessionId}:projectionist` (`/console`), `session:{sessionId}:nuc` (`/player`).
+- `player:{playerId}` (`/mobile`) : un seul joueur. Rejointe à `player:join`, `player:resume` et `player:rejoin_room` ; c'est là que partent les vues mobiles par joueur.
+- `screen:{screenId}` et `nuc:{nucId}` (`/player`, console et admin pour `screen:`) : création de séance, supervision.
 
-### 7.3 Nommage des events
+### 7.3 Événements
 
-Format `domain:action` snake_case :
+Format `domaine:action` en snake_case. Schémas Zod dans `packages/validation/src/socket-events.ts` (plateforme et enveloppes de manche) et `packages/validation/src/games/<clé>.ts` (vues, actions et cues d'un moteur).
 
-- `session:state_changed`
-- `session:player_joined`, `session:player_left`
-- `quiz:question_show`, `quiz:question_result`, `quiz:final_results`
-- `player:answer_submit` (mobile → serveur)
-- `player:answer_ack` (serveur → mobile)
-- `player:resume`, `nuc:resume`, `console:resume`
-- `nuc:heartbeat`, `nuc:status_changed`
-- `session:player_answered` (serveur → `/player` uniquement : pseudo éphémère + SFX de l'écran cinéma)
+**Plateforme, serveur → clients**
+
+| Événement                            | Vers                                              | Rôle                                                      |
+| ------------------------------------ | ------------------------------------------------- | --------------------------------------------------------- |
+| `screen:session_started`             | `/player` `screen:` et `nuc:`                     | une séance est créée sur la salle (porte `joinToken`)     |
+| `session:started`                    | les 3                                             | lancement (`audio`, habillage)                            |
+| `session:state_changed`              | les 3                                             | `{ oldState, newState }`                                  |
+| `session:lobby_timer_update`         | les 3                                             | compte à rebours du lobby (seul tic restant, hors manche) |
+| `session:paused` / `session:resumed` | les 3                                             | pause de la séance                                        |
+| `session:audio_muted`                | les 3                                             | son de l'écran coupé / rétabli                            |
+| `session:ended`                      | les 3                                             | classement final, gagnant, lots                           |
+| `session:aborted`                    | les 3                                             | abandon                                                   |
+| `session:state_snapshot`             | le socket demandeur                               | reprise (règle 5)                                         |
+| `player:joined` / `player:left`      | les 3                                             | arrivées, départs, exclusions                             |
+| `nuc:status_changed`                 | room `screen:` des 4 namespaces, `/player` `nuc:` | supervision des NUC                                       |
+| `error`                              | le socket                                         | refus d'une commande (`{ code, message }`)                |
+
+**Plateforme, clients → serveur** : `player:join` (accusé), `player:resume`, `player:rejoin_room` (accusé), `player:leave` sur `/mobile` ; `nuc:join_screen`, `nuc:join`, `nuc:resume` sur `/player` ; `console:join`, `console:resume`, `console:start`, `console:pause`, `console:unpause`, `console:force_advance`, `console:abort`, `console:toggle_mute` sur `/console` (routes REST équivalentes : `/start`, `/pause`, `/resume`, `/force-advance`, `/abort`, `/toggle-mute`) ; `admin:watch_cinema` sur `/admin`.
+
+**Manche (tous les moteurs)**
+
+| Événement       | Sens                                  | Payload                                                                                                           |
+| --------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `round:started` | serveur → les 3                       | `roundInfoSchema` : `{ roundId, position, totalRounds, engineKey, game: { slug, title, kind, sponsor \| null } }` |
+| `game:state`    | serveur → une audience (ou un joueur) | `{ roundId, engineKey, seq, serverNow, view }`                                                                    |
+| `game:cue`      | serveur → une audience                | `{ roundId, cue, data? }`                                                                                         |
+| `round:ended`   | serveur → les 3                       | `{ roundId, position, totalRounds, scoreboard: [{ playerId, pseudo, avatarUrl, scoreTotal, scoreThisRound }] }`   |
+| `game:action`   | `/mobile` → serveur, avec accusé      | `{ roundId, type, payload }` → `{ ok: true, result }` ou `{ ok: false, code, message }`                           |
+
+`game:action` : le joueur est celui du socket (jamais le payload), la manche doit être la manche active (`WRONG_ROUND`, `NO_ACTIVE_ROUND`), 20 actions par seconde et par socket au plus (`RATE_LIMITED`). Le moteur fait ses contrôles et sa réservation **avant tout `await`** (deux actions simultanées ne peuvent pas passer toutes les deux).
 
 ### 7.4 Schéma des payloads
 
-Tous les events sont validés via Zod. Schémas dans `/packages/validation/socket-events.ts`.
+Tout payload entrant est validé par Zod côté serveur ; tout payload de manche est validé côté client (`gameStateSchema`, `gameCueSchema`, `roundInfoSchema`, `roundEndedSchema`, puis le schéma de vue du moteur). Exemple, la vue écran du quiz en phase `question` :
 
 ```ts
-const QuestionShowPayload = z.object({
-  questionId: z.string(),
-  position: z.number().int().min(1),
-  text: z.string(),
-  imageUrl: z.string().url().optional(),
-  answers: z
-    .array(
-      z.object({
-        id: z.string(),
-        position: z.enum(['A', 'B', 'C', 'D']),
-        text: z.string(),
-      }),
-    )
-    .length(4),
-  timeLimitSeconds: z.number().int().min(5).max(120),
-  serverStartedAt: z.string().datetime(),
-});
+{
+  phase: 'question',
+  questionIndex: 2,           // 0-based
+  totalQuestions: 10,
+  question: {
+    id: '41', position: 3, text: 'Qui a réalisé « Alien » ?', imageUrl: null,
+    timeLimitMs: 20000,
+    answers: [{ id: '161', position: 'A', text: 'Ridley Scott' }, /* … */], // jamais isCorrect
+  },
+  endsAt: '2026-11-19T20:41:07.250Z', // ou null
+  pausedRemainingMs: null,            // remplace endsAt pendant une pause
+  answeredCount: 12,
+  totalPlayers: 48,
+}
 ```
+
+### 7.5 Règles du protocole
+
+1. **Une vue est complète.** Le client remplace sa vue, il ne fusionne jamais. Un client qui n'a reçu que le dernier `game:state` affiche exactement la même chose qu'un client qui les a tous reçus.
+2. **`seq` croît strictement par manche et par destinataire** (l'écran, la console, chaque joueur). Le client ignore un `seq` inférieur ou égal au dernier appliqué.
+3. **Le temps passe par des échéances, pas par des tics.** Une vue porte `endsAt` (ISO) ; l'enveloppe porte `serverNow`. Le client calcule son décalage d'horloge (médiane des derniers `serverNow`, `pushClockSample`) et anime localement (`useCountdown` de `@quiz-app/ui`). En pause, la vue porte `pausedRemainingMs` à la place de `endsAt`. Plus aucun événement de manche n'est émis chaque seconde.
+4. **Un cue ne porte jamais d'état.** Le perdre ne change rien à ce qui est affiché une seconde plus tard. Tout ce qui se déduit d'un changement de vue (un son à l'ouverture d'une question, par exemple) est déclenché côté client depuis la vue, pas par un cue.
+5. **La reprise est le protocole.** `session:state_snapshot` = champs de plateforme + `round` (même forme que `round:started`, ou null) + `gameView` (résultat de `round.snapshot(audience, playerId)`, ou null) + `gameSeq`. Aucun champ propre à un moteur au premier niveau.
+6. **Le serveur reste la seule source de vérité** : score, temps, validité d'une action.
+7. **Chaque moteur déclare ses vues et ses actions en Zod** dans `packages/validation/src/games/<clé>.ts`. Les clients valident `view` avec ce schéma ; une vue invalide (ou un moteur inconnu) déclenche le rendu de repli (`games/unknown-game.tsx`) et un message Sentry, jamais une erreur visible.
+
+À retenir aussi : aucune vue ne contient une information que son destinataire ne doit pas voir (bonne réponse du quiz avant `reveal`, réponse d'un autre joueur). La console obtient les bonnes réponses par `GET /api/sessions/:id/full` (authentifié), jamais par le socket.
 
 ---
 
@@ -635,80 +670,76 @@ Ordre de rotation, du plus grave au moins grave :
 
 ## 10. CYCLE DE VIE D'UNE SESSION
 
+Une session (séance) est une suite de **manches** (`session_rounds`, positions 1..N), chacune jouée par un **moteur** (`games.engine_key`, aujourd'hui `quiz`). La plateforme (`api/src/modules/sessions/session-runtime.service.ts`) tient la séance ; le moteur (`api/src/modules/games/engines/<clé>/`) tient la manche, à travers l'interface `RoundContext` / `GameRound` (`api/src/modules/games/engine.types.ts`). Pour l'instant une séance n'a qu'une manche (le quiz de la séance) ; l'enchaînement de plusieurs manches arrive avec B5, au point d'extension `advanceOrEnd`.
+
 ```
 [CRÉATION]
-  Console (C) demande : "lance le quiz X dans la salle Y"
-  → Serveur valide droits (le projectionniste appartient au cinéma de la salle)
-  → Crée session, state = 'lobby'
-  → Génère slug court (ex: ABCD42)
-  → Récupère le NUC de la salle
-  → Pousse session:state_changed à NUC, console, room admin
+  Console (C) : « lance le quiz X dans la salle Y » (POST /api/sessions)
+  → droits vérifiés (tenant-scope), session state = 'lobby', code court 4 chiffres + joinToken (QR)
+  → manche 1 créée (session_rounds, jeu du quiz) ; créée à la volée au lancement si elle manque
+  → screen:session_started vers l'écran de la salle
 
-[LOBBY]
-  NUC affiche QR (URL = mobile.app/?s=ABCD42)
-  Téléphones rejoignent : player:join { sessionCode, pseudo }
-  Serveur ajoute le player, génère resume_token, le renvoie
-  Pousse player:joined à NUC, console, admin
-  Le player stocke son resume_token en localStorage
+[LOBBY]  (plateforme)
+  Écran : QR + code ; téléphones : player:join { sessionSlugShort | joinToken, pseudo }
+  → joueur créé, resume_token renvoyé (stocké en localStorage), rooms session: et player:
+  → player:joined vers les 3 ; session:lobby_timer_update si le lancement auto est armé
+  Lancement : console:start / POST /start, ou seuil de joueurs + compte à rebours du lobby
 
-  Quand seuil atteint OU action manuelle de C :
-    C envoie session:start
-    Serveur passe state = 'running', position = 0
+[RUNNING — manche active]
+  Plateforme : state = 'running', session:started, session:state_changed
+  Pour la manche : RoundContext construit, engine.createRound(ctx, game)
+    → round:started (roundInfo) vers les 3, puis round.start()
+  Le moteur émet ses vues (game:state, par audience ou par joueur) et ses cues (game:cue).
+  Quiz : countdown → pour chaque question : question → reveal → … → done
+    - question : vue sans la bonne réponse, endsAt = échéance ; les mobiles agissent par
+      game:action { type: 'answer', payload: { questionId, answerId } }, accusé immédiat
+    - contrôles synchrones (séance en pause, question close, mauvaise question, joueur absent,
+      retardataire bloqué, réponse invalide, déjà répondu) puis upsert player_answers
+    - clôture à l'échéance (+ 500 ms de tolérance) ou par console:force_advance
+    - notation : correct → max(round(points_max × tempsRestant / tempsTotal), points_floor),
+      sinon 0 (défauts 1000 / 500) ; ctx.award → ScoreEvent + Player.scoreTotal (transaction)
+    - reveal : bonne réponse, explication, classement (écran : 5 premiers, console : complet,
+      mobile : son résultat), endsAt = début de la question suivante
+  Retardataire : player:join en cours de manche → onPlayerJoined ; le quiz le bloque sur la
+    question en cours (me.locked), il joue à partir de la suivante (players.joined_question_position)
+  Fin de manche : le moteur appelle ctx.finish() (une seule fois)
+    → state_json écrit, manche 'ended', round:ended (classement de la manche) vers les 3
+    → advanceOrEnd(sessionId) : aujourd'hui termine toujours la séance (B5 : manche suivante)
 
-[RUNNING — boucle par question]
-  Serveur sélectionne la prochaine question
-  Pousse quiz:question_show à NUC + tous les mobiles de la session
-  Démarre timer côté serveur (timeLimitSeconds)
+[PAUSED]  (plateforme)
+  console:pause → state = 'paused', session:paused, round.pause()
+    → les vues portent pausedRemainingMs au lieu de endsAt, les actions sont refusées
+  console:unpause → state = 'running', session:resumed, round.resume() (échéances recalculées)
 
-  Mobile envoie player:answer_submit { questionId, answerId }
-  Serveur valide :
-    - session running ?
-    - question encore active ?
-    - player n'a pas déjà répondu ?
-    - réponse appartient bien à la question ?
-  Serveur calcule les points (algo cohérent avec l'existant) :
-    - Incorrect : 0
-    - Correct : max(round(points_max * timeLeft / totalTime), points_floor)
-    - Par défaut points_max = 1000, points_floor = 500
-  Serveur ack : player:answer_ack avec score perso
-  Serveur persiste en DB (player_answers)
+[RECONNEXION]
+  player:resume / nuc:resume / console:resume → session:state_snapshot
+    = champs de plateforme + round + gameView (round.snapshot) + gameSeq (voir 3.4 et 7.5)
 
-  Quand timer expire OU tous ont répondu :
-    Serveur compile résultats
-    Pousse quiz:question_result à NUC, mobiles, console
-    Pause configurable (par défaut 10s pour explication)
-    Question suivante OU fin
+[REDÉMARRAGE SERVEUR]
+  rehydrateRunningSessions() : chaque séance running/paused est rechargée ; sa manche
+  'running' est recréée avec restore = session_rounds.state_json.engine. Quiz : la question
+  interrompue est close et notée avec les réponses enregistrées, puis la suite s'enchaîne ;
+  une séance en pause reste en pause. Une séance dont la manche est déjà 'ended' est terminée.
 
-[RECONNEXION en cours de session]
-  Acteur revient après coupure
-  Émet player:resume / nuc:resume / console:resume avec son token
-  Serveur retrouve l'état, envoie session:state_snapshot avec :
-    - état actuel de la session
-    - question en cours si running
-    - score du joueur si applicable
-    - timer restant si applicable
-  Le client reprend l'UI sans interruption visible
+[ENDED]  (plateforme)
+  Classement final (Player.scoreTotal), rang final, gagnant, lots résolus
+  → session:ended vers les 3, session:state_changed ; emails des lots (async)
 
-[ENDED]
-  Serveur calcule classement final, désigne winner
-  Pousse quiz:final_results à tous
-  Génère et envoie le lot au gagnant (async)
-  state = 'ended', persiste
-
-[ABORTED]
-  Si C envoie session:abort : state = 'aborted', notification gracieuse à tous
-  Si erreur serveur fatale : state = 'aborted', écran de fallback NUC
+[ABORTED]  (plateforme)
+  console:abort → manche disposée, state = 'aborted', session:aborted vers les 3
 ```
+
+**`session_rounds.state_json`** = `{ platform: { participants: string[] }, engine: <état du moteur> }`. La partie `platform` (joueurs dont au moins une action a été acceptée) est tenue par la plateforme ; la partie `engine` est écrite par `ctx.persistState` et relue à la réhydratation. Le moteur ne lit ni n'écrit `sessions` ou `players` : l'étape courante passe par `ctx.reportProgress` (miroir dans `sessions.current_question_position`).
 
 **Invariants :**
 
 - `lobby` → `running` ou `aborted` uniquement.
 - `running` → `paused`, `ended` ou `aborted` uniquement.
-- `paused` → `running` ou `aborted`.
+- `paused` → `running` ou `aborted` (`SESSION_TRANSITIONS`) ; seule exception, la fin de partie décidée par le jeu reste possible depuis une pause (dernière question close de force ou reprise serveur d'une séance en pause).
 - `ended` et `aborted` sont terminaux.
-- Une question est diffusée 1 seule fois par session.
-- Un player répond 1 seule fois par question.
-- Un NUC actif sur 1 seule session à la fois.
+- Une manche est démarrée une seule fois ; `finish()` est appelé une seule fois (un second appel est ignoré).
+- Quiz : une question est diffusée une seule fois par séance ; un joueur répond une seule fois par question.
+- Un NUC actif sur une seule session à la fois.
 
 ---
 

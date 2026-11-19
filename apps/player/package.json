@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 4001",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint app/",
+    "lint": "eslint app/ components/ games/ hooks/ lib/",
     "test": "vitest run"
   },
   "dependencies": {

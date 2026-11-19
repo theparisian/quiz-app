@@ -288,6 +288,40 @@ describe('usePlayerStore', () => {
     expect(store().uiState).toBe('kicked');
   });
 
+  it('late join: the snapshot joinedLate flag survives a page reload (final screen label)', () => {
+    // Rechargement : store vierge, seul le snapshot de player:resume est appliqué.
+    store().reset();
+    store().applySnapshot(
+      snapshot('ended', {
+        player: {
+          playerId: 'p1',
+          pseudo: 'Alice',
+          scoreTotal: 0,
+          currentRank: null,
+          joinedLate: true,
+        },
+        finalResults: { rank: 2, finalScoreboard: [] },
+      }),
+    );
+    expect(store().uiState).toBe('final_results');
+    expect(store().joinedLate).toBe(true);
+
+    // Un joueur arrivé au lobby : false, même si le store disait l'inverse.
+    store().applySnapshot(
+      snapshot('ended', {
+        player: {
+          playerId: 'p1',
+          pseudo: 'Alice',
+          scoreTotal: 0,
+          currentRank: null,
+          joinedLate: false,
+        },
+        finalResults: { rank: 2, finalScoreboard: [] },
+      }),
+    );
+    expect(store().joinedLate).toBe(false);
+  });
+
   it('late join: hydrate with a locked question view goes straight to the game', () => {
     store().reset();
     const localStorageMock = { setItem: vi.fn() };

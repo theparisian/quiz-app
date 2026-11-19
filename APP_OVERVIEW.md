@@ -188,39 +188,50 @@ Entités principales (toutes en BigInt auto-increment, IDs externes exposés via
 
 ## 8. Cycle de vie d'une session live
 
+Une session est découpée en deux couches : la **plateforme** (séance, lobby, joueurs, pause, classement final, lots, reprise) et le **moteur de jeu** qui anime chaque **manche** (`session_rounds`). Aujourd'hui une séance a une seule manche, jouée par le moteur `quiz` ; l'enchaînement de plusieurs manches (et d'autres moteurs, comme le sondage) s'appuie sur la même structure. Les deux couches communiquent par une interface stable (`api/src/modules/games/engine.types.ts`) et un protocole temps réel unique pour tous les moteurs.
+
 ```
 [CRÉATION]   Console demande "lance le quiz X dans la salle Y"
-             → serveur valide droits → crée session (state=lobby) → code court (ex: 4271)
-             → notifie NUC, console, admin
+             → serveur valide droits → crée session (state=lobby) + manche 1 → code court (ex: 4271)
+             → notifie l'écran de la salle (screen:session_started)
 
 [LOBBY]      NUC affiche QR (URL mobile = …/?s=4271)
              Téléphones rejoignent (pseudo) → serveur génère resume_token → stocké localStorage
-             Pseudos en temps réel sur NUC + console
-             Sur seuil OU action manuelle → session:start → state=running
+             Pseudos en temps réel sur NUC + console (player:joined)
+             Sur seuil + compte à rebours OU action manuelle → session:start → state=running
 
-[RUNNING]    (boucle par question)
-             Serveur diffuse la question (NUC + tous les mobiles), démarre le timer serveur
-             Mobile envoie sa réponse → serveur valide (session running, question active,
-               pas de double réponse, réponse appartient à la question)
-             Scoring serveur : correct → max(round(points_max × timeLeft/totalTime), points_floor)
-               ; incorrect ou absent → 0. Défauts : points_max=1000, points_floor=500
-             Persistance immédiate (upsert) pour résilience, finalisation à la fin de question
-             Timer expiré OU tous ont répondu → résultats question → pause (explication)
-               → question suivante OU fin
+[RUNNING]    La plateforme annonce la manche (round:started) puis la confie au moteur.
+             Le moteur publie des VUES complètes (game:state) par audience — écran, console,
+               et une vue par joueur — et des CUES éphémères (game:cue : sons, flashs).
+             Quiz : compte à rebours → question → révélation → … → fin
+               - la vue porte une échéance (endsAt) : chaque client anime son timer localement
+               - le joueur répond par game:action (accusé immédiat) ; le serveur valide
+                 (séance en cours, question ouverte, pas de double réponse, réponse valide)
+               - scoring serveur : correct → max(round(points_max × timeLeft/totalTime), points_floor)
+                 ; incorrect ou absent → 0. Défauts : points_max=1000, points_floor=500
+               - persistance immédiate (upsert) ; à l'échéance : notation, révélation
+                 (bonne réponse, explication, classement), puis question suivante
+             Fin de manche → classement de la manche (round:ended) → fin de séance
+               (plus tard : manche suivante)
+
+[PAUSE]      Console met en pause : les vues gèlent leur temps restant, les réponses sont refusées.
 
 [RECONNEXION] Acteur revient après coupure → émet resume avec son token
-             → serveur renvoie un state_snapshot (état session, question en cours, score, timer restant)
-             → l'UI reprend sans interruption visible
+             → serveur renvoie un state_snapshot : champs de plateforme + manche en cours
+               + la vue courante du moteur pour ce destinataire
+             → l'UI reprend exactement où elle en était, sans code spécifique au jeu
 
-[ENDED]      Classement final, gagnant désigné, podium diffusé
+[ENDED]      Classement final, gagnant désigné, podium diffusé (session:ended)
              Top 3 peut saisir son email → génération du lot (QR signé) → envoi email async
 
 [ABORTED]    Abandon manuel (console) OU erreur fatale → notification gracieuse + fallback NUC
 ```
 
+**Principes du protocole :** une vue est complète (le client remplace, ne fusionne jamais) ; chaque vue est numérotée (`seq`) et une vue en retard est ignorée ; le temps passe par des échéances et non par un tic chaque seconde ; un cue ne porte jamais d'état ; la reprise renvoie simplement la vue courante ; le serveur reste seul juge du score, du temps et de la validité d'une action ; les vues de chaque moteur sont décrites en Zod et validées par les clients (une vue invalide affiche un écran de repli sobre, jamais une erreur). Aucune vue ne révèle la bonne réponse avant la révélation, ni la réponse d'un autre joueur. Détail : `PROJECT_REFERENCE.md` section 7 ; ajouter un jeu : `docs/ajouter-un-moteur.md`.
+
 **Invariants :** transitions strictes (lobby→running/aborted, running→paused/ended/aborted, paused→running/aborted, ended/aborted terminaux) ; une question diffusée 1 seule fois ; un joueur répond 1 seule fois par question ; un NUC actif sur 1 seule session.
 
-**Résilience :** au redémarrage serveur, les sessions running/paused sont réhydratées depuis la DB (réponses persistées en cours de question via upsert, finalisation cohérente en fin de question).
+**Résilience :** au redémarrage serveur, les sessions running/paused sont réhydratées depuis la DB : la manche en cours est recréée à partir de l'état persisté du moteur (`session_rounds.state_json`) ; pour le quiz, la question interrompue est close et notée avec les réponses déjà enregistrées, puis la partie reprend.
 
 ---
 
@@ -234,7 +245,7 @@ Entités principales (toutes en BigInt auto-increment, IDs externes exposés via
 
 Pages : saisie code 4 chiffres (auto-join via `?s=CODE`), saisie pseudo (validation longueur + bad-words), gameplay. États : lobby, question active (4 boutons colorés A/B/C/D, mini timer), attente des autres, résultat (correct/incorrect/trop tard + points + rang), pause, final (top 3 → formulaire email lot ; sinon rang + merci), aborted. Reconnexion (bannière + resume). PWA (manifest standalone).
 
-**Late-join (livré).** Un spectateur peut rejoindre une session **déjà en cours** : le serveur gère le late-join (event `player_late_joined`), le mobile affiche un écran d'attente dédié (`late-wait-screen`) jusqu'à la prochaine question, et le player affiche un badge QR spécifique pour inviter les retardataires. Couvert par `late-join.test.ts`.
+**Late-join (livré).** Un spectateur peut rejoindre une session **déjà en cours** : le serveur gère le late-join (le moteur quiz le bloque sur la question en cours), le mobile affiche un écran d'attente dédié (`late-wait-screen`) jusqu'à la prochaine question, et le player affiche un badge QR spécifique pour inviter les retardataires. Couvert par `late-join.test.ts`.
 
 ### C — Console projectionniste (`apps/console`)
 

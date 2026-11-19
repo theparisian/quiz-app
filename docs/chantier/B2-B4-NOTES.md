@@ -697,3 +697,175 @@ restent à tester à la main.
   `quizHighlightedAnswerIds` cherche la question par `id`, donc un contenu d'un autre quiz ne
   surligne simplement rien.
 - `LiveHeader` lit `totalPlayers` par `getState()` (non réactif) : bug antérieur, non touché.
+
+## 12. Commit 4 — nettoyage et documentation
+
+### 12.1 Ce qui est fait
+
+- **Code mort** : la recherche des anciens noms (`question_started`, `timer_update`,
+  `answer_submitted_count`, `player_answered` comme événement, `question_ended`,
+  `next_question_in`, `submit_answer`, `force_end_question`, `force-end-question`) ne trouve plus
+  rien dans `api/`, `packages/` et `apps/` (seuls restent le cue `player_answered`, voulu, et la
+  colonne `current_question_started_at`, gardée faute de migration). Les commits 2 et 3 avaient
+  déjà tout retiré, sauf un schéma : `playerJoinStateSnapshotSchema` / `PlayerJoinStateSnapshot`
+  (`packages/validation/src/rest-api.ts`, ancienne forme quiz du snapshot de join :
+  `currentQuestionPosition`, `canAnswerCurrentQuestion`, `timerRemainingMs`…), utilisé par
+  personne, supprimé. Champs de store, composants, hooks et exports : vérifiés un par un (et
+  `tsc --noUnusedLocals --noUnusedParameters` sur api, player, mobile, console) ; rien d'autre
+  n'est devenu inutile du fait du protocole. Ce qui était déjà mort avant B2-B4 n'est pas touché
+  (ex. `apps/console/hooks/use-active-session.ts`, exports de `packages/types`).
+- **Lint** : `apps/player` et `apps/mobile` lintent `app/ components/ games/ hooks/ lib/` (avant :
+  `app/` seul) ; la console couvrait déjà ces dossiers. Aucune erreur ni avertissement à corriger.
+  Plus aucun `eslint-disable` sur `react-hooks/exhaustive-deps` dans le dépôt, et aucune app ne
+  configure ce plugin : rien à faire (`apps/admin` lint toujours `app/` seul, hors périmètre).
+- **`joinedLate` (§ 9.1)** : le snapshot mobile (`player:resume`) porte
+  `player.joinedLate = players.joined_question_position != null` (champ de plateforme) ; le store
+  mobile le prend dans `applySnapshot` (valeur connue gardée si le champ manque). Un retardataire
+  qui recharge sa page garde « Arrivé en cours de partie » sur l'écran final. Tests :
+  `late-join.test.ts` (« player:resume after the end keeps the late-join flag » : retardataire
+  `true`, joueur du lobby `false`, séance terminée) et `player-store.test.ts` (rechargement :
+  store vierge + snapshot `ended`).
+- **Documentation** : `PROJECT_REFERENCE.md` § 3.4 (reprise par le protocole), § 4.8 (le flash
+  des pseudos vient du cue, sons déclarés dans les règles d'écran), § 7 (namespaces, rooms,
+  événements réels de plateforme et de manche, exemple de vue, les 7 règles du protocole), § 10
+  (cycle de vie avec manches, `advanceOrEnd`, `state_json`, réhydratation) ; `APP_OVERVIEW.md` § 8
+  (et la mention d'un événement `player_late_joined` qui n'a jamais existé, § 9) ;
+  `docs/ajouter-un-moteur.md` (nouveau).
+
+### 12.2 Points ouverts laissés par B2-B4
+
+- Colonnes `sessions.current_question_started_at` / `current_question_paused_at` : plus écrites
+  (remises à null seulement), à supprimer par une migration ultérieure.
+- `session:started.quiz` / `.audio` et `quiz` / `audio` du snapshot écran : habillage de séance
+  pris sur le quiz de la séance, à renommer (`theme`) quand B5 fera varier l'habillage par manche.
+- `GET /api/sessions/:id/full` (contenu de la console) ne renvoie que le quiz de la séance (§ 11.3).
+- `LiveHeader` (console) lit `totalPlayers` sans abonnement (bug antérieur).
+
+## 13. Synthèse B2-B4 pour la relecture humaine
+
+Commits : 83bd658 (1/4), ad7846b (2/4), 0a9edc5 / 6b7fec5 / 1c63a8d (3/4 mobile, player,
+console), puis le commit 4/4.
+
+### (a) Interface moteur finale et écarts
+
+`api/src/modules/games/engine.types.ts`, registre `engine-registry.ts`, quiz dans
+`engines/quiz/quiz.engine.ts`, plateforme `sessions/session-runtime.service.ts`. Proposition du
+prompt conservée, avec ces écarts (détail § 3) :
+
+| Écart | Raison |
+| --- | --- |
+| `RoundContext.setTimer(ms, fn)` | avec `now()` seul, une horloge simulée ne pilote pas les `setTimeout` du moteur ; la plateforme les annule aussi en filet |
+| `RoundContext.reportProgress(step)` | le moteur n'écrit pas `sessions`, mais `current_question_position` sert aux listes de séances et à `joined_question_position` (rapports) |
+| `onPlayerJoined(playerId, { rejoin })` | un joueur repris après un départ (convention 8) n'est pas un retardataire |
+| `players.meta()` → `RoundPlayerMeta` ; types `ScoreAward`, `GameAction`, `GameDefinition`, `RoundRestore` nommés | lisibilité |
+| `award` ignore les entrées à 0 ; `scores()` = joueurs de la manche actifs en base | sémantique précisée |
+| `finish()` idempotent côté plateforme | un second appel est journalisé et ignoré |
+| `pause()` permis avant `start()` | réhydratation d'une séance en pause |
+| `restore.interruptedAt` = heure de réhydratation | le quiz ne s'en sert pas |
+| `game:state.serverNow` en ISO | cohérent avec `endsAt` |
+
+Propriétés tenues : le moteur n'importe ni `socket.io` ni `io`, ne touche ni `sessions` ni
+`players`, n'a aucun état de module ; `session_rounds.state_json = { platform: { participants },
+engine }` (convention 7) ; `advanceOrEnd(sessionId)` termine toujours (point d'extension de B5).
+
+### (b) Vues et cues du quiz
+
+Schémas : `packages/validation/src/games/quiz.ts` (détail § 8.2). Partie commune : `phase`
+(`countdown | question | reveal | done`), `questionIndex` (-1 au compte à rebours),
+`totalQuestions`, `question` (sans `isCorrect`, avec `timeLimitMs`), `endsAt` /
+`pausedRemainingMs`, `answeredCount`, `totalPlayers`. En `reveal` : `correctAnswerId`,
+`explanation`, `revealedAt`, `scoreboard` (écran : 5 premiers ; console : complet ; avec `rank` et
+`scoreThisQuestion`). Mobile : partie commune + `me { answerId, locked, result }`, sans
+classement. `nextAt` du prompt fusionné dans `endsAt`. Action `answer { questionId, answerId }`,
+accusé `{ timeToAnswerMs }`.
+
+Cues (écran seulement) : `question_opened`, `last_seconds`, `question_closed`,
+`player_answered { playerId, pseudo, avatarUrl }`. Seul `player_answered` est utilisé (flash +
+son) ; les autres sons se déduisent de la vue (§ 10.2).
+
+### (c) Ancien événement → remplacement
+
+Voir le tableau § 8.4 (complet). En bref : `question_started` → vue `question` ;
+`timer_update` → `endsAt` + `serverNow` ; `answer_submitted_count` → `answeredCount` ;
+`player_answered` → cue `player_answered` ; `question_ended` → vue `reveal` ;
+`next_question_in` → `endsAt` de la vue `reveal` ; `player:submit_answer` → `game:action` avec
+accusé ; `console:force_end_question` / `POST /force-end-question` → `console:force_advance` /
+`POST /force-advance` ; champs quiz des snapshots → `round` + `gameView` + `gameSeq`.
+
+### (d) Assertions de test modifiées
+
+Les cinq du commit 2 (§ 8.6) : console:resume ne porte plus le quiz avec `isCorrect` (règle 5,
+vérifié sur `GET /:id/full`) ; le compteur « 1 / 2 » est observé sur la console et non sur le
+mobile d'un autre joueur (le mobile ne reçoit plus le compteur des autres) ; classement avec `rank`
+et échéances au lieu de `next_question_in` ; `canAnswerCurrentQuestion: false` → `me.locked: true` ;
+compteur regroupé observé sur la console (mêmes seuils). Commit 1 : aucune assertion modifiée.
+Commits 3 et 4 : tests de stores réécrits (les stores ont changé de forme), aucune assertion
+de comportement API modifiée ; commit 4 n'ajoute que deux tests (`joinedLate`).
+
+### (e) Charge à 300 joueurs
+
+Mesure du commit 2 (§ 8.6, `pnpm sim:session -- --players 300`, 3 questions de 10 s, MySQL
+local) : par question ≈ 1 265 émissions serveur (900 vues mobiles, 31 écran, 31 console, 303
+cues), 1 567 pour la dernière (300 vues `done` en plus) ; clôture (échéance + 500 ms → révélation
+reçue par la console) 258 à 280 ms ; révélation reçue par les 300 mobiles en 5 à 6 ms. Linéaire
+(≈ 3 N + 2 × durée / 250 ms + N cues). Les commits 3 et 4 ne touchent pas l'émission serveur.
+
+### (f) À vérifier à la main
+
+Rien de visuel ni de sonore n'a pu être regardé ou écouté ici (pas d'écran ni de son) ; seuls
+`next build`, les tests et des rendus serveur jetables ont été faits. Parcours conseillé : une
+séance réelle avec un quiz de 3 questions, l'écran cinéma (`apps/player`, `/screen`, son activé),
+la console (`/sessions/<id>`) et 2 ou 3 téléphones (`apps/mobile`), dont un qui rejoint en
+cours de partie.
+
+1. **Écran, lobby → Q1** : après « Lancer », le lobby reste affiché pendant le compte à rebours
+   (3 s) avec la musique du lobby ; puis la question apparaît, son `questionStart`, puis une note
+   `answerReveal` par carte au rythme de leur apparition ; musique de jeu.
+2. **Écran, barre de temps** : fluide (60 i/s), passe en urgence aux 5 dernières secondes avec le
+   son `lastSeconds` (une seule fois) ; en pause (console), la barre se fige, la musique se met en
+   pause, `lastSeconds` ne part pas ; à la reprise, elle repart du temps gelé.
+3. **Écran, réponses** : chaque réponse d'un téléphone fait monter le pseudo + avatar (flash) avec
+   le son `playerAnswered` ; le compteur « N / M réponses » avance (≤ 4 fois par seconde).
+4. **Écran, révélation** : son `questionEnd`, bonne réponse en surbrillance 2,5 s, fondu, puis
+   classement « split » (5 premiers, « +N » = points de la question) et « Question suivante
+   dans N… » ; recharger la page (F5) en pleine révélation doit reprendre à la bonne étape.
+5. **Écran, fin** : podium, son `final`, musique des scores ; pas d'écran « fin de manche »
+   intermédiaire (une seule manche).
+6. **Mobile** : compte à rebours « C'est parti ! » ; boutons A/B/C/D, le choix s'affiche tout de
+   suite (« Réponse enregistrée ») ; résultat juste/faux + points + rang ; pause = écran de pause ;
+   couper le réseau 3 s pendant une question puis revenir : on peut encore répondre si la question
+   est ouverte. Un message rouge apparaît si une réponse est refusée.
+7. **Mobile, retardataire** : rejoindre pendant Q2 → écran d'attente jusqu'à Q3 ; en fin de partie
+   « Arrivé en cours de partie » ; **recharger la page sur l'écran final** : la mention reste
+   (correctif du commit 4).
+8. **Mobile, exclusion** : exclure un joueur depuis la console → « Tu as été retiré de la partie »,
+   y compris après rechargement.
+9. **Console** : « Question N / M », bonne réponse surlignée pendant la question, compteur,
+   classement complet après chaque révélation, « Forcer la fin » grisé pendant le compte à rebours
+   et actif pendant une question (il clôt la question) ; recharger la page en pleine question.
+10. **Page `/dev/play` (mobile)** : onglets de toutes les phases (dont Départ, Fin manche, Exclu,
+    Repli), en développement ou avec `NEXT_PUBLIC_DEV_PLAY_PASSWORD`.
+
+### (g) Trous de l'abstraction
+
+Ce qui, dans le quiz, a résisté à l'interface ou reste propre au quiz dans la plateforme :
+
+1. **Manche créée depuis le quiz** : `ensureFirstRound` (plateforme) crée la manche 1 via
+   `ensureGameForQuiz` sur `sessions.quiz_id` (convention 9). Une séance reste adossée à un quiz.
+2. **Progression nommée « question »** : `reportProgress` alimente
+   `sessions.current_question_position` et `players.joined_question_position` (rapports,
+   `joinedLate`). Un moteur sans questions doit donner un sens à « étape ».
+3. **Habillage et audio de séance pris sur le quiz** (`session:started.quiz/.audio`, snapshot
+   écran) ; slots sonores (`AUDIO_SLOTS`) nommés pour le quiz (`questionStart`…). Un nouveau moteur
+   ajoute ses slots au registre partagé.
+4. **Lobby pendant le compte à rebours** : il a fallu une règle d'écran (`showsLobby`) pour que la
+   plateforme garde son écran pendant une phase du moteur ; plus largement, « un composant de rendu
+   par app » est devenu composant + règles sans JSX (`screen-rules.ts` : sons ; `console-rules.ts` :
+   en-tête, « Forcer la fin », scores) et une ligne de plus par registre (`view-schemas.ts`).
+5. **Contenu secret de la console** : la bonne réponse pendant la question ne peut pas passer par une
+   vue ; la console la lit dans `GET /:id/full` (quiz de la séance), passé en prop `content`.
+6. **Minuteurs et horloge** : `setTimer` ajouté à l'interface pour tester le moteur sans attendre.
+7. **Retardataire repris** : `onPlayerJoined` a dû distinguer `rejoin`.
+8. **Classement de fin de manche** : `round:ended` est calculé par la plateforme depuis
+   `score_events` ; le quiz garde son propre classement de révélation (`scoreThisQuestion`) dans
+   ses vues.

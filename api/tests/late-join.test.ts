@@ -317,4 +317,39 @@ describe('late-join', () => {
     expect(late?.scoreTotal).toBe(0);
     expect(late?.rankFinal).not.toBeNull();
   }, 30_000);
+
+  it('player:resume after the end keeps the late-join flag (joinedLate) in the mobile snapshot', async () => {
+    const session = await createSessionWith2Questions();
+    await new Promise<void>((resolve) => setTimeout(resolve, 150));
+    const lateJoin = (await requestJoin(session.slugShort, 'LateReload')) as {
+      resumeToken: string;
+    };
+    await waitForSessionEnded(session.id);
+
+    const lobbyPlayer = await prisma.player.findFirstOrThrow({
+      where: { sessionId: BigInt(session.id), pseudo: 'LobbyPlayer' },
+    });
+
+    async function resume(resumeToken: string) {
+      const socket = connectMobile();
+      await new Promise<void>((resolve) => socket.on('connect', resolve));
+      const snap = new Promise<Record<string, unknown>>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('session:state_snapshot timeout')), 8000);
+        socket.once('session:state_snapshot', (data: Record<string, unknown>) => {
+          clearTimeout(t);
+          resolve(data);
+        });
+      });
+      socket.emit('player:resume', { resumeToken, sessionId: session.id });
+      return snap;
+    }
+
+    const lateSnap = await resume(lateJoin.resumeToken);
+    expect(lateSnap.session).toMatchObject({ state: 'ended' });
+    expect(lateSnap.finalResults).toBeDefined();
+    expect(lateSnap.player).toMatchObject({ pseudo: 'LateReload', joinedLate: true });
+
+    const lobbySnap = await resume(lobbyPlayer.resumeToken);
+    expect(lobbySnap.player).toMatchObject({ pseudo: 'LobbyPlayer', joinedLate: false });
+  }, 30_000);
 });
