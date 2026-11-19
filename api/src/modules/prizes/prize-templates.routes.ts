@@ -37,24 +37,35 @@ router.delete('/:id', requireAuth(['super_admin', 'cinema_admin']), async (req, 
   }
 });
 
-/** Codes fournis par la marque (C5), super_admin uniquement. */
-router.post('/:id/codes/import', requireAuth(['super_admin']), async (req, res, next) => {
-  try {
-    const id = parseTemplateId(param(req, 'id'));
-    const body = validate(importPrizeCodesBodySchema, req.body);
-    res.json(await prizeTemplateService.importCodes(id, body.text, req.user!));
-  } catch (error) {
-    next(error);
-  }
-});
+/**
+ * Codes à usage unique (C5) : super_admin pour tout gabarit ; cinema_admin pour les gabarits
+ * de son cinéma (jamais pour un gabarit sponsor). Contrôle dans prizeTemplateService.
+ */
+router.post(
+  '/:id/codes/import',
+  requireAuth(['super_admin', 'cinema_admin']),
+  async (req, res, next) => {
+    try {
+      const id = parseTemplateId(param(req, 'id'));
+      const body = validate(importPrizeCodesBodySchema, req.body);
+      res.json(await prizeTemplateService.importCodes(id, body.text, req.user!));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
-router.get('/:id/codes/stats', requireAuth(['super_admin']), async (req, res, next) => {
-  try {
-    const id = parseTemplateId(param(req, 'id'));
-    res.json(await prizeTemplateService.codesStats(id));
-  } catch (error) {
-    next(error);
-  }
-});
+router.get(
+  '/:id/codes/stats',
+  requireAuth(['super_admin', 'cinema_admin']),
+  async (req, res, next) => {
+    try {
+      const id = parseTemplateId(param(req, 'id'));
+      res.json(await prizeTemplateService.codesStats(id, req.user!));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 export { router as prizeTemplatesRouter };

@@ -132,7 +132,7 @@ describe('prize codes (C5)', () => {
     expect(parsed.lineCount).toBe(4);
   });
 
-  it('imports codes (super_admin only), ignores duplicates and syncs the stock', async () => {
+  it('imports codes, ignores duplicates and syncs the stock', async () => {
     const templateId = await codeTemplate('code_pool');
     const tpl = await prisma.prizeTemplate.findUniqueOrThrow({ where: { id: templateId } });
     expect(tpl.redeemMode).toBe('code_pool');
@@ -153,7 +153,11 @@ describe('prize codes (C5)', () => {
     ).expect(200);
     expect(stats.body).toEqual({ total: 4, assigned: 0, remaining: 4 });
 
-    const cinemaAdmin = await createCinemaUser('cinema_admin', cinemaId);
+    // Un administrateur d'un AUTRE cinéma n'importe ni ne lit les codes (règles détaillées :
+    // prize-template-rights.test.ts).
+    const other = await minimalCinemaAndScreen();
+    const otherScreen = await prisma.screen.findUniqueOrThrow({ where: { id: other.screenId } });
+    const cinemaAdmin = await createCinemaUser('cinema_admin', otherScreen.cinemaId);
     await authed(
       request(app).post(`/api/prize-templates/${templateId}/codes/import`),
       cinemaAdmin.token,

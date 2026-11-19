@@ -1,5 +1,6 @@
 import { Prisma, type PrizeRedeemMode } from '@prisma/client';
 import type { AuthUser } from '../../shared/auth/middleware.js';
+import { assertCanAccessCinema } from '../../shared/auth/tenant-scope.js';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
@@ -77,6 +78,23 @@ async function assertCinemaStaffCanAccessSlug(user: AuthUser, cinemaSlug: string
     return cinema;
   }
   throw new AppError('Insufficient permissions', 403, 'FORBIDDEN');
+}
+
+/**
+ * Qui gère un gabarit (mode de retrait, code fixe, consignes, lien, import et stock de codes) :
+ * - gabarit SPONSOR (sponsorId renseigné) : super_admin seul (conditions convenues avec la marque) ;
+ * - gabarit CINÉMA : super_admin, ou cinema_admin de CE cinéma (cloisonnement tenant-scope).
+ * Tout autre cas : 403 FORBIDDEN.
+ */
+async function assertCanManageTemplate(
+  user: AuthUser,
+  template: { cinemaId: bigint | null; sponsorId: bigint | null },
+): Promise<void> {
+  if (user.role === 'super_admin') return;
+  if (user.role !== 'cinema_admin' || template.sponsorId !== null || template.cinemaId === null) {
+    throw new AppError('Insufficient permissions', 403, 'FORBIDDEN');
+  }
+  await assertCanAccessCinema(user, template.cinemaId);
 }
 
 function payloadFromValue(value?: string) {
@@ -180,12 +198,8 @@ export const prizeTemplateService = {
   async getByIdForUser(id: bigint, user: AuthUser) {
     const template = await prisma.prizeTemplate.findUnique({ where: { id } });
     if (!template) throw new AppError('Prize template not found', 404, 'PRIZE_TEMPLATE_NOT_FOUND');
-    if (user.role === 'super_admin') return template;
-    if (user.role === 'cinema_admin') {
-      if (template.cinemaId && user.cinemaId === template.cinemaId) return template;
-      throw new AppError('Insufficient permissions', 403, 'FORBIDDEN');
-    }
-    throw new AppError('Insufficient permissions', 403, 'FORBIDDEN');
+    await assertCanManageTemplate(user, template);
+    return template;
   },
 
   async update(id: bigint, user: AuthUser, data: UpdatePrizeTemplateBody) {
@@ -241,13 +255,12 @@ export const prizeTemplateService = {
   },
 
   /**
-   * Import de codes fournis par la marque (C5, super_admin) : un code par ligne, doublons
+   * Import de codes (C5 ; droits : assertCanManageTemplate). Un code par ligne, doublons
    * ignorés (dans le fichier et avec les codes déjà importés), 10 000 lignes au plus. Le stock
    * du gabarit devient le nombre de codes restants.
    */
   async importCodes(id: bigint, text: string, user: AuthUser): Promise<ImportPrizeCodesResponse> {
-    const template = await prisma.prizeTemplate.findUnique({ where: { id } });
-    if (!template) throw new AppError('Prize template not found', 404, 'PRIZE_TEMPLATE_NOT_FOUND');
+    const template = await this.getByIdForUser(id, user);
     if (template.redeemMode !== 'code_pool') {
       throw new AppError(
         "Ce lot n'est pas en mode « codes fournis par la marque ».",
@@ -302,9 +315,8 @@ export const prizeTemplateService = {
     return result;
   },
 
-  async codesStats(id: bigint): Promise<PrizeCodesStats> {
-    const template = await prisma.prizeTemplate.findUnique({ where: { id }, select: { id: true } });
-    if (!template) throw new AppError('Prize template not found', 404, 'PRIZE_TEMPLATE_NOT_FOUND');
+  async codesStats(id: bigint, user: AuthUser): Promise<PrizeCodesStats> {
+    const template = await this.getByIdForUser(id, user);
     return countCodes(prisma, template.id);
   },
 };

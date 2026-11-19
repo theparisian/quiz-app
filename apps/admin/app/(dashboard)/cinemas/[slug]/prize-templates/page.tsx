@@ -2,9 +2,15 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { PrizeRedeemMode } from '@quiz-app/validation';
 import { api } from '../../../../../lib/api';
+import {
+  PrizeCodesPanel,
+  REDEEM_MODE_LABEL,
+  prizeTemplateErrorMessage,
+} from '../../../../components/prize-codes-panel';
 
 interface PrizeTemplate {
   id: string;
@@ -16,6 +22,10 @@ interface PrizeTemplate {
   isActive: boolean;
   value: string | null;
   validityDays: number | null;
+  redeemMode: PrizeRedeemMode;
+  staticCode: string | null;
+  redeemInstructions: string | null;
+  redeemUrl: string | null;
 }
 
 interface TemplatesResponse {
@@ -39,6 +49,12 @@ export default function CinemaPrizeTemplatesPage() {
   const [value, setValue] = useState('');
   const [stock, setStock] = useState('');
   const [validityDays, setValidityDays] = useState('');
+  const [redeemMode, setRedeemMode] = useState<PrizeRedeemMode>('staff_pin');
+  const [staticCode, setStaticCode] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [redeemUrl, setRedeemUrl] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [codesOpenId, setCodesOpenId] = useState<string | null>(null);
 
   const templatesQ = useQuery({
     queryKey: ['cinema-prize-templates', slug],
@@ -60,6 +76,7 @@ export default function CinemaPrizeTemplatesPage() {
       void qc.invalidateQueries({ queryKey: ['cinema-prize-templates', slug] });
       resetForm();
     },
+    onError: (err) => setFormError(prizeTemplateErrorMessage(err)),
   });
 
   const updateMut = useMutation({
@@ -69,6 +86,7 @@ export default function CinemaPrizeTemplatesPage() {
       void qc.invalidateQueries({ queryKey: ['cinema-prize-templates', slug] });
       resetForm();
     },
+    onError: (err) => setFormError(prizeTemplateErrorMessage(err)),
   });
 
   const archiveMut = useMutation({
@@ -90,6 +108,11 @@ export default function CinemaPrizeTemplatesPage() {
     setValue('');
     setStock('');
     setValidityDays('');
+    setRedeemMode('staff_pin');
+    setStaticCode('');
+    setInstructions('');
+    setRedeemUrl('');
+    setFormError(null);
   }
 
   function openEdit(t: PrizeTemplate) {
@@ -99,7 +122,22 @@ export default function CinemaPrizeTemplatesPage() {
     setValue(t.value ?? '');
     setStock(t.stock != null ? String(t.stock) : '');
     setValidityDays(t.validityDays != null ? String(t.validityDays) : '');
+    setRedeemMode(t.redeemMode);
+    setStaticCode(t.staticCode ?? '');
+    setInstructions(t.redeemInstructions ?? '');
+    setRedeemUrl(t.redeemUrl ?? '');
+    setFormError(null);
     setShowForm(true);
+  }
+
+  function redeemFields(): Record<string, unknown> {
+    const isCodeMode = redeemMode !== 'staff_pin';
+    return {
+      redeemMode,
+      ...(redeemMode === 'static_code' ? { staticCode: staticCode.trim() } : {}),
+      redeemInstructions: isCodeMode && instructions.trim() ? instructions.trim() : null,
+      redeemUrl: isCodeMode && redeemUrl.trim() ? redeemUrl.trim() : null,
+    };
   }
 
   function submitTemplate() {
@@ -107,10 +145,16 @@ export default function CinemaPrizeTemplatesPage() {
       label: label.trim(),
       type,
       ...(value.trim() ? { value: value.trim() } : {}),
-      ...(stock.trim() ? { stock: parseInt(stock, 10) } : { stock: null }),
+      // En mode « codes uniques importés », le stock est le nombre de codes restants.
+      ...(redeemMode === 'code_pool'
+        ? {}
+        : stock.trim()
+          ? { stock: parseInt(stock, 10) }
+          : { stock: null }),
       ...(validityDays.trim()
         ? { validityDays: parseInt(validityDays, 10) }
         : { validityDays: null }),
+      ...redeemFields(),
     };
     if (editId) updateMut.mutate({ id: editId, body });
     else createMut.mutate(body);
@@ -201,15 +245,71 @@ export default function CinemaPrizeTemplatesPage() {
                 />
               </label>
               <label className="text-sm">
-                Stock (vide = illimité)
-                <input
-                  type="number"
-                  min={0}
+                Retrait du lot
+                <select
                   className="mt-1 w-full rounded border px-3 py-2"
-                  value={stock}
-                  onChange={(e) => setStock(e.target.value)}
-                />
+                  value={redeemMode}
+                  onChange={(e) => setRedeemMode(e.target.value as PrizeRedeemMode)}
+                >
+                  {(Object.keys(REDEEM_MODE_LABEL) as PrizeRedeemMode[]).map((m) => (
+                    <option key={m} value={m}>
+                      {REDEEM_MODE_LABEL[m]}
+                    </option>
+                  ))}
+                </select>
               </label>
+              {redeemMode === 'code_pool' ? (
+                <p className="self-end text-xs text-gray-500">
+                  Le stock est le nombre de codes restants : importez les codes depuis la liste
+                  (bouton « Codes »).
+                </p>
+              ) : (
+                <label className="text-sm">
+                  Stock (vide = illimité)
+                  <input
+                    type="number"
+                    min={0}
+                    className="mt-1 w-full rounded border px-3 py-2"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                  />
+                </label>
+              )}
+              {redeemMode === 'static_code' && (
+                <label className="text-sm">
+                  Code (le même pour tous les gagnants)
+                  <input
+                    className="mt-1 w-full rounded border px-3 py-2 font-mono"
+                    value={staticCode}
+                    maxLength={100}
+                    onChange={(e) => setStaticCode(e.target.value)}
+                  />
+                </label>
+              )}
+              {redeemMode !== 'staff_pin' && (
+                <>
+                  <label className="text-sm sm:col-span-2">
+                    Instructions (optionnel)
+                    <textarea
+                      rows={2}
+                      className="mt-1 w-full rounded border px-3 py-2"
+                      placeholder="Ex. « Présentez ce code en caisse »"
+                      value={instructions}
+                      onChange={(e) => setInstructions(e.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm sm:col-span-2">
+                    Lien du partenaire (optionnel)
+                    <input
+                      type="url"
+                      className="mt-1 w-full rounded border px-3 py-2"
+                      placeholder="https://…"
+                      value={redeemUrl}
+                      onChange={(e) => setRedeemUrl(e.target.value)}
+                    />
+                  </label>
+                </>
+              )}
               <label className="text-sm">
                 Validité (jours, vide = sans expiration)
                 <input
@@ -221,11 +321,17 @@ export default function CinemaPrizeTemplatesPage() {
                 />
               </label>
             </div>
+            {formError && <p className="mt-3 text-sm text-red-600">{formError}</p>}
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={submitTemplate}
-                disabled={!label.trim() || createMut.isPending || updateMut.isPending}
+                disabled={
+                  !label.trim() ||
+                  (redeemMode === 'static_code' && !staticCode.trim()) ||
+                  createMut.isPending ||
+                  updateMut.isPending
+                }
                 className="rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
               >
                 Enregistrer
@@ -249,6 +355,7 @@ export default function CinemaPrizeTemplatesPage() {
               <tr className="border-b text-gray-500">
                 <th className="py-2">Lot</th>
                 <th>Type</th>
+                <th>Retrait</th>
                 <th>Stock</th>
                 <th>Statut</th>
                 <th />
@@ -256,48 +363,79 @@ export default function CinemaPrizeTemplatesPage() {
             </thead>
             <tbody>
               {templatesQ.data?.items.map((t) => (
-                <tr key={t.id} className="border-b">
-                  <td className="py-2 font-medium">{t.label}</td>
-                  <td>{t.type}</td>
-                  <td>
-                    {t.stockLabel}
-                    {t.stock === 0 && (
-                      <span className="ml-2 rounded bg-red-100 px-1.5 text-xs text-red-700">
-                        Épuisé
-                      </span>
-                    )}
-                  </td>
-                  <td>{t.isActive ? 'Actif' : 'Archivé'}</td>
-                  <td className="space-x-2 text-right">
-                    {t.isActive && (
-                      <>
+                <Fragment key={t.id}>
+                  <tr className="border-b">
+                    <td className="py-2 font-medium">{t.label}</td>
+                    <td>{t.type}</td>
+                    <td className="text-xs text-gray-600">
+                      {REDEEM_MODE_LABEL[t.redeemMode]}
+                      {t.redeemMode === 'static_code' && t.staticCode && (
+                        <span className="block font-mono">{t.staticCode}</span>
+                      )}
+                    </td>
+                    <td>
+                      {t.stockLabel}
+                      {t.stock === 0 && (
+                        <span className="ml-2 rounded bg-red-100 px-1.5 text-xs text-red-700">
+                          Épuisé
+                        </span>
+                      )}
+                    </td>
+                    <td>{t.isActive ? 'Actif' : 'Archivé'}</td>
+                    <td className="space-x-2 text-right">
+                      {t.redeemMode === 'code_pool' && (
                         <button
                           type="button"
                           className="text-blue-600 hover:underline"
-                          onClick={() => openEdit(t)}
+                          onClick={() => setCodesOpenId(codesOpenId === t.id ? null : t.id)}
                         >
-                          Éditer
+                          Codes
                         </button>
+                      )}
+                      {t.isActive && (
+                        <>
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:underline"
+                            onClick={() => openEdit(t)}
+                          >
+                            Éditer
+                          </button>
+                          <button
+                            type="button"
+                            className="text-red-600 hover:underline"
+                            onClick={() => archiveMut.mutate(t.id)}
+                          >
+                            Archiver
+                          </button>
+                        </>
+                      )}
+                      {!t.isActive && (
                         <button
                           type="button"
-                          className="text-red-600 hover:underline"
-                          onClick={() => archiveMut.mutate(t.id)}
+                          className="text-green-600 hover:underline"
+                          onClick={() => updateMut.mutate({ id: t.id, body: { isActive: true } })}
                         >
-                          Archiver
+                          Réactiver
                         </button>
-                      </>
-                    )}
-                    {!t.isActive && (
-                      <button
-                        type="button"
-                        className="text-green-600 hover:underline"
-                        onClick={() => updateMut.mutate({ id: t.id, body: { isActive: true } })}
-                      >
-                        Réactiver
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                      )}
+                    </td>
+                  </tr>
+                  {codesOpenId === t.id && t.redeemMode === 'code_pool' && (
+                    <tr className="border-b bg-gray-50">
+                      <td colSpan={6} className="p-3">
+                        <PrizeCodesPanel
+                          templateId={t.id}
+                          onChanged={() =>
+                            void qc.invalidateQueries({
+                              queryKey: ['cinema-prize-templates', slug],
+                            })
+                          }
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

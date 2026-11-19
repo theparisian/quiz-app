@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { CurrencyEur, Gear, ListNumbers, SignOut } from '@phosphor-icons/react';
+import { CurrencyEur, Gear, Gift, ListNumbers, SignOut } from '@phosphor-icons/react';
 import { AppLogo } from '@quiz-app/ui';
 import { isSponsorRole, useAuth } from '@/lib/auth';
 import { useScreens } from '@/hooks/use-screens';
@@ -24,6 +24,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   const isSettingsActive = pathname === '/settings';
   const isProgramsActive = pathname === '/programmation';
   const isRevenueActive = pathname === '/revenus';
+  const isLotsActive = pathname === '/lots';
 
   useEffect(() => {
     if (!loading && !user) {
@@ -47,7 +48,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
 
   const hasCinema = !!cinemaSlug;
   const liveCount = activeSessions?.length ?? 0;
-  // Revenus (C3) : relevé réservé aux administrateurs du cinéma.
+  // Revenus (C3) et lots : réservés aux administrateurs du cinéma.
   const canSeeRevenue = user.role === 'cinema_admin' || user.role === 'super_admin';
 
   return (
@@ -96,6 +97,24 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     className={isRevenueActive ? 'text-blue-600' : 'text-gray-400'}
                   />
                   Revenus
+                </Link>
+              )}
+              {canSeeRevenue && (
+                <Link
+                  href="/lots"
+                  aria-current={isLotsActive ? 'page' : undefined}
+                  className={`mt-1 flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium transition ${
+                    isLotsActive
+                      ? 'bg-blue-50 text-blue-800 ring-1 ring-inset ring-blue-200'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Gift
+                    size={18}
+                    weight={isLotsActive ? 'fill' : 'duotone'}
+                    className={isLotsActive ? 'text-blue-600' : 'text-gray-400'}
+                  />
+                  Lots
                 </Link>
               )}
             </div>
