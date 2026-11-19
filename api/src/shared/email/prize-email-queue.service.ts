@@ -3,7 +3,8 @@ import { prisma } from '../db/index.js';
 import { sendEmail } from './index.js';
 import { logEvent } from '../events/event-log.service.js';
 import { logger } from '../logger/index.js';
-import { buildPrizeEmail } from './templates/prize-email.js';
+import { buildPrizeEmail, type PrizeEmailPartner } from './templates/prize-email.js';
+import { readPrizeRedeemInfo } from '../../modules/prizes/prize-redeem-mode.js';
 import {
   FIRST_ROUND_SELECT,
   sessionTitle,
@@ -46,6 +47,18 @@ async function sendWithRetry(opts: {
   }
 }
 
+/** Lot à code (C5) : code du partenaire, son QR, les instructions et le lien. */
+async function partnerForEmail(payloadJson: unknown): Promise<PrizeEmailPartner | null> {
+  const info = readPrizeRedeemInfo(payloadJson);
+  if (info.redeemMode === 'staff_pin' || !info.partnerCode) return null;
+  return {
+    code: info.partnerCode,
+    qrCodeDataUrl: await QRCode.toDataURL(info.partnerCode, { width: 400, margin: 2 }),
+    instructions: info.redeemInstructions,
+    url: info.redeemUrl,
+  };
+}
+
 async function loadPrizeEmailContext(prizeId: bigint) {
   const prize = await prisma.prize.findUnique({
     where: { id: prizeId },
@@ -75,6 +88,7 @@ async function sendPrizeEmailJob(prizeId: bigint): Promise<void> {
   const redeemUrl = `${redeemBaseUrl()}/${encodeURIComponent(prize.redeemCode)}?sig=${sigEnc}`;
   const unsubscribeUrl = `${unsubscribeBaseUrl()}?code=${encodeURIComponent(prize.redeemCode)}&sig=${sigEnc}`;
   const qrCodeDataUrl = await QRCode.toDataURL(redeemUrl, { width: 400, margin: 2 });
+  const partner = await partnerForEmail(prize.payloadJson);
   const { subject, html, text } = buildPrizeEmail({
     pseudo: prize.player.pseudo,
     rank: prize.player.rankFinal ?? prize.rank,
@@ -87,6 +101,7 @@ async function sendPrizeEmailJob(prizeId: bigint): Promise<void> {
     shortCode: prize.shortCode,
     unsubscribeUrl,
     qrCodeDataUrl,
+    partner,
   });
 
   try {
@@ -206,6 +221,7 @@ export async function sendPrizeEmailNow(prizeId: bigint): Promise<'ok' | 'retry_
   const redeemUrl = `${redeemBaseUrl()}/${encodeURIComponent(prize.redeemCode)}?sig=${sigEnc}`;
   const unsubscribeUrl = `${unsubscribeBaseUrl()}?code=${encodeURIComponent(prize.redeemCode)}&sig=${sigEnc}`;
   const qrCodeDataUrl = await QRCode.toDataURL(redeemUrl, { width: 400, margin: 2 });
+  const partner = await partnerForEmail(prize.payloadJson);
   const { subject, html, text } = buildPrizeEmail({
     pseudo: prize.player.pseudo,
     rank: prize.player.rankFinal ?? prize.rank,
@@ -218,6 +234,7 @@ export async function sendPrizeEmailNow(prizeId: bigint): Promise<'ok' | 'retry_
     shortCode: prize.shortCode,
     unsubscribeUrl,
     qrCodeDataUrl,
+    partner,
   });
 
   return sendWithRetry({ to: requestEmail, subject, html, text });

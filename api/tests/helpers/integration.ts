@@ -48,6 +48,9 @@ export function authed(agent: supertest.Test, token: string) {
 }
 
 export async function truncateQuizRelatedTables() {
+  await prisma.contactConsent.deleteMany({});
+  await prisma.contact.deleteMany({});
+  await prisma.prizeCode.deleteMany({});
   await prisma.delivery.deleteMany({});
   await prisma.campaign.deleteMany({});
   await prisma.aiGeneration.deleteMany({});

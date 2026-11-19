@@ -20,6 +20,7 @@ import {
   parseEuroToCents,
   priceLabel,
 } from '../../../../lib/campaigns-api';
+import { ContactsExportButton } from '../../../components/contacts-export-button';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' });
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('fr-FR', {
@@ -54,6 +55,17 @@ export function CampaignsTab({ sponsorSlug, sponsorId }: CampaignsTabProps) {
       verb === 'delete'
         ? api.delete(`/api/campaigns/${id}`)
         : api.post<Campaign>(`/api/campaigns/${id}/${verb}`, {}),
+    onSuccess: () => {
+      setError(null);
+      void qc.invalidateQueries({ queryKey: listKey });
+    },
+    onError: (err) => setError(campaignErrorMessage(err)),
+  });
+
+  // Accord de partage des emails avec le sponsor, campagne par campagne (C5).
+  const sharing = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      api.patch<Campaign>(`/api/campaigns/${id}`, { emailSharingEnabled: enabled }),
     onSuccess: () => {
       setError(null);
       void qc.invalidateQueries({ queryKey: listKey });
@@ -175,6 +187,22 @@ export function CampaignsTab({ sponsorSlug, sponsorId }: CampaignsTabProps) {
             <Stat label="Facturé" value={formatEuroCents(c.totals.amountCents)} />
             <Stat label="Part des cinémas" value={formatEuroCents(c.totals.cinemaShareCents)} />
           </dl>
+          <div className="mt-3 flex flex-wrap items-center gap-4 border-t pt-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={c.emailSharingEnabled}
+                disabled={c.status === 'ended' || sharing.isPending}
+                onChange={(e) => sharing.mutate({ id: c.id, enabled: e.target.checked })}
+              />
+              Partage des emails avec le sponsor
+            </label>
+            <ContactsExportButton
+              target={{ scope: 'sponsor', sponsorSlug }}
+              disabled={!items.some((x) => x.emailSharingEnabled)}
+              label="Exporter les emails du sponsor"
+            />
+          </div>
           {c.totals.deliveries > 0 && (
             <button
               type="button"

@@ -19,13 +19,6 @@ export type ActiveSessionsHealthResponse = z.infer<typeof activeSessionsHealthRe
 
 export type PseudoSuggestionsResponse = z.infer<typeof pseudoSuggestionsResponseSchema>;
 
-export const playerUpdateEmailBodySchema = z.object({
-  email: z.string().email(),
-  consent: z.literal(true),
-});
-
-export type PlayerUpdateEmailBody = z.infer<typeof playerUpdateEmailBodySchema>;
-
 export const nucStateSnapshotSchema = z
   .object({
     session: z

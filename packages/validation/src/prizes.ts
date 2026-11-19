@@ -37,22 +37,99 @@ export const superPrizeConfigSchema = z.object({
   enabled: z.boolean(),
 });
 
-export const createPrizeTemplateBodySchema = z.object({
-  label: z.string().min(1).max(255),
-  type: prizeTypeSchema,
-  value: z.string().max(500).optional(),
-  validityDays: z.number().int().min(1).max(3650).nullable().optional(),
-  stock: z.number().int().min(0).nullable().optional(),
+// ─── Lots retirés hors du cinéma (C5) ────────────────────
+/**
+ * Mode de retrait d'un lot : `staff_pin` (validation au comptoir avec le PIN du cinéma),
+ * `code_pool` (un code unique fourni par la marque, attribué à chaque lot), `static_code`
+ * (le même code pour tous). Les lots à code ne passent jamais par le PIN du comptoir.
+ */
+export const PRIZE_REDEEM_MODES = ['staff_pin', 'code_pool', 'static_code'] as const;
+export const prizeRedeemModeSchema = z.enum(PRIZE_REDEEM_MODES);
+export type PrizeRedeemMode = z.infer<typeof prizeRedeemModeSchema>;
+
+/** Nombre maximal de codes par import (POST /api/prize-templates/:id/codes/import). */
+export const MAX_PRIZE_CODES_PER_IMPORT = 10_000;
+export const PRIZE_CODE_MAX_LENGTH = 100;
+
+const httpUrlSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .url()
+  .refine((u) => /^https?:\/\//i.test(u), { message: 'URL must start with http(s)://' });
+
+const prizeRedeemFieldsSchema = z.object({
+  redeemMode: prizeRedeemModeSchema.optional(),
+  staticCode: z.string().trim().min(1).max(PRIZE_CODE_MAX_LENGTH).nullable().optional(),
+  redeemInstructions: z.string().trim().max(2000).nullable().optional(),
+  redeemUrl: httpUrlSchema.nullable().optional(),
 });
 
-export const updatePrizeTemplateBodySchema = z.object({
-  label: z.string().min(1).max(255).optional(),
-  type: prizeTypeSchema.optional(),
-  value: z.string().max(500).optional(),
-  validityDays: z.number().int().min(1).max(3650).nullable().optional(),
-  stock: z.number().int().min(0).nullable().optional(),
-  isActive: z.boolean().optional(),
+export const createPrizeTemplateBodySchema = z
+  .object({
+    label: z.string().min(1).max(255),
+    type: prizeTypeSchema,
+    value: z.string().max(500).optional(),
+    validityDays: z.number().int().min(1).max(3650).nullable().optional(),
+    stock: z.number().int().min(0).nullable().optional(),
+  })
+  .merge(prizeRedeemFieldsSchema)
+  .refine((b) => b.redeemMode !== 'static_code' || !!b.staticCode, {
+    message: 'staticCode is required for static_code',
+    path: ['staticCode'],
+  });
+
+export const updatePrizeTemplateBodySchema = z
+  .object({
+    label: z.string().min(1).max(255).optional(),
+    type: prizeTypeSchema.optional(),
+    value: z.string().max(500).optional(),
+    validityDays: z.number().int().min(1).max(3650).nullable().optional(),
+    stock: z.number().int().min(0).nullable().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .merge(prizeRedeemFieldsSchema);
+
+/** POST /api/prize-templates/:id/codes/import : contenu CSV ou texte, un code par ligne. */
+export const importPrizeCodesBodySchema = z.object({
+  text: z.string().min(1).max(2_000_000),
 });
+export type ImportPrizeCodesBody = z.infer<typeof importPrizeCodesBodySchema>;
+
+export const prizeCodesStatsSchema = z.object({
+  total: z.number().int(),
+  assigned: z.number().int(),
+  remaining: z.number().int(),
+});
+export type PrizeCodesStats = z.infer<typeof prizeCodesStatsSchema>;
+
+export const importPrizeCodesResponseSchema = prizeCodesStatsSchema.extend({
+  imported: z.number().int(),
+  duplicates: z.number().int(),
+});
+export type ImportPrizeCodesResponse = z.infer<typeof importPrizeCodesResponseSchema>;
+
+/**
+ * Codes d'un fichier CSV ou texte : un code par ligne (première colonne d'un CSV, guillemets
+ * retirés), lignes vides et en-tête « code » ignorés, doublons du fichier retirés.
+ * `lineCount` = lignes de codes lues (doublons compris).
+ */
+export function parsePrizeCodesText(text: string): { codes: string[]; lineCount: number } {
+  const seen = new Set<string>();
+  let lineCount = 0;
+  const lines = text.split(/\r\n|\r|\n/);
+  lines.forEach((line, index) => {
+    let cell = (line.split(/[,;\t]/)[0] ?? '').trim();
+    if (cell.length >= 2 && cell.startsWith('"') && cell.endsWith('"')) {
+      cell = cell.slice(1, -1).replace(/""/g, '"').trim();
+    }
+    if (!cell) return;
+    if (index === 0 && cell.toLowerCase() === 'code') return;
+    lineCount += 1;
+    seen.add(cell);
+  });
+  return { codes: [...seen], lineCount };
+}
 
 export const updateQuizPrizesConfigBodySchema = z.object({
   config: quizPrizesConfigSchema,
@@ -99,6 +176,12 @@ export const prizeRedeemStatusResponseSchema = z.object({
   shortCode: z.string(),
   redeemCode: z.string().optional(),
   sig: z.string().optional(),
+  /** C5 : lot à code (`code_pool`, `static_code`) = à présenter chez le partenaire, sans PIN. */
+  redeemMode: prizeRedeemModeSchema,
+  partnerCode: z.string().nullable(),
+  partnerQrDataUrl: z.string().nullable(),
+  redeemInstructions: z.string().nullable(),
+  redeemUrl: z.string().nullable(),
 });
 
 export type PrizeRedeemStatus = z.infer<typeof prizeRedeemStatusSchema>;

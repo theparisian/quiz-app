@@ -1,7 +1,12 @@
 'use client';
 
 import { useParams, useSearchParams } from 'next/navigation';
-import { PinModal, PrizeStatusCard, useRedeemFlow } from '@/components/redeem/redeem-shared';
+import {
+  PinModal,
+  PrizeStatusCard,
+  isStaffRedeemable,
+  useRedeemFlow,
+} from '@/components/redeem/redeem-shared';
 
 export default function RedeemCodePage() {
   const params = useParams();
@@ -40,6 +45,15 @@ export default function RedeemCodePage() {
         <p className="text-5xl">✓</p>
         <h1 className="text-2xl font-bold text-green-300">Lot validé</h1>
         {flow.data && <p className="text-gray-300">{flow.data.label}</p>}
+      </main>
+    );
+  }
+
+  // Lot à code (C5) : le joueur présente le code du partenaire, pas de validation par PIN.
+  if (flow.data && !isStaffRedeemable(flow.data)) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 p-6">
+        <PrizeStatusCard data={flow.data} />
       </main>
     );
   }

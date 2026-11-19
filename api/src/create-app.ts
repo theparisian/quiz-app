@@ -29,6 +29,7 @@ import { prizesPublicRouter } from './modules/prizes/prizes.routes.js';
 import { prizesAdminRouter } from './modules/prizes/prizes-admin.routes.js';
 import { prizeTemplatesRouter } from './modules/prizes/prize-templates.routes.js';
 import { unsubscribeRouter } from './routes/unsubscribe.js';
+import { contactsRouter } from './modules/contacts/contacts.routes.js';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
 
 export function buildApp(): Express {
@@ -44,6 +45,9 @@ export function buildApp(): Express {
       credentials: true,
     }),
   );
+  // Import de codes de lots (C5) : jusqu'à 10 000 codes par envoi, au-delà des 100 ko par défaut.
+  // Le parseur global ignore ensuite un corps déjà lu.
+  app.use(/^\/api\/prize-templates\/[^/]+\/codes\/import$/, express.json({ limit: '2mb' }));
   app.use(express.json());
   app.use(cookieParser());
 
@@ -83,6 +87,7 @@ export function buildApp(): Express {
   app.use('/api/prizes', prizesPublicRouter);
   app.use('/api/prizes', prizesAdminRouter);
   app.use('/api/prize-templates', prizeTemplatesRouter);
+  app.use('/api/contacts', contactsRouter);
   app.use('/', unsubscribeRouter);
 
   app.use(errorHandler);

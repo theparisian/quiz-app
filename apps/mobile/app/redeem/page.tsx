@@ -46,7 +46,11 @@ export default function RedeemManualPage() {
     } catch (err: unknown) {
       const e = err as { code?: string; message?: string };
       setLookupError(
-        e.code === 'INVALID_PIN' ? 'Code ou PIN incorrect.' : (e.message ?? 'Erreur. Réessayez.'),
+        e.code === 'INVALID_PIN'
+          ? 'Code ou PIN incorrect.'
+          : e.code === 'NOT_STAFF_REDEEMABLE'
+            ? 'Ce lot se présente chez le partenaire, sans validation au comptoir.'
+            : (e.message ?? 'Erreur. Réessayez.'),
       );
     } finally {
       setLooking(false);

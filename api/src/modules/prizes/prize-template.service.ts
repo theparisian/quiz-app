@@ -1,8 +1,17 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type PrizeRedeemMode } from '@prisma/client';
 import type { AuthUser } from '../../shared/auth/middleware.js';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import { createPrizeTemplateBodySchema, updatePrizeTemplateBodySchema } from '@quiz-app/validation';
+import { logEvent } from '../../shared/events/event-log.service.js';
+import {
+  MAX_PRIZE_CODES_PER_IMPORT,
+  PRIZE_CODE_MAX_LENGTH,
+  parsePrizeCodesText,
+  type ImportPrizeCodesResponse,
+  type PrizeCodesStats,
+  createPrizeTemplateBodySchema,
+  updatePrizeTemplateBodySchema,
+} from '@quiz-app/validation';
 import type { z } from 'zod';
 
 type CreatePrizeTemplateBody = z.infer<typeof createPrizeTemplateBodySchema>;
@@ -19,6 +28,10 @@ function shapeTemplate(t: {
   stock: number | null;
   stockInitial: number | null;
   isActive: boolean;
+  redeemMode: PrizeRedeemMode;
+  staticCode: string | null;
+  redeemInstructions: string | null;
+  redeemUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }) {
@@ -34,6 +47,10 @@ function shapeTemplate(t: {
     stock: t.stock,
     stockInitial: t.stockInitial,
     isActive: t.isActive,
+    redeemMode: t.redeemMode,
+    staticCode: t.staticCode,
+    redeemInstructions: t.redeemInstructions,
+    redeemUrl: t.redeemUrl,
     stockLabel:
       t.stock === null
         ? 'Illimité'
@@ -67,6 +84,44 @@ function payloadFromValue(value?: string) {
   return { value };
 }
 
+function stockManagedByCodes(): AppError {
+  return new AppError(
+    'Le stock de ce lot est le nombre de codes restants.',
+    409,
+    'STOCK_MANAGED_BY_CODES',
+  );
+}
+
+/**
+ * Champs de retrait à la création (C5). En mode code_pool, le stock est le nombre de codes
+ * restants : 0 tant qu'aucun code n'est importé.
+ */
+function redeemCreateData(data: CreatePrizeTemplateBody) {
+  const redeemMode = data.redeemMode ?? 'staff_pin';
+  if (redeemMode === 'code_pool' && data.stock != null) throw stockManagedByCodes();
+  const stock = redeemMode === 'code_pool' ? 0 : (data.stock ?? null);
+  return {
+    redeemMode,
+    staticCode: redeemMode === 'static_code' ? (data.staticCode ?? null) : null,
+    redeemInstructions: data.redeemInstructions ?? null,
+    redeemUrl: data.redeemUrl ?? null,
+    stock,
+    stockInitial: stock,
+  };
+}
+
+/** Nombre de codes d'un gabarit, attribués ou non. */
+async function countCodes(
+  db: Prisma.TransactionClient | typeof prisma,
+  templateId: bigint,
+): Promise<PrizeCodesStats> {
+  const [total, remaining] = await Promise.all([
+    db.prizeCode.count({ where: { templateId } }),
+    db.prizeCode.count({ where: { templateId, prizeId: null } }),
+  ]);
+  return { total, assigned: total - remaining, remaining };
+}
+
 export const prizeTemplateService = {
   shapeTemplate,
 
@@ -81,7 +136,6 @@ export const prizeTemplateService = {
 
   async createForCinema(cinemaSlug: string, user: AuthUser, data: CreatePrizeTemplateBody) {
     const cinema = await assertCinemaStaffCanAccessSlug(user, cinemaSlug);
-    const stock = data.stock ?? null;
     const payload = payloadFromValue(data.value);
     const created = await prisma.prizeTemplate.create({
       data: {
@@ -90,8 +144,7 @@ export const prizeTemplateService = {
         type: data.type,
         payloadJson: payload ?? Prisma.JsonNull,
         validityDays: data.validityDays ?? null,
-        stock,
-        stockInitial: stock,
+        ...redeemCreateData(data),
       },
     });
     return shapeTemplate(created);
@@ -110,7 +163,6 @@ export const prizeTemplateService = {
   async createForSponsor(sponsorSlug: string, data: CreatePrizeTemplateBody) {
     const sponsor = await prisma.sponsor.findUnique({ where: { slug: sponsorSlug } });
     if (!sponsor) throw new AppError('Sponsor not found', 404, 'SPONSOR_NOT_FOUND');
-    const stock = data.stock ?? null;
     const payload = payloadFromValue(data.value);
     const created = await prisma.prizeTemplate.create({
       data: {
@@ -119,8 +171,7 @@ export const prizeTemplateService = {
         type: data.type,
         payloadJson: payload ?? Prisma.JsonNull,
         validityDays: data.validityDays ?? null,
-        stock,
-        stockInitial: stock,
+        ...redeemCreateData(data),
       },
     });
     return shapeTemplate(created);
@@ -141,9 +192,32 @@ export const prizeTemplateService = {
     const existing = await this.getByIdForUser(id, user);
     const payloadUpdate =
       data.value !== undefined ? (payloadFromValue(data.value) ?? Prisma.JsonNull) : undefined;
+
+    // Mode de retrait (C5).
+    const nextMode = data.redeemMode ?? existing.redeemMode;
+    const nextStaticCode = data.staticCode !== undefined ? data.staticCode : existing.staticCode;
+    if (nextMode === 'static_code' && !nextStaticCode) {
+      throw new AppError('Un code fixe est requis pour ce mode.', 400, 'STATIC_CODE_REQUIRED');
+    }
+    if (nextMode === 'code_pool' && data.stock !== undefined) throw stockManagedByCodes();
+    let codeStock: { stock: number; stockInitial: number } | null = null;
+    if (nextMode === 'code_pool' && existing.redeemMode !== 'code_pool') {
+      const stats = await countCodes(prisma, existing.id);
+      codeStock = { stock: stats.remaining, stockInitial: stats.total };
+    }
+
     const updated = await prisma.prizeTemplate.update({
       where: { id: existing.id },
       data: {
+        ...(data.redeemMode !== undefined ? { redeemMode: data.redeemMode } : {}),
+        ...(data.staticCode !== undefined || data.redeemMode !== undefined
+          ? { staticCode: nextMode === 'static_code' ? nextStaticCode : null }
+          : {}),
+        ...(data.redeemInstructions !== undefined
+          ? { redeemInstructions: data.redeemInstructions }
+          : {}),
+        ...(data.redeemUrl !== undefined ? { redeemUrl: data.redeemUrl } : {}),
+        ...(codeStock ?? {}),
         ...(data.label !== undefined ? { label: data.label } : {}),
         ...(data.type !== undefined ? { type: data.type } : {}),
         ...(payloadUpdate !== undefined ? { payloadJson: payloadUpdate } : {}),
@@ -164,5 +238,73 @@ export const prizeTemplateService = {
 
   async archive(id: bigint, user: AuthUser) {
     return this.update(id, user, { isActive: false });
+  },
+
+  /**
+   * Import de codes fournis par la marque (C5, super_admin) : un code par ligne, doublons
+   * ignorés (dans le fichier et avec les codes déjà importés), 10 000 lignes au plus. Le stock
+   * du gabarit devient le nombre de codes restants.
+   */
+  async importCodes(id: bigint, text: string, user: AuthUser): Promise<ImportPrizeCodesResponse> {
+    const template = await prisma.prizeTemplate.findUnique({ where: { id } });
+    if (!template) throw new AppError('Prize template not found', 404, 'PRIZE_TEMPLATE_NOT_FOUND');
+    if (template.redeemMode !== 'code_pool') {
+      throw new AppError(
+        "Ce lot n'est pas en mode « codes fournis par la marque ».",
+        409,
+        'NOT_CODE_POOL',
+      );
+    }
+    const { codes, lineCount } = parsePrizeCodesText(text);
+    if (lineCount === 0) throw new AppError('Aucun code dans le fichier.', 400, 'NO_CODES');
+    if (lineCount > MAX_PRIZE_CODES_PER_IMPORT) {
+      throw new AppError(
+        `${MAX_PRIZE_CODES_PER_IMPORT} codes au plus par import.`,
+        400,
+        'TOO_MANY_CODES',
+      );
+    }
+    const tooLong = codes.find((c) => c.length > PRIZE_CODE_MAX_LENGTH);
+    if (tooLong !== undefined) {
+      throw new AppError(
+        `Code trop long (${PRIZE_CODE_MAX_LENGTH} caractères au plus).`,
+        400,
+        'INVALID_CODE',
+      );
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Même verrou que l'attribution d'un lot (décrément du stock) : stock et codes restent alignés.
+      await tx.$queryRaw`SELECT id FROM prize_templates WHERE id = ${template.id} FOR UPDATE`;
+      const created = await tx.prizeCode.createMany({
+        data: codes.map((code) => ({ templateId: template.id, code })),
+        skipDuplicates: true,
+      });
+      const stats = await countCodes(tx, template.id);
+      await tx.prizeTemplate.update({
+        where: { id: template.id },
+        data: { stock: stats.remaining, stockInitial: stats.total },
+      });
+      return { ...stats, imported: created.count, duplicates: lineCount - created.count };
+    });
+
+    logEvent({
+      level: 'info',
+      eventType: 'prize.codes_imported',
+      ...(template.cinemaId !== null ? { cinemaId: template.cinemaId } : {}),
+      payload: {
+        templateId: template.id.toString(),
+        imported: result.imported,
+        duplicates: result.duplicates,
+        userId: user.id.toString(),
+      },
+    });
+    return result;
+  },
+
+  async codesStats(id: bigint): Promise<PrizeCodesStats> {
+    const template = await prisma.prizeTemplate.findUnique({ where: { id }, select: { id: true } });
+    if (!template) throw new AppError('Prize template not found', 404, 'PRIZE_TEMPLATE_NOT_FOUND');
+    return countCodes(prisma, template.id);
   },
 };

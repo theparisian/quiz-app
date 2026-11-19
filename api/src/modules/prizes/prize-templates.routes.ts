@@ -3,7 +3,7 @@ import { requireAuth } from '../../shared/auth/index.js';
 import { validate } from '../../shared/validation/index.js';
 import { param } from '../../shared/utils/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import { updatePrizeTemplateBodySchema } from './prizes.schemas.js';
+import { importPrizeCodesBodySchema, updatePrizeTemplateBodySchema } from './prizes.schemas.js';
 import { prizeTemplateService } from './prize-template.service.js';
 
 const router = Router();
@@ -32,6 +32,26 @@ router.delete('/:id', requireAuth(['super_admin', 'cinema_admin']), async (req, 
     const id = parseTemplateId(param(req, 'id'));
     const result = await prizeTemplateService.archive(id, req.user!);
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Codes fournis par la marque (C5), super_admin uniquement. */
+router.post('/:id/codes/import', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const id = parseTemplateId(param(req, 'id'));
+    const body = validate(importPrizeCodesBodySchema, req.body);
+    res.json(await prizeTemplateService.importCodes(id, body.text, req.user!));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:id/codes/stats', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const id = parseTemplateId(param(req, 'id'));
+    res.json(await prizeTemplateService.codesStats(id));
   } catch (error) {
     next(error);
   }

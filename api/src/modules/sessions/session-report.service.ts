@@ -3,6 +3,7 @@ import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import type { AuthUser } from '../../shared/auth/middleware.js';
 import { sessionTitle } from './session-content.service.js';
+import { countRedeemedOrNull } from '../prizes/prize-redeem-mode.js';
 
 /**
  * Rapport de session pour l'interface super-admin (case study commercial).
@@ -113,7 +114,8 @@ export interface SessionReport {
     byType: Array<{ type: string; count: number }>;
     emailProvidedCount: number;
     emailSentCount: number;
-    redeemedCount: number;
+    /** C5 : null dès qu'un lot de la séance est un lot à code (retiré chez le partenaire). */
+    redeemedCount: number | null;
     emailOptInRate: number | null;
     redemptionRate: number | null;
   };
@@ -225,6 +227,7 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
           isConsolation: true,
           emailSentAt: true,
           redeemedAt: true,
+          payloadJson: true,
           player: { select: { emailForPrize: true } },
         },
       },
@@ -398,7 +401,7 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
     (p) => p.player.emailForPrize !== null && p.player.emailForPrize !== '',
   ).length;
   const emailSentCount = session.prizes.filter((p) => p.emailSentAt !== null).length;
-  const redeemedCount = session.prizes.filter((p) => p.redeemedAt !== null).length;
+  const redeemedCount = countRedeemedOrNull(session.prizes);
 
   const title = sessionTitle(session);
   // Sponsor : celui de la première manche sponsorisée (séance sans manche : quiz de la séance).
@@ -442,7 +445,7 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
       emailSentCount,
       redeemedCount,
       emailOptInRate: ratio(emailProvidedCount, prizeTotal),
-      redemptionRate: ratio(redeemedCount, emailSentCount),
+      redemptionRate: redeemedCount === null ? null : ratio(redeemedCount, emailSentCount),
     },
   };
 }

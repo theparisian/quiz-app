@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
 import { useCinemaNucMonitor } from '../../../../hooks/use-cinema-nuc-monitor';
+import { ContactsExportButton } from '../../../components/contacts-export-button';
 
 interface Nuc {
   id: string;
@@ -37,6 +38,7 @@ interface CinemaDetail {
   contactPhone: string | null;
   status: string;
   notes: string | null;
+  emailSharingEnabled: boolean;
   screens: Screen[];
   createdAt: string;
 }
@@ -119,6 +121,11 @@ export default function CinemaDetailPage() {
     },
   });
 
+  const sharingMutation = useMutation({
+    mutationFn: (enabled: boolean) => api.put(`/api/cinemas/${slug}/email-sharing`, { enabled }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cinema', slug] }),
+  });
+
   const archiveMutation = useMutation({
     mutationFn: () => api.delete(`/api/cinemas/${slug}`),
     onSuccess: () => router.push('/cinemas'),
@@ -197,6 +204,30 @@ export default function CinemaDetailPage() {
           >
             Configurer les lots (legacy)
           </Link>
+        </div>
+      </div>
+
+      {/* Partage des emails consentis (C5) */}
+      <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-900">Partage des emails</h2>
+        <p className="mt-1 text-xs text-gray-500">
+          Avec l&apos;accord activé, les joueurs de ce cinéma peuvent accepter qu&apos;il leur
+          envoie ses offres. Seuls ces emails sont exportables pour lui.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={cinema.emailSharingEnabled}
+              disabled={sharingMutation.isPending}
+              onChange={(e) => sharingMutation.mutate(e.target.checked)}
+            />
+            Accord de partage avec ce cinéma
+          </label>
+          <ContactsExportButton
+            target={{ scope: 'cinema', cinemaSlug: cinema.slug }}
+            disabled={!cinema.emailSharingEnabled}
+          />
         </div>
       </div>
 

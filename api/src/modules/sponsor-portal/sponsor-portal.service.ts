@@ -12,6 +12,7 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { assertCanAccessSponsor, type SponsorScopeUser } from '../../shared/auth/tenant-scope.js';
 import { nextCalendarDay, parisDayBounds, parisDayOf } from '../../shared/time/paris-calendar.js';
 import { csvCell } from '../sessions/session-report.service.js';
+import { countRedeemedOrNull } from '../prizes/prize-redeem-mode.js';
 
 /**
  * Portail sponsor (C4) : lecture seule, chiffres agrégés tirés du journal des diffusions (C3,
@@ -241,14 +242,18 @@ async function getCampaignStats(
     }
   }
 
-  // Lots utilisés des séances diffusées (même périmètre que `prizesIssued`, C3).
+  // Lots utilisés des séances diffusées (même périmètre que `prizesIssued`, C3). C5 : null dès
+  // qu'un de ces lots est un lot à code, dont l'utilisation chez le partenaire n'est pas connue.
   const sessionIds = [...new Set(rows.map((d) => d.sessionId))];
   const prizesRedeemed =
     sessionIds.length === 0
       ? 0
-      : await prisma.prize.count({
-          where: { sessionId: { in: sessionIds }, redeemedAt: { not: null } },
-        });
+      : countRedeemedOrNull(
+          await prisma.prize.findMany({
+            where: { sessionId: { in: sessionIds } },
+            select: { redeemedAt: true, payloadJson: true },
+          }),
+        );
 
   return {
     campaign: shapeCampaign(campaign),

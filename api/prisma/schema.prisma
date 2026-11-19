@@ -95,6 +95,20 @@ enum PrizeType {
   other
 }
 
+/// Mode de retrait d'un lot (C5) : PIN du comptoir, code unique d'un lot de codes, code fixe.
+enum PrizeRedeemMode {
+  staff_pin
+  code_pool
+  static_code
+}
+
+/// Périmètre d'un consentement email (C5).
+enum ConsentScope {
+  platform
+  cinema
+  sponsor
+}
+
 enum EventLevel {
   info
   warn
@@ -175,6 +189,8 @@ model Cinema {
   prizesConfig     Json?        @map("prizes_config")
   superPrizeConfig Json?        @map("super_prize_config")
   staffPinHash     String?       @map("staff_pin_hash") @db.VarChar(255)
+  /// Accord de partage des emails consentis avec ce cinéma (C5).
+  emailSharingEnabled Boolean   @default(false) @map("email_sharing_enabled")
   notes            String?      @db.Text
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
@@ -187,6 +203,7 @@ model Cinema {
   prizeTemplates PrizeTemplate[]
   gameAccess     GameCinemaAccess[]
   deliveries     Delivery[]
+  consents       ContactConsent[]
 
   @@map("cinemas")
 }
@@ -463,6 +480,7 @@ model Session {
   rounds        SessionRound[]
   scoreEvents   ScoreEvent[]
   deliveries    Delivery[]
+  consents      ContactConsent[]
 
   @@index([quizId])
   @@index([screenId])
@@ -541,6 +559,7 @@ model Sponsor {
   campaigns      Campaign[]
   users          User[]
   invitations    Invitation[]
+  consents       ContactConsent[]
 
   @@map("sponsors")
 }
@@ -566,6 +585,7 @@ model Prize {
   session       Session        @relation(fields: [sessionId], references: [id])
   player        Player         @relation(fields: [playerId], references: [id])
   prizeTemplate PrizeTemplate? @relation(fields: [prizeTemplateId], references: [id])
+  partnerCode   PrizeCode?
 
   @@unique([playerId, sessionId])
   @@index([sessionId])
@@ -587,6 +607,11 @@ model PrizeTemplate {
   stock        Int?
   stockInitial Int?      @map("stock_initial")
   isActive     Boolean   @default(true) @map("is_active")
+  /// C5 : en mode code_pool, `stock` est le nombre de codes restants.
+  redeemMode         PrizeRedeemMode @default(staff_pin) @map("redeem_mode")
+  staticCode         String?         @map("static_code") @db.VarChar(100)
+  redeemInstructions String?         @map("redeem_instructions") @db.Text
+  redeemUrl          String?         @map("redeem_url") @db.VarChar(500)
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
@@ -594,10 +619,66 @@ model PrizeTemplate {
   sponsor   Sponsor?  @relation(fields: [sponsorId], references: [id])
   prizes    Prize[]
   sessions  Session[]
+  codes     PrizeCode[]
 
   @@index([cinemaId])
   @@index([sponsorId])
   @@map("prize_templates")
+}
+
+/// Code fourni par la marque pour un gabarit en mode code_pool (C5). `prizeId` non nul = attribué.
+model PrizeCode {
+  id         BigInt    @id @default(autoincrement())
+  templateId BigInt    @map("template_id")
+  code       String    @db.VarChar(100)
+  prizeId    BigInt?   @unique @map("prize_id")
+  assignedAt DateTime? @map("assigned_at")
+
+  template PrizeTemplate @relation(fields: [templateId], references: [id])
+  prize    Prize?        @relation(fields: [prizeId], references: [id])
+
+  @@unique([templateId, code])
+  @@index([templateId, prizeId])
+  @@map("prize_codes")
+}
+
+/// Adresse email d'un joueur ayant coché au moins une case de consentement (C5).
+model Contact {
+  id                BigInt    @id @default(autoincrement())
+  /// Toujours en minuscules.
+  email             String    @unique @db.VarChar(255)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  unsubscribedAllAt DateTime? @map("unsubscribed_all_at")
+
+  consents ContactConsent[]
+
+  @@map("contacts")
+}
+
+/// Consentement d'un contact pour un périmètre (C5). Révoqué = `revokedAt` non nul.
+model ContactConsent {
+  id             BigInt       @id @default(autoincrement())
+  contactId      BigInt       @map("contact_id")
+  scope          ConsentScope
+  cinemaId       BigInt?      @map("cinema_id")
+  sponsorId      BigInt?      @map("sponsor_id")
+  sessionId      BigInt       @map("session_id")
+  grantedAt      DateTime     @default(now()) @map("granted_at")
+  revokedAt      DateTime?    @map("revoked_at")
+  wordingVersion String       @map("wording_version") @db.VarChar(20)
+
+  contact Contact  @relation(fields: [contactId], references: [id])
+  cinema  Cinema?  @relation(fields: [cinemaId], references: [id])
+  sponsor Sponsor? @relation(fields: [sponsorId], references: [id])
+  session Session  @relation(fields: [sessionId], references: [id])
+
+  @@unique([contactId, scope, cinemaId, sponsorId])
+  @@index([scope, cinemaId])
+  @@index([scope, sponsorId])
+  @@index([cinemaId])
+  @@index([sponsorId])
+  @@index([sessionId])
+  @@map("contact_consents")
 }
 
 model EventLog {

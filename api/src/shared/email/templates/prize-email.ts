@@ -1,3 +1,11 @@
+/** Lot à code (C5) : remplace le QR de validation par PIN. */
+export interface PrizeEmailPartner {
+  code: string;
+  qrCodeDataUrl: string;
+  instructions: string | null;
+  url: string | null;
+}
+
 export interface PrizeEmailData {
   pseudo: string;
   rank: number;
@@ -10,6 +18,7 @@ export interface PrizeEmailData {
   shortCode: string;
   unsubscribeUrl: string;
   qrCodeDataUrl: string;
+  partner?: PrizeEmailPartner | null;
 }
 
 function escapeHtml(s: string): string {
@@ -30,6 +39,38 @@ export function buildPrizeEmail(data: PrizeEmailData): {
     ? `<img src="${escapeHtml(data.cinemaLogoUrl)}" alt="" width="160" style="max-width:160px;height:auto;display:block;margin:0 auto 16px;" />`
     : '';
 
+  const partner = data.partner ?? null;
+  const redeemBlock = partner
+    ? `<p style="margin:0 0 8px;text-align:center;font-size:13px;color:#555;">Ton code :</p>
+          <p style="margin:0 0 16px;text-align:center;font-size:30px;font-weight:800;letter-spacing:2px;color:#111;word-break:break-all;">
+            ${escapeHtml(partner.code)}
+          </p>
+          <div style="text-align:center;margin:16px 0 24px;">
+            <img src="${partner.qrCodeDataUrl}" alt="QR code du code" width="240" height="240" style="width:240px;max-width:100%;height:auto;border-radius:8px;"/>
+          </div>
+          ${
+            partner.instructions
+              ? `<p style="margin:0 0 16px;line-height:1.5;color:#444;font-size:14px;">${escapeHtml(partner.instructions)}</p>`
+              : ''
+          }
+          ${
+            partner.url
+              ? `<p style="margin:0 0 24px;text-align:center;"><a href="${escapeHtml(partner.url)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Utiliser mon code</a></p>`
+              : ''
+          }`
+    : `<div style="text-align:center;margin:24px 0;">
+            <img src="${data.qrCodeDataUrl}" alt="QR code lot" width="400" height="400" style="width:400px;max-width:100%;height:auto;border-radius:8px;"/>
+          </div>
+          <p style="margin:0 0 16px;line-height:1.5;color:#444;font-size:14px;">
+            Présente ce QR code à la confiserie pour bénéficier de ton avantage.
+          </p>
+          <p style="margin:0 0 8px;text-align:center;font-size:22px;font-weight:700;letter-spacing:2px;color:#111;">
+            ${escapeHtml(data.shortCode)}
+          </p>
+          <p style="margin:0 0 24px;text-align:center;font-size:13px;color:#555;">
+            En cas de problème de scan, donnez ce code au comptoir.
+          </p>`;
+
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head>
@@ -48,18 +89,7 @@ export function buildPrizeEmail(data: PrizeEmailData): {
           </p>
           <p style="margin:16px 0 8px;font-weight:600;">Ton lot :</p>
           <p style="margin:0 0 20px;font-size:17px;color:#111;">${escapeHtml(data.prizeLabel)}</p>
-          <div style="text-align:center;margin:24px 0;">
-            <img src="${data.qrCodeDataUrl}" alt="QR code lot" width="400" height="400" style="width:400px;max-width:100%;height:auto;border-radius:8px;"/>
-          </div>
-          <p style="margin:0 0 16px;line-height:1.5;color:#444;font-size:14px;">
-            Présente ce QR code à la confiserie pour bénéficier de ton avantage.
-          </p>
-          <p style="margin:0 0 8px;text-align:center;font-size:22px;font-weight:700;letter-spacing:2px;color:#111;">
-            ${escapeHtml(data.shortCode)}
-          </p>
-          <p style="margin:0 0 24px;text-align:center;font-size:13px;color:#555;">
-            En cas de problème de scan, donnez ce code au comptoir.
-          </p>
+          ${redeemBlock}
         </td></tr>
         <tr><td style="padding:16px 28px 28px;border-top:1px solid #eee;font-size:12px;color:#777;line-height:1.5;">
           Tu ne souhaites plus recevoir de mails de notre part ?
@@ -71,6 +101,14 @@ export function buildPrizeEmail(data: PrizeEmailData): {
 </body>
 </html>`;
 
+  const redeemText = partner
+    ? [
+        `Ton code : ${partner.code}`,
+        ...(partner.instructions ? ['', partner.instructions] : []),
+        ...(partner.url ? ['', `Utiliser mon code : ${partner.url}`] : []),
+      ]
+    : [`Lien pour utiliser ton lot : ${data.redeemUrl}`, '', `Code comptoir : ${data.shortCode}`];
+
   const text = [
     `Bravo ${data.pseudo} !`,
     '',
@@ -78,9 +116,7 @@ export function buildPrizeEmail(data: PrizeEmailData): {
     '',
     `Ton lot : ${data.prizeLabel}`,
     '',
-    `Lien pour utiliser ton lot : ${data.redeemUrl}`,
-    '',
-    `Code comptoir : ${data.shortCode}`,
+    ...redeemText,
     '',
     `Ne plus recevoir d'e-mails : ${data.unsubscribeUrl}`,
   ].join('\n');

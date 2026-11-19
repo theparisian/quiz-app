@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { sessionJoinTokenSchema } from '@quiz-app/validation';
+import { playerUpdateEmailBodySchema, sessionJoinTokenSchema } from '@quiz-app/validation';
 
 export const PSEUDO_MIN_LENGTH = 2;
 export const PSEUDO_MAX_LENGTH = 30;
@@ -29,10 +29,8 @@ export const joinSessionSchema = z
     path: ['joinToken'],
   });
 
-export const updateEmailSchema = z.object({
-  email: z.string().email(),
-  consent: z.boolean(),
-});
+/** Schéma unique de PATCH /api/players/:id/email : celui de `@quiz-app/validation` (C5). */
+export const updateEmailSchema = playerUpdateEmailBodySchema;
 
 export type JoinSessionInput = z.infer<typeof joinSessionSchema>;
 export type UpdateEmailInput = z.infer<typeof updateEmailSchema>;

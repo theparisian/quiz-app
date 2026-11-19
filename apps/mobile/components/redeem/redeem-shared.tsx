@@ -17,6 +17,17 @@ export interface PrizeStatusData {
   shortCode: string;
   redeemCode?: string;
   sig?: string;
+  /** C5 : lot à code, à présenter chez le partenaire (pas de validation par PIN). */
+  redeemMode?: 'staff_pin' | 'code_pool' | 'static_code';
+  partnerCode?: string | null;
+  partnerQrDataUrl?: string | null;
+  redeemInstructions?: string | null;
+  redeemUrl?: string | null;
+}
+
+/** Lot validé au comptoir par le PIN du cinéma (tous les lots antérieurs à C5). */
+export function isStaffRedeemable(data: PrizeStatusData): boolean {
+  return (data.redeemMode ?? 'staff_pin') === 'staff_pin';
 }
 
 export function getStoredStaffPin(): string {
@@ -41,7 +52,55 @@ export function formatPrizeDate(iso: string): string {
   });
 }
 
+/** Lot à code (C5) : code du partenaire en gros, son QR, les instructions et le lien. */
+function PartnerCodeCard({ data }: { data: PrizeStatusData }) {
+  const expired = data.status === 'expired';
+  return (
+    <div className="rounded-2xl border-2 border-blue-500/40 bg-blue-950/30 p-6 text-center">
+      <p className="text-sm text-gray-400">{data.cinemaName}</p>
+      <h1 className="mt-2 text-2xl font-bold leading-tight">{data.label}</h1>
+      {data.partnerCode && (
+        <>
+          <p className="mt-5 text-sm text-gray-400">Ton code</p>
+          <p className="mt-1 break-all font-mono text-3xl font-black tracking-wider text-white">
+            {data.partnerCode}
+          </p>
+          {data.partnerQrDataUrl && (
+            <img
+              src={data.partnerQrDataUrl}
+              alt="QR code du code"
+              className="mx-auto mt-5 w-56 max-w-full rounded-lg bg-white"
+            />
+          )}
+        </>
+      )}
+      {data.redeemInstructions && (
+        <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-gray-300">
+          {data.redeemInstructions}
+        </p>
+      )}
+      {data.redeemUrl && !expired && (
+        <a
+          href={data.redeemUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-5 inline-block rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white"
+        >
+          Utiliser mon code
+        </a>
+      )}
+      {data.expiresAt && (
+        <p className={`mt-4 text-sm ${expired ? 'text-gray-400' : 'text-blue-200/80'}`}>
+          {expired ? 'Expiré le' : 'Valable jusqu’au'} {formatPrizeDate(data.expiresAt)}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function PrizeStatusCard({ data }: { data: PrizeStatusData }) {
+  if (!isStaffRedeemable(data)) return <PartnerCodeCard data={data} />;
+
   const statusStyles =
     data.status === 'valid'
       ? 'border-green-500/40 bg-green-950/40'
@@ -191,6 +250,8 @@ export function useRedeemFlow(opts: {
         setPinError("PIN comptoir non configuré. Contactez l'administration.");
       } else if (e.code === 'RATE_LIMIT_EXCEEDED') {
         setPinError('Trop de tentatives. Réessayez dans une minute.');
+      } else if (e.code === 'NOT_STAFF_REDEEMABLE') {
+        setPinError('Ce lot se présente chez le partenaire, sans validation au comptoir.');
       } else {
         setPinError(e.message ?? 'Erreur réseau. Réessayez.');
       }

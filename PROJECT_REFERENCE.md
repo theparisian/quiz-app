@@ -651,9 +651,12 @@ Ordre de rotation, du plus grave au moins grave :
 
 - **Joueur anonyme** : pseudo, réponses, score. Conservation : 30 jours après fin de session.
 - **Joueur inscrit** : email, pseudo, historique. Conservation : tant que le compte existe.
-- **Joueur gagnant non inscrit** : email pour envoi du lot. Conservation : 90 jours.
+- **Joueur gagnant non inscrit** : email pour envoi du lot. Conservation : 90 jours (règle inchangée pour l'email de lot sans case facultative cochée).
+- **Contact consenti** (C5) : email d'un joueur ayant coché, sous le formulaire de lot, au moins une case facultative décochée par défaut (actus et jeux de Shh!, offres du cinéma, offres du sponsor), avec le périmètre, la date, la séance et la version du libellé (`contacts`, `contact_consents`). Conservation : jusqu'au retrait du consentement. Le lien de désinscription des emails révoque tous les consentements du contact ; un contact désinscrit ne sort plus dans aucun export.
 - **Projectionnistes / admins** : email, nom, cinéma. Conservation : pendant la relation contractuelle.
 - **NUCs** : pas de donnée personnelle.
+
+Les emails consentis ne sont transmis à un cinéma ou à un sponsor qu'avec un accord de partage enregistré avec lui (fiche cinéma, campagne du sponsor) ET la case correspondante cochée par le joueur. Les exports sont réservés au super-admin et journalisés (`contacts.exported`) ; aucun rôle cinéma ou sponsor n'a de route donnant un email de joueur. Aucun email marketing n'est envoyé par la plateforme.
 
 ### 9.2 Obligations
 

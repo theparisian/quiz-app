@@ -1,6 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  consentOptionsResponseSchema,
+  type ConsentOptionsResponse,
+  type PlayerUpdateEmailBody,
+} from '@quiz-app/validation';
 import { api } from '@/lib/api';
 import { usePlayerStore } from '@/lib/stores/player-store';
 
@@ -51,26 +56,74 @@ function prizeButtonLabel(prizeLabel?: string): string {
   return short ? `Recevoir mon ${short}` : 'Valider';
 }
 
+/** Case facultative, décochée par défaut (C5). */
+function OptInCheckbox({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="mb-3 flex items-start gap-3 text-left text-sm text-gray-400">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20"
+      />
+      <span>{children}</span>
+    </label>
+  );
+}
+
 export default function PrizeEmailForm({ onSuccess, prizeLabel }: PrizeEmailFormProps) {
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(false);
+  const [optInPlatform, setOptInPlatform] = useState(false);
+  const [optInCinema, setOptInCinema] = useState(false);
+  const [optInSponsor, setOptInSponsor] = useState(false);
+  const [options, setOptions] = useState<ConsentOptionsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const playerId = usePlayerStore((s) => s.playerId);
   const resumeToken = usePlayerStore((s) => s.resumeToken);
+
+  // Cases cinéma et sponsor : seulement si l'accord existe. En cas d'échec, aucune n'est montrée.
+  useEffect(() => {
+    if (!playerId || !resumeToken) return;
+    let cancelled = false;
+    api
+      .get<unknown>(`/api/players/${playerId}/consent-options`, {
+        headers: { 'X-Player-Token': resumeToken },
+      })
+      .then((res) => {
+        const parsed = consentOptionsResponseSchema.safeParse(res);
+        if (!cancelled && parsed.success) setOptions(parsed.data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId, resumeToken]);
 
   async function handleSubmit() {
     if (!email || !playerId || !resumeToken || !consent) return;
     setLoading(true);
     setError(null);
     try {
-      await api.patch(
-        `/api/players/${playerId}/email`,
-        { email, consent: true },
-        {
-          'X-Player-Token': resumeToken,
-        },
-      );
+      const body: PlayerUpdateEmailBody = {
+        email,
+        consent: true,
+        optInPlatform,
+        optInCinema: optInCinema && !!options?.cinema,
+        optInSponsor: optInSponsor && !!options?.sponsor,
+      };
+      await api.patch(`/api/players/${playerId}/email`, body, {
+        'X-Player-Token': resumeToken,
+      });
       setLoading(false);
       onSuccess();
     } catch (err: unknown) {
@@ -119,6 +172,22 @@ export default function PrizeEmailForm({ onSuccess, prizeLabel }: PrizeEmailForm
         <span>J&apos;ai 15 ans ou plus et j&apos;accepte de recevoir mon lot par email.</span>
       </label>
 
+      <div className="mb-2">
+        <OptInCheckbox checked={optInPlatform} onChange={setOptInPlatform}>
+          Je veux recevoir les actus et jeux de Shh!
+        </OptInCheckbox>
+        {options?.cinema && (
+          <OptInCheckbox checked={optInCinema} onChange={setOptInCinema}>
+            J&apos;accepte que {options.cinema.name} m&apos;envoie ses offres
+          </OptInCheckbox>
+        )}
+        {options?.sponsor && (
+          <OptInCheckbox checked={optInSponsor} onChange={setOptInSponsor}>
+            J&apos;accepte que {options.sponsor.name} m&apos;envoie ses offres
+          </OptInCheckbox>
+        )}
+      </div>
+
       {error && <div className="mb-4 text-sm text-red-400">{error}</div>}
 
       <button
@@ -132,8 +201,8 @@ export default function PrizeEmailForm({ onSuccess, prizeLabel }: PrizeEmailForm
       <p className="flex items-start justify-center gap-1.5 text-center text-xs leading-relaxed text-gray-500">
         <LockIcon />
         <span>
-          Email utilisé uniquement pour l&apos;envoi du lot. Lien de désinscription dans chaque
-          email.
+          Sans case cochée, ton email sert uniquement à l&apos;envoi du lot. Lien de désinscription
+          dans chaque email.
         </span>
       </p>
 

@@ -23,6 +23,8 @@ import { staffPinBodySchema } from '../prizes/prizes.schemas.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { prisma } from '../../shared/db/index.js';
 import type { AuthUser } from '../../shared/auth/middleware.js';
+import { emailSharingBodySchema } from '@quiz-app/validation';
+import { contactsService } from '../contacts/contacts.service.js';
 
 const router = Router();
 
@@ -63,6 +65,7 @@ router.get(
         contactPhone: cinema.contactPhone,
         status: cinema.status,
         notes: cinema.notes,
+        emailSharingEnabled: cinema.emailSharingEnabled,
         screens: cinema.screens.map((s) => ({
           id: s.id.toString(),
           name: s.name,
@@ -112,6 +115,16 @@ router.patch('/:slug', requireAuth(['super_admin']), async (req, res, next) => {
       name: cinema.name,
       status: cinema.status,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Accord de partage des emails consentis avec ce cinéma (C5, super_admin). */
+router.put('/:slug/email-sharing', requireAuth(['super_admin']), async (req, res, next) => {
+  try {
+    const body = validate(emailSharingBodySchema, req.body);
+    res.json(await contactsService.setCinemaSharing(param(req, 'slug'), body.enabled, req.user!));
   } catch (error) {
     next(error);
   }

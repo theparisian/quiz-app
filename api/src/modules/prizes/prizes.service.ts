@@ -15,6 +15,7 @@ import {
 } from '../../shared/email/prize-email-queue.service.js';
 import { FIRST_ROUND_SELECT, sessionTitle } from '../sessions/session-content.service.js';
 import { deliveriesService } from '../campaigns/deliveries.service.js';
+import { contactsService } from '../contacts/contacts.service.js';
 
 function prizeNotConfiguredMessage(isConsolationAttempt: boolean): string {
   if (isConsolationAttempt) {
@@ -128,9 +129,11 @@ export const prizesService = {
 
       try {
         prize = await prisma.$transaction(async (tx) => {
+          let template: Awaited<ReturnType<typeof tx.prizeTemplate.findUnique>> = null;
           if (templateId) {
-            const template = await tx.prizeTemplate.findUnique({ where: { id: templateId } });
+            template = await tx.prizeTemplate.findUnique({ where: { id: templateId } });
             if (template && template.stock !== null) {
+              // Verrouille aussi la ligne du gabarit jusqu'à la fin de la transaction.
               const dec = await tx.prizeTemplate.updateMany({
                 where: { id: templateId, stock: { gt: 0 } },
                 data: { stock: { decrement: 1 } },
@@ -141,7 +144,21 @@ export const prizesService = {
             }
           }
 
-          return tx.prize.create({
+          // Lots à code (C5) : mode et code du partenaire figés dans le lot.
+          const redeemMode = template?.redeemMode ?? 'staff_pin';
+          const basePayload = { value: config.value, configEntry: config };
+          const payloadJson =
+            redeemMode === 'staff_pin'
+              ? basePayload
+              : {
+                  ...basePayload,
+                  redeemMode,
+                  partnerCode: redeemMode === 'static_code' ? template!.staticCode : null,
+                  redeemInstructions: template!.redeemInstructions,
+                  redeemUrl: template!.redeemUrl,
+                };
+
+          const created = await tx.prize.create({
             data: {
               sessionId: player.sessionId,
               playerId,
@@ -154,8 +171,28 @@ export const prizesService = {
               label: config.label,
               type: config.type,
               prizeTemplateId: templateId,
-              payloadJson: { value: config.value, configEntry: config },
+              payloadJson,
             },
+          });
+
+          if (redeemMode !== 'code_pool' || !templateId) return created;
+
+          // Réserve un code libre : une seule ligne prise par requête, jamais la même deux fois
+          // (le verrou de ligne d'InnoDB fait relire `prize_id IS NULL` aux requêtes en attente).
+          const taken = await tx.$executeRaw`
+            UPDATE prize_codes SET prize_id = ${created.id}, assigned_at = NOW(3)
+            WHERE template_id = ${templateId} AND prize_id IS NULL
+            ORDER BY id LIMIT 1`;
+          if (taken !== 1) {
+            throw new Error('STOCK_EXHAUSTED');
+          }
+          const code = await tx.prizeCode.findUniqueOrThrow({
+            where: { prizeId: created.id },
+            select: { code: true },
+          });
+          return tx.prize.update({
+            where: { id: created.id },
+            data: { payloadJson: { ...payloadJson, partnerCode: code.code } },
           });
         });
         break;
@@ -260,6 +297,11 @@ export const prizesService = {
     });
     if (!prize) throw new AppError('Prize not found', 404, 'PRIZE_NOT_FOUND');
 
+    // C5 : la désinscription révoque aussi tous les consentements du contact de cette adresse.
+    if (prize.player.emailForPrize) {
+      await contactsService.unsubscribeAll(prize.player.emailForPrize);
+    }
+
     await prisma.player.update({
       where: { id: prize.playerId },
       data: { emailForPrize: null, emailConsentAt: null },
@@ -347,7 +389,8 @@ export const prizesService = {
           emailSentAt: p.emailSentAt?.toISOString() ?? null,
           redeemedAt: p.redeemedAt?.toISOString() ?? null,
           playerPseudo: p.player.pseudo,
-          playerEmail: p.player.emailForPrize,
+          // C5 : aucun rôle cinéma ne lit l'email d'un joueur.
+          playerEmail: user.role === 'super_admin' ? p.player.emailForPrize : null,
           sessionSlugShort: p.session.slugShort,
           quizTitle: sessionTitle(p.session).title,
           sessionEndedAt: p.session.endedAt?.toISOString() ?? null,

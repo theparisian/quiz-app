@@ -17,6 +17,8 @@ import {
   sessionCodeFailureLimiter,
 } from '../../shared/rate-limit/limiters.js';
 import { prizesService } from '../prizes/prizes.service.js';
+import { contactsService } from '../contacts/contacts.service.js';
+import { logger } from '../../shared/logger/index.js';
 import {
   broadcastPlayerJoined,
   broadcastPlayerLeft,
@@ -117,18 +119,34 @@ router.post(
   },
 );
 
+/** Joueur du jeton X-Player-Token, qui doit être celui de l'URL. */
+async function playerFromToken(req: import('express').Request, playerId: bigint) {
+  const token = req.headers['x-player-token'] as string | undefined;
+  if (!token) {
+    throw new AppError('Player token required', 401, 'PLAYER_TOKEN_REQUIRED');
+  }
+  const player = await playersService.getByResumeToken(token);
+  if (player.id !== playerId) {
+    throw new AppError('Token mismatch', 403, 'FORBIDDEN');
+  }
+  return player;
+}
+
+/** Cases de consentement facultatives à montrer au joueur sous le formulaire de lot (C5). */
+router.get('/:id/consent-options', async (req, res, next) => {
+  try {
+    const playerId = BigInt(param(req, 'id'));
+    const player = await playerFromToken(req, playerId);
+    res.json(await contactsService.consentOptions(player.sessionId));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch('/:id/email', async (req, res, next) => {
   try {
     const playerId = BigInt(param(req, 'id'));
-    const token = req.headers['x-player-token'] as string | undefined;
-    if (!token) {
-      throw new AppError('Player token required', 401, 'PLAYER_TOKEN_REQUIRED');
-    }
-
-    const player = await playersService.getByResumeToken(token);
-    if (player.id !== playerId) {
-      throw new AppError('Token mismatch', 403, 'FORBIDDEN');
-    }
+    const player = await playerFromToken(req, playerId);
 
     const data = validate(updateEmailSchema, req.body);
     if (data.consent !== true) {
@@ -136,6 +154,21 @@ router.patch('/:id/email', async (req, res, next) => {
     }
 
     const result = await prizesService.createForPlayer(playerId, data.email);
+
+    // Consentements facultatifs (C5) : après l'attribution du lot, jamais bloquants pour lui.
+    if (data.optInPlatform || data.optInCinema || data.optInSponsor) {
+      try {
+        await contactsService.recordPrizeFormConsents({
+          email: data.email,
+          sessionId: player.sessionId,
+          optInPlatform: data.optInPlatform,
+          optInCinema: data.optInCinema,
+          optInSponsor: data.optInSponsor,
+        });
+      } catch (err) {
+        logger.error({ err, playerId: playerId.toString() }, 'Recording email consents failed');
+      }
+    }
 
     res.json({ ok: true, emailQueued: result.emailQueued, prizeId: result.prizeId });
   } catch (error) {

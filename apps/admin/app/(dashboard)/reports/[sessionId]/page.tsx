@@ -72,7 +72,8 @@ interface SessionReport {
     byType: Array<{ type: string; count: number }>;
     emailProvidedCount: number;
     emailSentCount: number;
-    redeemedCount: number;
+    /** null : la séance a des lots à code, retirés chez le partenaire (C5). */
+    redeemedCount: number | null;
     emailOptInRate: number | null;
     redemptionRate: number | null;
   };
@@ -558,7 +559,9 @@ export default function ReportDetailPage() {
                   {formatPct(prizes.redemptionRate)}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {prizes.redeemedCount} utilisés · {prizes.emailSentCount} envoyés
+                  {prizes.redeemedCount === null
+                    ? `Lots à code, retirés chez le partenaire · ${prizes.emailSentCount} envoyés`
+                    : `${prizes.redeemedCount} utilisés · ${prizes.emailSentCount} envoyés`}
                 </p>
               </div>
             </div>

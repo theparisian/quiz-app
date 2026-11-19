@@ -1,3 +1,4 @@
+import QRCode from 'qrcode';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
@@ -6,6 +7,7 @@ import type { PrizeRedeemStatus } from '@quiz-app/validation';
 import { verifyPrizeSignature } from './prize-signature.service.js';
 import { verifyStaffPinForCinema } from './staff-pin.service.js';
 import { normalizeShortCodeInput } from './short-code.service.js';
+import { readPrizeRedeemInfo } from './prize-redeem-mode.js';
 
 type PrizeWithCinema = {
   id: bigint;
@@ -17,6 +19,7 @@ type PrizeWithCinema = {
   redeemedAt: Date | null;
   expiresAt: Date | null;
   sessionId: bigint;
+  payloadJson: unknown;
   session: { screen: { cinema: { id: bigint; name: string } } };
 };
 
@@ -47,8 +50,23 @@ export function computePrizeStatus(prize: {
   return 'valid';
 }
 
-function shapeStatusResponse(prize: PrizeWithCinema, includeTokens = false) {
+/** Lot à code (C5) : à présenter chez le partenaire, jamais validé au comptoir par PIN. */
+function assertStaffRedeemable(prize: PrizeWithCinema) {
+  if (readPrizeRedeemInfo(prize.payloadJson).redeemMode !== 'staff_pin') {
+    throw new AppError(
+      'Ce lot se présente directement chez le partenaire, sans validation au comptoir.',
+      409,
+      'NOT_STAFF_REDEEMABLE',
+    );
+  }
+}
+
+async function shapeStatusResponse(prize: PrizeWithCinema, includeTokens = false) {
   const status = computePrizeStatus(prize);
+  const info = readPrizeRedeemInfo(prize.payloadJson);
+  const partnerQrDataUrl = info.partnerCode
+    ? await QRCode.toDataURL(info.partnerCode, { width: 400, margin: 2 })
+    : null;
   return {
     label: prize.label,
     type: prize.type,
@@ -58,6 +76,11 @@ function shapeStatusResponse(prize: PrizeWithCinema, includeTokens = false) {
     expiresAt: prize.expiresAt?.toISOString() ?? null,
     shortCode: prize.shortCode,
     ...(includeTokens ? { redeemCode: prize.redeemCode, sig: prize.signature } : {}),
+    redeemMode: info.redeemMode,
+    partnerCode: info.partnerCode,
+    partnerQrDataUrl,
+    redeemInstructions: info.redeemInstructions,
+    redeemUrl: info.redeemUrl,
   };
 }
 
@@ -101,6 +124,8 @@ export const prizeRedeemService = {
       throw err;
     }
 
+    assertStaffRedeemable(prize);
+
     logger.info(
       { prizeId: prize.id.toString(), ip: clientIp ?? null },
       'Prize lookup by short code',
@@ -123,6 +148,7 @@ export const prizeRedeemService = {
 
     const cinemaId = prize.session.screen.cinema.id;
     await verifyStaffPinForCinema(cinemaId, staffPin);
+    assertStaffRedeemable(prize);
 
     if (prize.redeemedAt) {
       throw new AppError('Ce lot a déjà été utilisé.', 409, 'ALREADY_REDEEMED', true, {
