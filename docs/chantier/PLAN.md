@@ -32,7 +32,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 09 | C1 Catalogue | B6, A1 | 0022_game_catalog | fait (2 commits C1) |
 | 10 | C2 Programmation | C1 | 0023_screen_programs | fait (04ab3f3) |
 | 11 | C3 Campagnes | C1, B5 | 0024_campaigns_deliveries | fait (ee5786b, 10160ee) |
-| 12 | C4 Sponsor | C3 | 0025 | à faire |
+| 12 | C4 Sponsor | C3 | 0025_sponsor_role | fait (1fa3004, af8ec9f + garde super_admin) |
 | 13 | C5 Lots et consentements | C3, C4 | 0026 | à faire |
 
 Dernière migration existante au démarrage : `0018_audio`. Format des noms : `00NN_snake_case`.
@@ -145,6 +145,12 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   exige que le jeu appartienne au sponsor de la campagne (ajout non prévu au prompt).
 - C3 — Relevé ouvert au cinema_admin (page console « Revenus ») ; saisie des entrées ouverte au
   projectionniste. `prizesIssued` compte tous les lots de la session.
+- C4 — Le sondage (pas de compte à rebours) n'a pas de carton d'ouverture sponsor, seulement le
+  badge en coin. Après un rechargement pendant l'entracte, le classement de manche n'a pas de badge
+  sponsor (`round:ended` ne porte pas le sponsor). L'email de lien de connexion tutoie (gabarit
+  partagé) ; l'invitation sponsor vouvoie. Les campagnes en brouillon sont masquées du portail.
+- C4 — Un compte super_admin ne peut plus accepter une invitation (409 INVITATION_SUPER_ADMIN) :
+  l'acceptation remplaçait son rôle.
 
 ## Décisions
 

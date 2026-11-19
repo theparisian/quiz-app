@@ -545,6 +545,21 @@ describe('sponsor portal and sponsor role (C4)', () => {
         .send({ email: 'not-an-email' })
         .expect(400);
     });
+    it('a super_admin account cannot accept an invitation (its role would be lost)', async () => {
+      const email = `admin-${code().toLowerCase()}@sponsor-test.local`;
+      await prisma.user.create({ data: { email, displayName: 'Admin', role: 'super_admin' } });
+      await authed(request(app).post(`/api/sponsors/${sponsorA.slug}/invitations`), superToken)
+        .send({ email })
+        .expect(201);
+      const invitation = await prisma.invitation.findFirstOrThrow({ where: { email } });
+      const res = await request(app)
+        .post('/api/invitations/accept')
+        .send({ token: invitation.token, displayName: 'Admin' })
+        .expect(409);
+      expect(res.body.error?.code ?? res.body.code).toBe('INVITATION_SUPER_ADMIN');
+      const still = await prisma.user.findUniqueOrThrow({ where: { email } });
+      expect(still).toMatchObject({ role: 'super_admin', sponsorId: null });
+    });
   });
 
   describe('sponsor de séance (affichage public)', () => {

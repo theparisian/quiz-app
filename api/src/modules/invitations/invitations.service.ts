@@ -163,6 +163,16 @@ export const invitationsService = {
 
     let user = await prisma.user.findUnique({ where: { email: invitation.email } });
 
+    // Accepter une invitation remplace le rôle : un super_admin ne doit jamais perdre le sien
+    // de cette façon (il ne pourrait plus administrer la plateforme).
+    if (user?.role === 'super_admin') {
+      throw new AppError(
+        'A super admin account cannot accept an invitation',
+        409,
+        'INVITATION_SUPER_ADMIN',
+      );
+    }
+
     if (user) {
       await prisma.user.update({
         where: { id: user.id },
