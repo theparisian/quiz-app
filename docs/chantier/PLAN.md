@@ -30,7 +30,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 07 | B5 Multi-manches | B2-B4 | 0021_session_quiz_nullable | fait (796ff8f) |
 | 08 | B6 Sondage | B5 | — | fait (c44e304 + correctif validate) |
 | 09 | C1 Catalogue | B6, A1 | 0022_game_catalog | fait (2 commits C1) |
-| 10 | C2 Programmation | C1 | 0023 | à faire |
+| 10 | C2 Programmation | C1 | 0023_screen_programs | fait (04ab3f3) |
 | 11 | C3 Campagnes | C1, B5 | 0024 | à faire |
 | 12 | C4 Sponsor | C3 | 0025 | à faire |
 | 13 | C5 Lots et consentements | C3, C4 | 0026 | à faire |
@@ -136,6 +136,9 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   cinémas que pour un jeu `sponsored`. Entrée admin « Sondages » conservée à côté de « Catalogue ».
 - C1 — Catalogue cinéma non paginé ; durée estimée par défaut 5 min si inconnue ; sélecteur de
   cinémas admin limité aux 100 premiers.
+- C2 — Un jeu déjà au programme d'une salle y reste même s'il quitte le catalogue (grisé
+  « Retiré du catalogue ») ; seuls les ajouts doivent être disponibles. Le lancement l'ignore.
+- C2 — Page Programmation rafraîchie toutes les 15 s (pas de push socket entre fenêtres).
 
 ## Décisions
 
