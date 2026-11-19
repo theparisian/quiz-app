@@ -1,17 +1,15 @@
 'use client';
 
-import { usePlayerStore } from '@/lib/stores/player-store';
+import type { QuizMobileMe } from '@quiz-app/validation';
 
-export default function ResultScreen() {
-  const lastQuestionResult = usePlayerStore((s) => s.lastQuestionResult);
-  const scoreTotal = usePlayerStore((s) => s.scoreTotal);
-  const currentRank = usePlayerStore((s) => s.currentRank);
-  const selectedAnswerId = usePlayerStore((s) => s.selectedAnswerId);
+interface ResultScreenProps {
+  result: NonNullable<QuizMobileMe['result']>;
+  /** Le joueur n'a pas répondu à la question. */
+  didNotAnswer: boolean;
+}
 
-  if (!lastQuestionResult) return null;
-
-  const { isCorrect, pointsAwarded } = lastQuestionResult;
-  const didNotAnswer = selectedAnswerId === null;
+export default function ResultScreen({ result, didNotAnswer }: ResultScreenProps) {
+  const { isCorrect, points, scoreTotal, rank } = result;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
@@ -23,7 +21,7 @@ export default function ResultScreen() {
       ) : isCorrect ? (
         <div className="rounded-2xl bg-green-600/20 px-8 py-6 text-center">
           <div className="text-2xl font-bold text-green-400">✓ CORRECT</div>
-          <div className="mt-1 text-lg text-green-300">+{pointsAwarded} points</div>
+          <div className="mt-1 text-lg text-green-300">+{points} points</div>
         </div>
       ) : (
         <div className="rounded-2xl bg-red-600/20 px-8 py-6 text-center">
@@ -37,9 +35,9 @@ export default function ResultScreen() {
         <div className="text-gray-400">Score total</div>
       </div>
 
-      {currentRank && (
+      {rank && (
         <div className="text-center text-gray-400">
-          Position actuelle : <span className="font-bold text-white">#{currentRank}</span>
+          Position actuelle : <span className="font-bold text-white">#{rank}</span>
         </div>
       )}
     </div>

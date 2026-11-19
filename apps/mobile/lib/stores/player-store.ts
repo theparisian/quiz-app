@@ -1,35 +1,38 @@
 import { create } from 'zustand';
-import type { SessionPrizesDisplay } from '@quiz-app/validation';
+import {
+  gameStateSchema,
+  roundEndedSchema,
+  roundInfoSchema,
+  type RoundEndedPayload,
+  type RoundInfo,
+  type SessionPrizesDisplay,
+} from '@quiz-app/validation';
+import { pushClockSample } from '@quiz-app/ui';
+import { getGameViewSchema } from '@/games/view-schemas';
+import { reportGameIssue } from '@/lib/report-issue';
 
-type StoredAnswer = { id: string; position: 'A' | 'B' | 'C' | 'D'; text: string };
-
-function parseQuestionAnswers(answers: { id?: string; position: string; text: string }[]): {
-  answerMap: Record<string, string>;
-  currentAnswers: StoredAnswer[];
-} {
-  const answerMap: Record<string, string> = {};
-  const currentAnswers: StoredAnswer[] = [];
-  for (const a of answers) {
-    const pos = a.position as 'A' | 'B' | 'C' | 'D';
-    if (a.id) {
-      answerMap[a.position] = a.id;
-    }
-    currentAnswers.push({ id: a.id ?? a.position, position: pos, text: a.text });
-  }
-  return { answerMap, currentAnswers };
-}
-
+/**
+ * Écran de plateforme. `game` = la manche en cours, rendue par `<GameStage />` d'après
+ * `round.engineKey` et `gameView` ; tout le reste est hors moteur.
+ */
 export type PlayerUiState =
   | 'lobby'
-  | 'late_wait'
-  | 'question_active'
-  | 'waiting_others'
-  | 'question_results'
+  | 'game'
   | 'paused'
+  | 'round_end'
   | 'final_results'
-  | 'aborted';
+  | 'aborted'
+  | 'kicked';
 
 export type PlayerConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
+
+export type FinalScoreboardEntry = {
+  playerId: string;
+  pseudo: string;
+  avatarUrl?: string | null;
+  scoreTotal: number;
+  rank: number;
+};
 
 interface PlayerState {
   playerId: string | null;
@@ -45,43 +48,32 @@ interface PlayerState {
 
   uiState: PlayerUiState;
   state: string | null;
-  totalQuestions: number;
   totalPlayers: number;
 
-  currentQuestionPosition: number | null;
-  currentQuestionId: string | null;
-  currentQuestionText: string | null;
-  currentQuestionImageUrl: string | null;
-  questionStartedAt: number | null;
-  questionTimeLimitMs: number;
-  answerMap: Record<string, string>; // position -> answerId
-  currentAnswers: { id: string; position: 'A' | 'B' | 'C' | 'D'; text: string }[];
-
-  selectedAnswerId: string | null;
-  selectedAnswerPosition: 'A' | 'B' | 'C' | 'D' | null;
+  // ─── Manche (protocole commun à tous les moteurs) ───
+  /** Manche active (`round:started` ou snapshot), null hors manche. */
+  round: RoundInfo | null;
+  /** Dernière vue complète appliquée, validée par le schéma du moteur (null si aucune). */
+  gameView: unknown;
+  /** La dernière vue reçue était invalide (ou le moteur inconnu) : rendu de repli. */
+  gameViewInvalid: boolean;
+  /** `seq` de la dernière vue appliquée : tout `game:state` de `seq <= gameSeq` est ignoré. */
+  gameSeq: number;
+  /** `heure serveur - heure locale` (ms), médiane des derniers `serverNow` reçus. */
+  clockOffsetMs: number;
+  clockSamples: number[];
+  /** Classement de fin de manche (`round:ended`). */
+  roundScoreboard: RoundEndedPayload | null;
 
   scoreTotal: number;
   currentRank: number | null;
-  lastQuestionResult: {
-    isCorrect: boolean;
-    pointsAwarded: number;
-    correctAnswerId: string | null;
-  } | null;
 
   finalRank: number | null;
-  finalScoreboard:
-    | {
-        playerId: string;
-        pseudo: string;
-        avatarUrl?: string | null;
-        scoreTotal: number;
-        rank: number;
-      }[]
-    | null;
+  finalScoreboard: FinalScoreboardEntry[] | null;
   prizeAvailabilityByRank: { rank1?: boolean; rank2?: boolean; rank3?: boolean } | null;
   prizes: SessionPrizesDisplay | null;
-  joinedQuestionPosition: number | null;
-  lateWaitTimerMs: number | null;
+  /** Arrivé pendant la partie (affiché sur l'écran final). */
+  joinedLate: boolean;
 
   players: { playerId: string; pseudo: string; avatarUrl?: string | null }[];
 
@@ -101,74 +93,129 @@ interface PlayerState {
     joinedQuestionPosition?: number | null;
     stateSnapshot?: Record<string, unknown> | null;
   }) => void;
-  selectAnswer: (answerId: string, position: 'A' | 'B' | 'C' | 'D') => void;
-  applyEvent: (event: string, payload: Record<string, unknown>) => void;
+  applyEvent: (event: string, payload: unknown) => void;
   applySnapshot: (snap: Record<string, unknown>) => void;
+  /** `player:resume` refusé avec `PLAYER_KICKED` (ou joueur exclu en cours de partie). */
+  markKicked: () => void;
   setConnectionStatus: (s: PlayerConnectionStatus) => void;
   reset: () => void;
 }
 
-export const usePlayerStore = create<PlayerState>((set, get) => ({
+type RoundFields = Pick<
+  PlayerState,
+  'round' | 'gameView' | 'gameViewInvalid' | 'gameSeq' | 'roundScoreboard'
+>;
+
+const EMPTY_ROUND: RoundFields = {
+  round: null,
+  gameView: null,
+  gameViewInvalid: false,
+  gameSeq: 0,
+  roundScoreboard: null,
+};
+
+/** Une vue invalide n'est signalée qu'une fois par manche (pas de rafale Sentry). */
+const reportedInvalidRounds = new Set<string>();
+
+function reportInvalidView(round: RoundInfo, reason: string, extra: Record<string, unknown>) {
+  const key = `${round.roundId}:${round.engineKey}:${reason}`;
+  if (reportedInvalidRounds.has(key)) return;
+  reportedInvalidRounds.add(key);
+  reportGameIssue('mobile: invalid game view', {
+    reason,
+    engineKey: round.engineKey,
+    roundId: round.roundId,
+    ...extra,
+  });
+}
+
+/** Valide une vue avec le schéma du moteur de la manche. */
+function validateView(
+  round: RoundInfo,
+  view: unknown,
+  seq: number,
+): Pick<PlayerState, 'gameView' | 'gameViewInvalid'> {
+  const schema = getGameViewSchema(round.engineKey);
+  if (!schema) {
+    reportInvalidView(round, 'unknown_engine', { seq });
+    return { gameView: null, gameViewInvalid: true };
+  }
+  const parsed = schema.safeParse(view);
+  if (!parsed.success) {
+    reportInvalidView(round, 'schema_mismatch', {
+      seq,
+      issues: (parsed.error?.issues ?? [])
+        .slice(0, 5)
+        .map((i) => `${i.path.join('.')}: ${i.message}`),
+    });
+    return { gameView: null, gameViewInvalid: true };
+  }
+  // On garde l'objet reçu (le schéma ne transforme rien) : une vue est complète.
+  return { gameView: view, gameViewInvalid: false };
+}
+
+/** Champs de manche d'un snapshot (`round`, `gameView`, `gameSeq`, règle 5). */
+function roundFieldsFromSnapshot(snap: Record<string, unknown>): RoundFields {
+  const parsedRound = roundInfoSchema.safeParse(snap.round);
+  if (!parsedRound.success) return { ...EMPTY_ROUND };
+  const round = parsedRound.data;
+  const gameSeq =
+    typeof snap.gameSeq === 'number' && Number.isInteger(snap.gameSeq) && snap.gameSeq >= 0
+      ? snap.gameSeq
+      : 0;
+  const view =
+    snap.gameView == null
+      ? { gameView: null, gameViewInvalid: false }
+      : validateView(round, snap.gameView, gameSeq);
+  return { round, ...view, gameSeq, roundScoreboard: null };
+}
+
+function hasGame(s: Pick<PlayerState, 'gameView' | 'gameViewInvalid'>): boolean {
+  return s.gameView != null || s.gameViewInvalid;
+}
+
+/** États terminaux : plus aucun événement de jeu ne les quitte (sauf un nouveau snapshot). */
+function isTerminal(ui: PlayerUiState): boolean {
+  return ui === 'final_results' || ui === 'aborted' || ui === 'kicked';
+}
+
+const INITIAL = {
   playerId: null,
   pseudo: null,
   avatarUrl: null,
   resumeToken: null,
   sessionId: null,
   slugShort: null,
-
   cinemaName: null,
   quizTitle: null,
   brandingJson: null,
-
-  uiState: 'lobby',
+  uiState: 'lobby' as PlayerUiState,
   state: null,
-  totalQuestions: 0,
   totalPlayers: 0,
-
-  currentQuestionPosition: null,
-  currentQuestionId: null,
-  currentQuestionText: null,
-  currentQuestionImageUrl: null,
-  questionStartedAt: null,
-  questionTimeLimitMs: 20000,
-  answerMap: {},
-  currentAnswers: [],
-
-  selectedAnswerId: null,
-  selectedAnswerPosition: null,
-
+  ...EMPTY_ROUND,
+  clockOffsetMs: 0,
+  clockSamples: [] as number[],
   scoreTotal: 0,
   currentRank: null,
-  lastQuestionResult: null,
-
   finalRank: null,
   finalScoreboard: null,
   prizeAvailabilityByRank: null,
   prizes: null,
-  joinedQuestionPosition: null,
-  lateWaitTimerMs: null,
+  joinedLate: false,
+  players: [] as PlayerState['players'],
+  connectionStatus: 'disconnected' as PlayerConnectionStatus,
+} satisfies Partial<PlayerState>;
 
-  players: [],
-
-  connectionStatus: 'disconnected',
+export const usePlayerStore = create<PlayerState>((set, get) => ({
+  ...INITIAL,
 
   hydrate: (data) => {
-    const snapshot = data.stateSnapshot;
-    const joinedQuestionPosition = data.joinedQuestionPosition ?? null;
+    const snapshot = data.stateSnapshot ?? null;
+    const roundFields = snapshot ? roundFieldsFromSnapshot(snapshot) : { ...EMPTY_ROUND };
+    const sessionState = (snapshot?.sessionState as string | undefined) ?? null;
     let uiState: PlayerUiState = 'lobby';
-    let lateWaitTimerMs: number | null = null;
-    let finalRank: number | null = null;
-    const finalScoreboard: PlayerState['finalScoreboard'] = null;
-
-    if (snapshot) {
-      if (snapshot.showFinalImmediately === true) {
-        uiState = 'final_results';
-        finalRank = null;
-      } else if (snapshot.canAnswerCurrentQuestion === false) {
-        uiState = 'late_wait';
-        lateWaitTimerMs = (snapshot.timerRemainingMs as number | undefined) ?? null;
-      }
-    }
+    if (sessionState === 'paused') uiState = 'paused';
+    else if (hasGame(roundFields)) uiState = 'game';
 
     set({
       playerId: data.playerId,
@@ -181,30 +228,28 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       quizTitle: data.quizTitle ?? null,
       brandingJson: data.brandingJson ?? null,
       scoreTotal: data.scoreTotal ?? 0,
-      joinedQuestionPosition,
+      joinedLate: data.joinedQuestionPosition != null,
       uiState,
-      lateWaitTimerMs,
-      finalRank,
-      finalScoreboard,
-      state: (snapshot?.sessionState as string | undefined) ?? null,
-      totalQuestions: (snapshot?.totalQuestions as number | undefined) ?? 0,
+      state: sessionState,
+      ...roundFields,
+      finalRank: null,
+      finalScoreboard: null,
     });
-    localStorage.setItem('quiz_resume_token', data.resumeToken);
-    localStorage.setItem('quiz_player_id', data.playerId);
-    localStorage.setItem('quiz_session_id', data.sessionId);
-  },
-
-  selectAnswer: (answerId, position) => {
-    set({
-      selectedAnswerId: answerId,
-      selectedAnswerPosition: position,
-      uiState: 'waiting_others',
-    });
+    try {
+      localStorage.setItem('quiz_resume_token', data.resumeToken);
+      localStorage.setItem('quiz_player_id', data.playerId);
+      localStorage.setItem('quiz_session_id', data.sessionId);
+    } catch {
+      // Stockage indisponible (navigation privée) : le resume échouera, rien d'autre à faire.
+    }
   },
 
   setConnectionStatus: (s) => set({ connectionStatus: s }),
 
+  markKicked: () => set({ uiState: 'kicked', ...EMPTY_ROUND }),
+
   applySnapshot: (snap) => {
+    if (get().uiState === 'kicked') return;
     const player = snap.player as
       | {
           playerId: string;
@@ -212,17 +257,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           avatarUrl?: string | null;
           scoreTotal: number;
           currentRank: number | null;
-          joinedQuestionPosition?: number | null;
         }
       | undefined;
     const session = snap.session as
-      | {
-          sessionId: string;
-          slugShort: string;
-          state: string;
-          totalQuestions: number;
-          totalPlayers: number;
-        }
+      | { sessionId: string; slugShort: string; state: string; totalPlayers: number }
       | undefined;
     if (!player || !session) return;
 
@@ -235,196 +273,56 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       sessionId: session.sessionId,
       slugShort: session.slugShort,
       state: session.state,
-      totalQuestions: session.totalQuestions,
       totalPlayers: session.totalPlayers,
-      joinedQuestionPosition: player.joinedQuestionPosition ?? null,
+      ...roundFieldsFromSnapshot(snap),
     };
 
-    const lateJoinWait = snap.lateJoinWait as { timerRemainingMs?: number } | undefined;
-    if (lateJoinWait) {
-      set({
-        ...base,
-        uiState: 'late_wait',
-        lateWaitTimerMs: lateJoinWait.timerRemainingMs ?? null,
-      });
-      return;
-    }
-
     const finalResults = snap.finalResults as
-      | {
-          rank: number;
-          finalScoreboard: {
-            playerId: string;
-            pseudo: string;
-            avatarUrl?: string | null;
-            scoreTotal: number;
-            rank: number;
-          }[];
-        }
+      | { rank: number; finalScoreboard: FinalScoreboardEntry[] }
       | undefined;
 
-    if (session.state === 'lobby') {
-      set({
-        ...base,
-        uiState: 'lobby',
-        prizes: (snap.prizes as SessionPrizesDisplay | undefined) ?? null,
-        currentQuestionPosition: null,
-        currentQuestionId: null,
-        currentQuestionText: null,
-        currentQuestionImageUrl: null,
-        questionStartedAt: null,
-        answerMap: {},
-        currentAnswers: [],
-        selectedAnswerId: null,
-        selectedAnswerPosition: null,
-        lastQuestionResult: null,
-      });
-      return;
-    }
-
-    if (session.state === 'aborted') {
-      set({ ...base, uiState: 'aborted' });
-      return;
-    }
-
-    if (session.state === 'ended' && finalResults) {
-      set({
-        ...base,
-        uiState: 'final_results',
-        finalRank: finalResults.rank,
-        finalScoreboard: finalResults.finalScoreboard,
-        prizeAvailabilityByRank:
-          (snap.prizeAvailabilityByRank as PlayerState['prizeAvailabilityByRank']) ?? null,
-        prizes: (snap.prizes as SessionPrizesDisplay | undefined) ?? null,
-      });
-      return;
-    }
-
-    const showingResults = snap.showingResults as
-      | {
-          correctAnswerId: string;
-          pointsAwarded: number;
-          isCorrect: boolean;
-          nextQuestionInMs: number;
-        }
-      | undefined;
-
-    if (showingResults) {
-      set({
-        ...base,
-        uiState: 'question_results',
-        lastQuestionResult: {
-          isCorrect: showingResults.isCorrect,
-          pointsAwarded: showingResults.pointsAwarded,
-          correctAnswerId: showingResults.correctAnswerId || null,
-        },
-      });
-      return;
-    }
-
-    const cq = snap.currentQuestion as
-      | {
-          position: number;
-          questionId: string;
-          text?: string;
-          imageUrl?: string | null;
-          timeLimitMs: number;
-          remainingMs: number;
-          alreadyAnsweredPosition: string | null;
-          answers: { id?: string; position: string; text: string }[];
-        }
-      | undefined;
-
-    if (cq && (session.state === 'running' || session.state === 'paused')) {
-      const { answerMap: aMap, currentAnswers } = parseQuestionAnswers(cq.answers);
-      const tlm = cq.timeLimitMs;
-      const rem = cq.remainingMs;
-      const startedAt = Date.now() - (tlm - rem);
-      const pos = cq.alreadyAnsweredPosition;
-
-      if (session.state === 'paused') {
-        if (pos) {
-          set({
-            ...base,
-            uiState: 'paused',
-            currentQuestionPosition: cq.position,
-            currentQuestionId: cq.questionId,
-            currentQuestionText: cq.text ?? null,
-            currentQuestionImageUrl: cq.imageUrl ?? null,
-            questionTimeLimitMs: tlm,
-            questionStartedAt: startedAt,
-            answerMap: aMap,
-            currentAnswers,
-            selectedAnswerId: aMap[pos] ?? null,
-            selectedAnswerPosition: (pos as 'A' | 'B' | 'C' | 'D') ?? null,
-          });
-        } else {
-          set({
-            ...base,
-            uiState: 'paused',
-            currentQuestionPosition: cq.position,
-            currentQuestionId: cq.questionId,
-            currentQuestionText: cq.text ?? null,
-            currentQuestionImageUrl: cq.imageUrl ?? null,
-            questionTimeLimitMs: tlm,
-            questionStartedAt: startedAt,
-            answerMap: aMap,
-            currentAnswers,
-            selectedAnswerId: null,
-            selectedAnswerPosition: null,
-          });
-        }
+    switch (session.state) {
+      case 'lobby':
+        set({
+          ...base,
+          uiState: 'lobby',
+          prizes: (snap.prizes as SessionPrizesDisplay | undefined) ?? null,
+        });
         return;
-      }
-
-      if (pos) {
-        set({
-          ...base,
-          uiState: 'waiting_others',
-          currentQuestionPosition: cq.position,
-          currentQuestionId: cq.questionId,
-          currentQuestionText: cq.text ?? null,
-          currentQuestionImageUrl: cq.imageUrl ?? null,
-          questionTimeLimitMs: tlm,
-          questionStartedAt: startedAt,
-          answerMap: aMap,
-          currentAnswers,
-          selectedAnswerId: aMap[pos] ?? null,
-          selectedAnswerPosition: pos as 'A' | 'B' | 'C' | 'D',
-        });
-      } else {
-        set({
-          ...base,
-          uiState: 'question_active',
-          currentQuestionPosition: cq.position,
-          currentQuestionId: cq.questionId,
-          currentQuestionText: cq.text ?? null,
-          currentQuestionImageUrl: cq.imageUrl ?? null,
-          questionTimeLimitMs: tlm,
-          questionStartedAt: startedAt,
-          answerMap: aMap,
-          currentAnswers,
-          selectedAnswerId: null,
-          selectedAnswerPosition: null,
-          lastQuestionResult: null,
-        });
-      }
-      return;
+      case 'aborted':
+        set({ ...base, uiState: 'aborted' });
+        return;
+      case 'ended':
+        if (finalResults) {
+          set({
+            ...base,
+            uiState: 'final_results',
+            finalRank: finalResults.rank,
+            finalScoreboard: finalResults.finalScoreboard,
+            prizeAvailabilityByRank:
+              (snap.prizeAvailabilityByRank as PlayerState['prizeAvailabilityByRank']) ?? null,
+            prizes: (snap.prizes as SessionPrizesDisplay | undefined) ?? null,
+          });
+          return;
+        }
+        set({ ...base, uiState: 'lobby' });
+        return;
+      case 'paused':
+        set({ ...base, uiState: 'paused' });
+        return;
+      default:
+        set({ ...base, uiState: hasGame(base) ? 'game' : 'lobby' });
     }
-
-    set({ ...base, uiState: 'lobby' });
   },
 
   applyEvent: (event, payload) => {
     const state = get();
+    if (state.uiState === 'kicked') return;
+    const p = (payload ?? {}) as Record<string, unknown>;
 
     switch (event) {
       case 'session:state_changed':
-        set({ state: payload.newState as string });
-        break;
-
-      case 'session:started':
-        set({ totalQuestions: (payload.totalQuestions as number) ?? 0 });
+        set({ state: p.newState as string });
         break;
 
       case 'player:joined':
@@ -432,9 +330,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           players: [
             ...state.players,
             {
-              playerId: payload.playerId as string,
-              pseudo: payload.pseudo as string,
-              avatarUrl: (payload.avatarUrl as string | null) ?? null,
+              playerId: p.playerId as string,
+              pseudo: p.pseudo as string,
+              avatarUrl: (p.avatarUrl as string | null) ?? null,
             },
           ],
           totalPlayers: state.totalPlayers + 1,
@@ -443,103 +341,89 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       case 'player:left':
         set({
-          players: state.players.filter((p) => p.playerId !== (payload.playerId as string)),
+          players: state.players.filter((pl) => pl.playerId !== (p.playerId as string)),
           totalPlayers: Math.max(0, state.totalPlayers - 1),
         });
         break;
 
-      case 'session:question_started': {
-        const answers = payload.answers as { id: string; position: string; text: string }[];
-        const { answerMap: aMap, currentAnswers } = parseQuestionAnswers(answers);
+      case 'round:started': {
+        const parsed = roundInfoSchema.safeParse(payload);
+        if (!parsed.success) return;
+        // Nouvelle manche : la vue précédente et son seq n'ont plus de sens.
+        if (state.round?.roundId === parsed.data.roundId) {
+          set({ round: parsed.data });
+        } else {
+          set({ ...EMPTY_ROUND, round: parsed.data });
+        }
+        break;
+      }
+
+      case 'game:state': {
+        const parsed = gameStateSchema.safeParse(payload);
+        if (!parsed.success) return;
+        const env = parsed.data;
+        const clock = pushClockSample(state.clockSamples, env.serverNow);
+        const round = state.round;
+        // Autre manche, ou vue ancienne arrivée en retard : ignorée (règle 2).
+        if (!round || env.roundId !== round.roundId || env.seq <= state.gameSeq) {
+          set({ clockSamples: clock.samples, clockOffsetMs: clock.offsetMs });
+          return;
+        }
+        const view = validateView(round, env.view, env.seq);
+        const uiState: PlayerUiState =
+          state.uiState === 'lobby' || state.uiState === 'round_end' ? 'game' : state.uiState;
         set({
-          uiState: 'question_active',
-          currentQuestionPosition: payload.questionPosition as number,
-          currentQuestionId: payload.questionId as string,
-          currentQuestionText: (payload.questionText as string) ?? null,
-          currentQuestionImageUrl: (payload.questionImageUrl as string | null) ?? null,
-          questionStartedAt: Date.now(),
-          questionTimeLimitMs: payload.timeLimitMs as number,
-          answerMap: aMap,
-          currentAnswers,
-          selectedAnswerId: null,
-          selectedAnswerPosition: null,
-          lastQuestionResult: null,
-          lateWaitTimerMs: null,
+          ...view,
+          gameSeq: env.seq,
+          clockSamples: clock.samples,
+          clockOffsetMs: clock.offsetMs,
+          uiState,
         });
         break;
       }
 
-      case 'session:question_ended': {
-        const scoreboard = payload.scoreboard as {
-          playerId: string;
-          pseudo: string;
-          scoreTotal: number;
-          scoreThisQuestion: number;
-        }[];
-        const myEntry = scoreboard.find((e) => e.playerId === state.playerId);
-        const correctAnswerId = (payload.correctAnswerId as string | null) ?? null;
-
-        const myRank = scoreboard.findIndex((e) => e.playerId === state.playerId) + 1;
-        const wasCorrect =
-          state.selectedAnswerId !== null && state.selectedAnswerId === correctAnswerId;
-        const didNotAnswer = state.selectedAnswerId === null;
-
+      case 'round:ended': {
+        const parsed = roundEndedSchema.safeParse(payload);
+        if (!parsed.success) return;
+        const board = parsed.data;
+        const myIdx = board.scoreboard.findIndex((e) => e.playerId === state.playerId);
+        const mine = myIdx >= 0 ? board.scoreboard[myIdx] : undefined;
+        const isLastRound = board.position >= board.totalRounds;
         set({
-          uiState: 'question_results',
-          scoreTotal: myEntry?.scoreTotal ?? state.scoreTotal,
-          currentRank: myRank > 0 ? myRank : null,
-          lastQuestionResult: {
-            isCorrect: wasCorrect,
-            pointsAwarded: myEntry?.scoreThisQuestion ?? 0,
-            correctAnswerId,
-          },
+          roundScoreboard: board,
+          scoreTotal: mine?.scoreTotal ?? state.scoreTotal,
+          currentRank: mine ? myIdx + 1 : state.currentRank,
+          // Dernière manche : `session:ended` suit aussitôt, l'écran final prend la place
+          // (pas d'écran intermédiaire affiché quelques millisecondes).
+          ...(isLastRound || isTerminal(state.uiState) || state.uiState === 'paused'
+            ? {}
+            : { uiState: 'round_end' as const }),
         });
-
-        if (didNotAnswer) {
-          set({
-            lastQuestionResult: {
-              isCorrect: false,
-              pointsAwarded: 0,
-              correctAnswerId,
-            },
-          });
-        }
         break;
       }
 
       case 'session:paused':
+        if (isTerminal(state.uiState)) return;
         set({ uiState: 'paused' });
         break;
 
-      case 'session:resumed': {
-        const wasState = state.selectedAnswerId ? 'waiting_others' : 'question_active';
-        if (state.currentQuestionId) {
-          set({ uiState: wasState });
-        }
+      case 'session:resumed':
+        if (state.uiState !== 'paused') return;
+        set({ uiState: hasGame(state) ? 'game' : state.roundScoreboard ? 'round_end' : 'lobby' });
         break;
-      }
 
       case 'session:ended': {
-        const finalScoreboard = payload.finalScoreboard as {
-          playerId: string;
-          pseudo: string;
-          avatarUrl?: string | null;
-          scoreTotal: number;
-          rank: number;
-        }[];
+        const finalScoreboard = (p.finalScoreboard ?? []) as FinalScoreboardEntry[];
         const myFinal = finalScoreboard.find((e) => e.playerId === state.playerId);
-        const prizeAvailabilityByRank = (payload.prizeAvailabilityByRank ?? null) as {
-          rank1?: boolean;
-          rank2?: boolean;
-          rank3?: boolean;
-        } | null;
+        const prizeAvailabilityByRank = (p.prizeAvailabilityByRank ??
+          null) as PlayerState['prizeAvailabilityByRank'];
         set({
           uiState: 'final_results',
           finalScoreboard,
           finalRank: myFinal?.rank ?? null,
           scoreTotal: myFinal?.scoreTotal ?? state.scoreTotal,
           prizeAvailabilityByRank,
-          prizes: (payload.prizes as SessionPrizesDisplay | undefined) ?? null,
+          prizes: (p.prizes as SessionPrizesDisplay | undefined) ?? null,
         });
         break;
       }
@@ -550,41 +434,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  reset: () =>
-    set({
-      playerId: null,
-      pseudo: null,
-      avatarUrl: null,
-      resumeToken: null,
-      sessionId: null,
-      slugShort: null,
-      cinemaName: null,
-      quizTitle: null,
-      brandingJson: null,
-      uiState: 'lobby',
-      state: null,
-      totalQuestions: 0,
-      totalPlayers: 0,
-      currentQuestionPosition: null,
-      currentQuestionId: null,
-      currentQuestionText: null,
-      currentQuestionImageUrl: null,
-      questionStartedAt: null,
-      questionTimeLimitMs: 20000,
-      answerMap: {},
-      currentAnswers: [],
-      selectedAnswerId: null,
-      selectedAnswerPosition: null,
-      scoreTotal: 0,
-      currentRank: null,
-      lastQuestionResult: null,
-      finalRank: null,
-      finalScoreboard: null,
-      prizeAvailabilityByRank: null,
-      prizes: null,
-      joinedQuestionPosition: null,
-      lateWaitTimerMs: null,
-      players: [],
-      connectionStatus: 'disconnected',
-    }),
+  reset: () => {
+    reportedInvalidRounds.clear();
+    set({ ...INITIAL, clockSamples: [], players: [] });
+  },
 }));

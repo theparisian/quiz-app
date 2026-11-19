@@ -1,12 +1,15 @@
 'use client';
 
-import { usePlayerStore } from '@/lib/stores/player-store';
 import { ANSWER_COLORS } from '@quiz-app/design-tokens';
+import type { QuizPosition } from './question-screen';
 
-export default function WaitingOthers() {
-  const selectedAnswerPosition = usePlayerStore((s) => s.selectedAnswerPosition);
+interface WaitingOthersProps {
+  /** Position choisie (optimiste juste après le tap, puis celle de `view.me.answerId`). */
+  position: QuizPosition | null;
+}
 
-  const color = selectedAnswerPosition ? ANSWER_COLORS[selectedAnswerPosition].bg : '#666';
+export default function WaitingOthers({ position }: WaitingOthersProps) {
+  const color = position ? ANSWER_COLORS[position].bg : '#666';
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
@@ -18,7 +21,7 @@ export default function WaitingOthers() {
         className="flex h-20 w-20 items-center justify-center rounded-2xl text-3xl font-black text-white"
         style={{ backgroundColor: color }}
       >
-        {selectedAnswerPosition}
+        {position}
       </div>
 
       <div className="text-gray-500">En attente des autres...</div>

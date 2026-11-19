@@ -179,14 +179,14 @@ export default function FinalScreen() {
   const avatarUrl = usePlayerStore((s) => s.avatarUrl);
   const scoreTotal = usePlayerStore((s) => s.scoreTotal);
   const totalPlayers = usePlayerStore((s) => s.totalPlayers);
-  const joinedQuestionPosition = usePlayerStore((s) => s.joinedQuestionPosition);
+  const joinedLate = usePlayerStore((s) => s.joinedLate);
   const prizeAvailabilityByRank = usePlayerStore((s) => s.prizeAvailabilityByRank);
   const prizes = usePlayerStore((s) => s.prizes);
   const [emailSent, setEmailSent] = useState(false);
 
   const isTop3 = finalRank !== null && finalRank <= 3;
   const gain = resolvePlayerGain(finalRank, prizes, prizeAvailabilityByRank);
-  const isLateJoiner = joinedQuestionPosition != null;
+  const isLateJoiner = joinedLate;
   const myAvatar = resolveMediaUrl(avatarUrl);
 
   if (gain) {

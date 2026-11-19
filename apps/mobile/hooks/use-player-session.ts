@@ -5,21 +5,18 @@ import { getMobileSocket, disconnectMobileSocket } from '@/lib/socket';
 import { usePlayerStore, type PlayerConnectionStatus } from '@/lib/stores/player-store';
 import type { Socket } from 'socket.io-client';
 
+/** Événements de plateforme et de manche appliqués au store (`game:cue` : aucun sur mobile). */
 const SESSION_EVENTS = [
-  'session:started',
   'session:state_changed',
-  'session:question_started',
-  'session:timer_update',
-  'session:answer_submitted_count',
-  'session:question_ended',
-  'session:next_question_in',
   'session:paused',
   'session:resumed',
-  'session:audio_muted',
   'session:ended',
   'session:aborted',
   'player:joined',
   'player:left',
+  'round:started',
+  'game:state',
+  'round:ended',
 ] as const;
 
 export function usePlayerSession(sessionId: string | null): {
@@ -39,13 +36,16 @@ export function usePlayerSession(sessionId: string | null): {
     const sock = getMobileSocket();
     setSocket(sock);
 
-    const applyEvent = usePlayerStore.getState().applyEvent;
-    const applySnapshot = usePlayerStore.getState().applySnapshot;
-    const setConnectionStatus = usePlayerStore.getState().setConnectionStatus;
+    const { applyEvent, applySnapshot, setConnectionStatus, markKicked } =
+      usePlayerStore.getState();
+
+    function resume() {
+      sock.emit('player:resume', { resumeToken, sessionId });
+    }
 
     function onConnect() {
       setConnectionStatus('connected');
-      sock.emit('player:resume', { resumeToken, sessionId });
+      resume();
     }
 
     function onDisconnect() {
@@ -60,16 +60,31 @@ export function usePlayerSession(sessionId: string | null): {
       applySnapshot(data);
     }
 
+    function onError(err: { code?: string } | undefined) {
+      if (err?.code === 'PLAYER_KICKED') markKicked();
+    }
+
+    const handlers = SESSION_EVENTS.map((event) => {
+      const handler = (payload: unknown) => {
+        applyEvent(event, payload);
+        // Retiré de la séance alors qu'il est connecté (exclusion par le cinéma) : un resume
+        // le confirme (`PLAYER_KICKED`) ou le remet dans la partie s'il n'était que reparti.
+        if (
+          event === 'player:left' &&
+          (payload as { playerId?: string } | undefined)?.playerId === playerId
+        ) {
+          resume();
+        }
+      };
+      sock.on(event, handler);
+      return [event, handler] as const;
+    });
+
     sock.on('connect', onConnect);
     sock.on('disconnect', onDisconnect);
     sock.io.on('reconnect_attempt', onReconnectAttempt);
     sock.on('session:state_snapshot', onSnapshot);
-
-    for (const event of SESSION_EVENTS) {
-      sock.on(event, (payload: Record<string, unknown>) => {
-        applyEvent(event, payload);
-      });
-    }
+    sock.on('error', onError);
 
     // Socket déjà ouvert (transition depuis la page join) : 'connect' ne se redéclenche
     // pas, on lance donc le resume manuellement. Sinon on ouvre la connexion.
@@ -84,8 +99,9 @@ export function usePlayerSession(sessionId: string | null): {
       sock.off('disconnect', onDisconnect);
       sock.io.off('reconnect_attempt', onReconnectAttempt);
       sock.off('session:state_snapshot', onSnapshot);
-      for (const event of SESSION_EVENTS) {
-        sock.off(event);
+      sock.off('error', onError);
+      for (const [event, handler] of handlers) {
+        sock.off(event, handler);
       }
       disconnectMobileSocket();
       setSocket(null);

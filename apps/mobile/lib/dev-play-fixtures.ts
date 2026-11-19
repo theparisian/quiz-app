@@ -1,6 +1,5 @@
-import type { PlayerUiState } from '@/lib/stores/player-store';
 import { usePlayerStore } from '@/lib/stores/player-store';
-import type { SessionPrizesDisplay } from '@quiz-app/validation';
+import type { QuizMobileView, RoundInfo, SessionPrizesDisplay } from '@quiz-app/validation';
 
 const DEV_PLAYER = {
   playerId: 'dev-player-1',
@@ -10,12 +9,27 @@ const DEV_PLAYER = {
   slugShort: '0000',
 };
 
-const DEMO_ANSWERS = [
-  { id: 'a1', position: 'A', text: 'Le Parrain' },
-  { id: 'a2', position: 'B', text: 'Pulp Fiction' },
-  { id: 'a3', position: 'C', text: 'Forrest Gump' },
-  { id: 'a4', position: 'D', text: 'La Liste de Schindler' },
-];
+const DEV_ROUND: RoundInfo = {
+  roundId: '1',
+  position: 1,
+  totalRounds: 1,
+  engineKey: 'quiz',
+  game: { slug: 'quiz-demo', title: 'Quiz Cinéma — Démo', kind: 'internal', sponsor: null },
+};
+
+const DEMO_QUESTION = {
+  id: '3',
+  position: 3,
+  text: 'Quel réalisateur a dirigé « Inception » ?',
+  imageUrl: null,
+  timeLimitMs: 20000,
+  answers: [
+    { id: '11', position: 'A', text: 'Le Parrain' },
+    { id: '12', position: 'B', text: 'Pulp Fiction' },
+    { id: '13', position: 'C', text: 'Forrest Gump' },
+    { id: '14', position: 'D', text: 'La Liste de Schindler' },
+  ],
+};
 
 const DEMO_PRIZES: SessionPrizesDisplay = {
   rank1: { label: 'Mega Popcorn', isSuperPrize: true },
@@ -24,18 +38,36 @@ const DEMO_PRIZES: SessionPrizesDisplay = {
   all: { label: 'Bon réduction confiserie' },
 };
 
-export const DEV_PLAY_SCREENS: { id: PlayerUiState; label: string }[] = [
+export type DevPlayScreen =
+  | 'lobby'
+  | 'countdown'
+  | 'late_wait'
+  | 'question_active'
+  | 'waiting_others'
+  | 'question_results'
+  | 'paused'
+  | 'round_end'
+  | 'final_results'
+  | 'aborted'
+  | 'kicked'
+  | 'unknown_game';
+
+export const DEV_PLAY_SCREENS: { id: DevPlayScreen; label: string }[] = [
   { id: 'lobby', label: 'Lobby' },
+  { id: 'countdown', label: 'Départ' },
   { id: 'late_wait', label: 'Late' },
   { id: 'question_active', label: 'Question' },
   { id: 'waiting_others', label: 'Attente' },
   { id: 'question_results', label: 'Résultat' },
   { id: 'paused', label: 'Pause' },
+  { id: 'round_end', label: 'Fin manche' },
   { id: 'final_results', label: 'Final' },
   { id: 'aborted', label: 'Abort' },
+  { id: 'kicked', label: 'Exclu' },
+  { id: 'unknown_game', label: 'Repli' },
 ];
 
-const DEFAULT_SCREEN: PlayerUiState = 'lobby';
+const DEFAULT_SCREEN: DevPlayScreen = 'lobby';
 
 function baseSnapshot(sessionState: string) {
   return {
@@ -50,10 +82,38 @@ function baseSnapshot(sessionState: string) {
       sessionId: DEV_PLAYER.sessionId,
       slugShort: DEV_PLAYER.slugShort,
       state: sessionState,
-      totalQuestions: 5,
       totalPlayers: 38,
     },
+    round: null as RoundInfo | null,
+    gameView: null as unknown,
+    gameSeq: 0,
   };
+}
+
+function inSeconds(ms: number): string {
+  return new Date(Date.now() + ms).toISOString();
+}
+
+const COMMON = {
+  totalQuestions: 5,
+  answeredCount: 12,
+  totalPlayers: 38,
+  pausedRemainingMs: null,
+};
+
+function questionView(me: QuizMobileView['me'], remainingMs: number): QuizMobileView {
+  return {
+    phase: 'question',
+    questionIndex: 2,
+    ...COMMON,
+    endsAt: inSeconds(remainingMs),
+    question: DEMO_QUESTION,
+    me,
+  };
+}
+
+function gameSnapshot(sessionState: string, view: unknown) {
+  return { ...baseSnapshot(sessionState), round: DEV_ROUND, gameView: view, gameSeq: 1 };
 }
 
 function seedBaseMetadata() {
@@ -68,12 +128,12 @@ function seedBaseMetadata() {
   });
 }
 
-export function parseDevPlayScreen(raw: string | null): PlayerUiState {
+export function parseDevPlayScreen(raw: string | null): DevPlayScreen {
   const match = DEV_PLAY_SCREENS.find((s) => s.id === raw);
   return match?.id ?? DEFAULT_SCREEN;
 }
 
-export function seedDevPlayScreen(screen: PlayerUiState): void {
+export function seedDevPlayScreen(screen: DevPlayScreen): void {
   const store = usePlayerStore.getState();
   store.reset();
   seedBaseMetadata();
@@ -83,75 +143,99 @@ export function seedDevPlayScreen(screen: PlayerUiState): void {
       store.applySnapshot({ ...baseSnapshot('lobby'), prizes: DEMO_PRIZES });
       break;
 
+    case 'countdown':
+      store.applySnapshot(
+        gameSnapshot('running', {
+          phase: 'countdown',
+          questionIndex: -1,
+          ...COMMON,
+          answeredCount: 0,
+          endsAt: inSeconds(8000),
+          question: null,
+          me: { answerId: null, locked: false, result: null },
+        } satisfies QuizMobileView),
+      );
+      break;
+
     case 'late_wait':
-      store.applySnapshot({
-        ...baseSnapshot('running'),
-        lateJoinWait: { timerRemainingMs: 12000 },
-      });
+      store.applySnapshot(
+        gameSnapshot(
+          'running',
+          questionView({ answerId: null, locked: true, result: null }, 12000),
+        ),
+      );
       break;
 
     case 'question_active':
-      store.applySnapshot({
-        ...baseSnapshot('running'),
-        currentQuestion: {
-          position: 3,
-          questionId: 'q-dev-3',
-          text: 'Quel réalisateur a dirigé « Inception » ?',
-          imageUrl: null,
-          timeLimitMs: 20000,
-          remainingMs: 18000,
-          alreadyAnsweredPosition: null,
-          answers: DEMO_ANSWERS,
-        },
-      });
+      store.applySnapshot(
+        gameSnapshot(
+          'running',
+          questionView({ answerId: null, locked: false, result: null }, 18000),
+        ),
+      );
       break;
 
     case 'waiting_others':
-      store.applySnapshot({
-        ...baseSnapshot('running'),
-        currentQuestion: {
-          position: 3,
-          questionId: 'q-dev-3',
-          text: 'Quel réalisateur a dirigé « Inception » ?',
-          imageUrl: null,
-          timeLimitMs: 20000,
-          remainingMs: 8000,
-          alreadyAnsweredPosition: 'B',
-          answers: DEMO_ANSWERS,
-        },
-      });
+      store.applySnapshot(
+        gameSnapshot(
+          'running',
+          questionView({ answerId: '12', locked: false, result: null }, 8000),
+        ),
+      );
       break;
 
     case 'question_results':
-      store.applySnapshot({
-        ...baseSnapshot('running'),
-        showingResults: {
-          correctAnswerId: 'a2',
-          pointsAwarded: 850,
-          isCorrect: true,
-          nextQuestionInMs: 5000,
-        },
-      });
-      usePlayerStore.setState({
-        selectedAnswerId: 'a2',
-        selectedAnswerPosition: 'B',
-        currentQuestionPosition: 3,
-      });
+      store.applySnapshot(
+        gameSnapshot('running', {
+          phase: 'reveal',
+          questionIndex: 2,
+          ...COMMON,
+          endsAt: inSeconds(5000),
+          question: DEMO_QUESTION,
+          correctAnswerId: '12',
+          explanation: null,
+          revealedAt: new Date().toISOString(),
+          me: {
+            answerId: '12',
+            locked: false,
+            result: { isCorrect: true, points: 850, rank: 2, scoreTotal: 1250 },
+          },
+        } satisfies QuizMobileView),
+      );
       break;
 
     case 'paused':
-      store.applySnapshot({
-        ...baseSnapshot('paused'),
-        currentQuestion: {
-          position: 3,
-          questionId: 'q-dev-3',
-          text: 'Quel réalisateur a dirigé « Inception » ?',
-          imageUrl: null,
-          timeLimitMs: 20000,
-          remainingMs: 10000,
-          alreadyAnsweredPosition: null,
-          answers: DEMO_ANSWERS,
-        },
+      store.applySnapshot(
+        gameSnapshot('paused', {
+          ...questionView({ answerId: null, locked: false, result: null }, 0),
+          endsAt: null,
+          pausedRemainingMs: 10000,
+        }),
+      );
+      break;
+
+    case 'round_end':
+      store.applySnapshot(baseSnapshot('running'));
+      store.applyEvent('round:ended', {
+        roundId: '1',
+        position: 1,
+        totalRounds: 2,
+        scoreboard: [
+          {
+            playerId: 'p2',
+            pseudo: 'Bob',
+            avatarUrl: null,
+            scoreTotal: 3100,
+            scoreThisRound: 3100,
+          },
+          {
+            playerId: DEV_PLAYER.playerId,
+            pseudo: DEV_PLAYER.pseudo,
+            avatarUrl: null,
+            scoreTotal: 1250,
+            scoreThisRound: 1250,
+          },
+        ],
       });
       break;
 
@@ -178,6 +262,14 @@ export function seedDevPlayScreen(screen: PlayerUiState): void {
 
     case 'aborted':
       store.applySnapshot(baseSnapshot('aborted'));
+      break;
+
+    case 'kicked':
+      store.markKicked();
+      break;
+
+    case 'unknown_game':
+      store.applySnapshot(gameSnapshot('running', { phase: 'mystery' }));
       break;
   }
 }

@@ -4,59 +4,25 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Socket } from 'socket.io-client';
-import { usePlayerStore, type PlayerUiState } from '@/lib/stores/player-store';
-import {
-  DEV_PLAY_SCREENS,
-  parseDevPlayScreen,
-  seedDevPlayScreen,
-} from '@/lib/dev-play-fixtures';
-import {
-  isDevPlayEnabled,
-  isDevPlayUnlocked,
-  tryUnlockFromQuery,
-} from '@/lib/dev-play-access';
+import { DEV_PLAY_SCREENS, parseDevPlayScreen, seedDevPlayScreen } from '@/lib/dev-play-fixtures';
+import { isDevPlayEnabled, isDevPlayUnlocked, tryUnlockFromQuery } from '@/lib/dev-play-access';
 import { DevPlayGate } from '@/components/dev-play-gate';
-import LateWaitScreen from '@/components/late-wait-screen';
-import LobbyWaiting from '@/components/lobby-waiting';
-import QuestionScreen from '@/components/question-screen';
-import WaitingOthers from '@/components/waiting-others';
-import ResultScreen from '@/components/result-screen';
-import PausedScreen from '@/components/paused-screen';
-import FinalScreen from '@/components/final-screen';
-import AbortedScreen from '@/components/aborted-screen';
-import { ScreenTransition } from '@/components/screen-transition';
+import PlayerScreen from '@/components/player-screen';
 
-const DEV_SOCKET = { emit: () => undefined } as unknown as Socket;
-
-function renderScreen(state: PlayerUiState, lateWaitTimerMs: number | null) {
-  switch (state) {
-    case 'lobby':
-      return <LobbyWaiting />;
-    case 'late_wait':
-      return <LateWaitScreen timerRemainingMs={lateWaitTimerMs} />;
-    case 'question_active':
-      return <QuestionScreen socket={DEV_SOCKET} />;
-    case 'waiting_others':
-      return <WaitingOthers />;
-    case 'question_results':
-      return <ResultScreen />;
-    case 'paused':
-      return <PausedScreen />;
-    case 'final_results':
-      return <FinalScreen />;
-    case 'aborted':
-      return <AbortedScreen />;
-    default:
-      return null;
-  }
-}
+/** Faux socket : toute action de jeu est acceptée (la réponse choisie reste affichée). */
+const DEV_SOCKET = {
+  connected: true,
+  emit: () => undefined,
+  timeout: () => ({
+    emit: (_event: string, _payload: unknown, ack: (err: unknown, res: unknown) => void) =>
+      ack(null, { ok: true, result: null }),
+  }),
+} as unknown as Socket;
 
 function DevPlayContent() {
   const router = useRouter();
   const params = useSearchParams();
   const screen = useMemo(() => parseDevPlayScreen(params.get('screen')), [params]);
-  const uiState = usePlayerStore((s) => s.uiState);
-  const lateWaitTimerMs = usePlayerStore((s) => s.lateWaitTimerMs);
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
@@ -93,11 +59,11 @@ function DevPlayContent() {
 
   return (
     <div className="flex min-h-screen flex-col pb-16">
-      <div className="bg-brand-500/10 border-brand-500/30 shrink-0 border-b px-4 py-2 text-center text-xs text-brand-300">
+      <div className="bg-brand-500/10 border-brand-500/30 text-brand-300 shrink-0 border-b px-4 py-2 text-center text-xs">
         Mode démo — aucune connexion serveur
       </div>
 
-      <ScreenTransition screenKey={uiState}>{renderScreen(uiState, lateWaitTimerMs)}</ScreenTransition>
+      <PlayerScreen socket={DEV_SOCKET} />
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-gray-950/95 backdrop-blur">
         <div className="flex gap-1 overflow-x-auto px-2 py-2">

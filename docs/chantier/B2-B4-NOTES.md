@@ -446,3 +446,80 @@ Console :
   depuis le quiz de `GET /:id/full` (la vue ne la contient qu'en `reveal`), comme aujourd'hui.
 - Compteur : `answeredCount / totalPlayers` ; classement complet en `reveal` dans
   `view.scoreboard`.
+
+## 9. Commit 3a — mobile
+
+### 9.1 Ce qui est fait
+
+- **Hook partagé** dans `packages/ui/src/countdown.ts`, exporté par `@quiz-app/ui` :
+  - `useCountdown(endsAt, pausedRemainingMs, clockOffsetMs, { mode?: 'interval' | 'frame',
+    intervalMs?: 250 }) → number | null` : ms restantes (>= 0), `pausedRemainingMs` figé en pause,
+    `null` sans échéance. `mode: 'frame'` = requestAnimationFrame (60 i/s, écran cinéma) ;
+    défaut `'interval'` toutes les 250 ms (mobile, console). Plus aucun rafraîchissement à 0, en
+    pause ou sans échéance.
+  - Fonctions pures : `computeRemainingMs(endsAt, pausedRemainingMs, clockOffsetMs, localNow?)`
+    (utile pour un minuteur `lastSeconds` côté écran), `pushClockSample(samples, serverNow,
+    localNow?, windowSize = 5) → { samples, offsetMs }` (médiane des 5 derniers `serverNow`),
+    `clockOffsetSampleMs`, `medianClockOffsetMs`, `CLOCK_OFFSET_WINDOW`.
+- **Store** `apps/mobile/lib/stores/player-store.ts` : plus aucun champ quiz. Plateforme :
+  identité, `state`, `totalPlayers`, `players`, `scoreTotal`, `currentRank`, `final*`, `prizes`,
+  `joinedLate` (ex-`joinedQuestionPosition`, seulement depuis l'accusé de join : le snapshot
+  mobile ne le porte plus), `connectionStatus`. Manche : `round`, `gameView`, `gameViewInvalid`,
+  `gameSeq`, `clockOffsetMs` (+ `clockSamples`), `roundScoreboard`. `uiState` = `lobby | game |
+  paused | round_end | final_results | aborted | kicked`. `game:state` : enveloppe validée
+  (`gameStateSchema`), ignorée si autre manche ou `seq <= gameSeq` (le décalage d'horloge est
+  quand même échantillonné), `view` validée par le schéma du moteur
+  (`games/view-schemas.ts`) ; invalide ou moteur inconnu → `gameViewInvalid` (rendu de repli)
+  et `Sentry.captureMessage` (`lib/report-issue.ts`), une fois par manche et par raison.
+  `markKicked()` : état terminal, plus aucun événement ni snapshot ne le quitte.
+- **Rendu** : `games/types.ts` (`GameRendererProps { round; view; clockOffsetMs; sendAction? }`,
+  `SendGameAction`), `games/registry.ts` (`next/dynamic`), `games/view-schemas.ts` (schémas
+  de vue par moteur, séparés du registre pour que le store reste testable sans Next),
+  `games/game-stage.tsx`, `games/unknown-game.tsx`, `games/quiz/` (anciens composants déplacés
+  avec `git mv`, mêmes classes, ne lisent plus que la vue). `components/player-screen.tsx` rend
+  les écrans de plateforme (et sert aussi à `/dev/play`), plus `round-end-screen.tsx` et
+  `kicked-screen.tsx`.
+- **Actions** : `lib/game-actions.ts` `sendGameAction(socket, roundId, type, payload, 5000)`
+  (`socket.timeout(5000).emit('game:action', …, ack)`), ne rejette jamais : `TIMEOUT`,
+  `NOT_CONNECTED`, `INVALID_ACK`. Le quiz affiche le choix tout de suite (écran « Réponse
+  enregistrée ») tant que la vue n'a pas changé ; la vue suivante fait foi ; un refus ramène à
+  la question avec un message court (tutoiement) selon le code.
+- **Fin de manche** : `round:ended` → `roundScoreboard`, `scoreTotal`, `currentRank`. Écran
+  `round_end` seulement si `position < totalRounds` : pour la dernière manche, `session:ended`
+  suit aussitôt et l'écran final prend la place directement (pas d'écran affiché quelques ms).
+  En attendant, la vue `done` du quiz affiche « Partie terminée ! Les résultats arrivent… ».
+- **`PLAYER_KICKED`** : `error` sur le socket → écran « Tu as été retiré de la partie ». Un
+  `player:left` portant son propre `playerId` (exclusion pendant qu'il est connecté) relance
+  `player:resume`, qui confirme l'exclusion ou le remet dans la partie.
+- Hook socket : écoute `round:started`, `game:state`, `round:ended` + plateforme ; plus
+  aucun ancien événement de question. `game:cue` n'est pas écouté (aucun cue mobile).
+- Tests : `player-store.test.ts` réécrit (vue de question depuis `game:state`, depuis le
+  snapshot, `seq` ancien ou égal ignoré, `seq` du snapshot respecté, autre manche ignorée, vue
+  complète « dernier message seul = tous les messages », vue invalide → repli + un seul message
+  Sentry, moteur inconnu, décalage d'horloge, pause/reprise, `round:ended` dernière manche ou
+  non, exclusion, join retardataire) ; `game-actions.test.ts` (accusé, refus, délai, socket
+  fermé, accusé illisible ; `computeRemainingMs` et `pushClockSample`).
+
+### 9.2 Écarts visuels assumés (mobile)
+
+- Compte à rebours d'avant Q1 : avant, le mobile restait sur l'écran du lobby ; il affiche
+  maintenant « C'est parti ! La première question arrive… Première question dans ~Ns » (même
+  gabarit que l'écran retardataire), comme prévu en 8.7.
+- Retardataire en `reveal` (pas noté, `me.result = null`) : écran d'attente avec le compte à
+  rebours jusqu'à la question suivante (avant : « TROP TARD +0 »).
+- Refus d'une réponse : petit message rouge sous les réponses (avant : rien).
+
+### 9.3 Pour les agents player et console
+
+- Réutiliser `useCountdown` / `pushClockSample` / `computeRemainingMs` de `@quiz-app/ui` ;
+  barre de l'écran : `useCountdown(view.endsAt, view.pausedRemainingMs, clockOffsetMs,
+  { mode: 'frame' })` puis `remaining / view.question.timeLimitMs`.
+- Même découpage conseillé : `games/view-schemas.ts` (schéma `quizScreenViewSchema` /
+  `quizConsoleViewSchema`) lu par le store, `games/registry.ts` pour les composants. Garder la
+  même logique de store (`round`, `gameView`, `gameViewInvalid`, `gameSeq`, `clockSamples`,
+  `clockOffsetMs`, `roundScoreboard`) ; s'inspirer de `apps/mobile/lib/stores/player-store.ts`.
+- `vitest` du mobile tourne en environnement `node` sans transformation JSX : tester le store
+  et les fonctions pures, pas les composants.
+- Non vérifié à l'œil (pas d'écran) : rendu mobile de chaque phase ; contrôlé par
+  `next build` et un rendu serveur jetable de chaque phase du quiz (sans erreur). La page
+  `/dev/play` couvre toutes les phases (nouveaux onglets : Départ, Fin manche, Exclu, Repli).
