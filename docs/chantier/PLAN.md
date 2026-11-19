@@ -128,7 +128,7 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   sondage en première manche donne un thème neutre.
 - B6 → C1 — `GET /api/games` et `GET /api/games/:slug` existent déjà (B6) : C1 les étend. Le
   lanceur de la console ne liste encore que les quiz (remplacé par le catalogue en C1).
-- C1 — À trancher par l'utilisateur : un quiz publié après C1 n'arrive dans le catalogue des
+- C1 — Tranché le 2026-11-19 (voir Décisions) : un quiz publié après C1 n'arrive dans le catalogue des
   cinémas qu'une fois activé par le super-admin (`catalogEnabled` faux par défaut, conforme au
   prompt). Avant C1, publier suffisait.
 - C1 — Jeux quiz : PATCH /api/games refuse aussi description, kind, sponsor et durée (écrasés par
@@ -166,6 +166,9 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   version en place.
 - 2026-11-19 — `validate()` (API) utilise `safeParse` : les schémas de `@quiz-app/validation`
   ne renvoient plus 500 au lieu de 400. Toutes les routes l'utilisent, plus d'aide locale.
+- 2026-11-19 — Catalogue : publier un quiz ne l'ajoute PAS au catalogue des cinémas ; le
+  super-admin l'y active quand il est prêt (préparation en amont d'événements et de campagnes).
+  Comportement C1 conservé.
 - 2026-11-19 — B2-B4 validé par l'utilisateur (après test navigateur de bout en bout, captures
   dans le scratchpad de session).
 - 2026-11-19 — La dernière question d'une manche quiz affiche sa révélation (`reveal`, avec
