@@ -33,7 +33,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 10 | C2 Programmation | C1 | 0023_screen_programs | fait (04ab3f3) |
 | 11 | C3 Campagnes | C1, B5 | 0024_campaigns_deliveries | fait (ee5786b, 10160ee) |
 | 12 | C4 Sponsor | C3 | 0025_sponsor_role | fait (1fa3004, af8ec9f + garde super_admin) |
-| 13 | C5 Lots et consentements | C3, C4 | 0026 | à faire |
+| 13 | C5 Lots et consentements | C3, C4 | 0026_prize_codes_contact_consents | fait (670efee) |
 
 Dernière migration existante au démarrage : `0018_audio`. Format des noms : `00NN_snake_case`.
 
@@ -151,6 +151,15 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   partagé) ; l'invitation sponsor vouvoie. Les campagnes en brouillon sont masquées du portail.
 - C4 — Un compte super_admin ne peut plus accepter une invitation (409 INVITATION_SUPER_ADMIN) :
   l'acceptation remplaçait son rôle.
+- C5 — Fuite corrigée : `GET /api/cinemas/:slug/prizes` renvoyait l'email des gagnants au
+  cinema_admin ; désormais réservé au super_admin.
+- C5 — À arbitrer : un cinema_admin peut passer un de ses gabarits en mode « codes » sans pouvoir
+  importer de codes (stock 0) ; pas d'interface pour modifier le mode d'un gabarit existant ; pages
+  gabarits côté cinéma non adaptées. Codes comparés sans tenir compte de la casse. Pas de purge
+  automatique des contacts (conservés jusqu'au retrait du consentement). Emails du personnel
+  (routes users / invitations) non audités.
+- C5 — Interprétations : l'export sponsor est autorisé si au moins une campagne du sponsor a
+  `emailSharingEnabled` ; un nouvel opt-in après désinscription totale efface `unsubscribedAllAt`.
 
 ## Décisions
 

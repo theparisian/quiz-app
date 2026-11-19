@@ -47,7 +47,7 @@ router.get('/unsubscribe', (req, res) => {
           var j = _ref.j;
           if (ok && j.ok) {
             statusEl.textContent =
-              "Tu ne recevras plus d'emails de notre part. Ton adresse a été supprimée.";
+              "Tu ne recevras plus d'emails de notre part. Tous tes consentements ont été retirés.";
             return;
           }
           var msg = (j.error && j.error.message) || 'Une erreur est survenue.';
