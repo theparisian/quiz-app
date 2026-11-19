@@ -179,6 +179,11 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   version en place.
 - 2026-11-19 — `validate()` (API) utilise `safeParse` : les schémas de `@quiz-app/validation`
   ne renvoient plus 500 au lieu de 400. Toutes les routes l'utilisent, plus d'aide locale.
+- 2026-11-19 — Secret GitHub `VPS_KNOWN_HOSTS` ajouté par l'utilisateur ; `HEALTH_CHECK_TOKEN`
+  et `CORS_ORIGINS` confirmés présents.
+- 2026-11-19 — Codes de séance : la référence d'une séance est son identifiant interne (jamais
+  montré au client) ; le QR porte un jeton long ; le code à 4 chiffres n'est qu'une aide de saisie,
+  unique parmi les séances en cours seulement et réutilisable ensuite.
 - 2026-11-19 — Catalogue : publier un quiz ne l'ajoute PAS au catalogue des cinémas ; le
   super-admin l'y active quand il est prêt (préparation en amont d'événements et de campagnes).
   Comportement C1 conservé.
