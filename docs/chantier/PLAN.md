@@ -28,7 +28,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 05 | B1 Game / Round / Score | A3 | 0020_games_rounds_scores | fait (1dec890) |
 | 06 | B2-B4 Moteur et protocole | B1 | — | fait (83bd658 → 0ce7b37), voir B2-B4-NOTES §13 |
 | 07 | B5 Multi-manches | B2-B4 | 0021_session_quiz_nullable | fait (796ff8f) |
-| 08 | B6 Sondage | B5 | — | à faire |
+| 08 | B6 Sondage | B5 | — | fait (c44e304 + correctif validate) |
 | 09 | C1 Catalogue | B6, A1 | 0022 | à faire |
 | 10 | C2 Programmation | C1 | 0023 | à faire |
 | 11 | C3 Campagnes | C1, B5 | 0024 | à faire |
@@ -122,6 +122,12 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   toutes manches confondues (taux de complétion approximatif en multi-manches) ; la page de rapport
   admin n'affiche pas encore `rounds` / `roundPosition`.
 - B5 — `session:theme_changed` n'est consommé que par l'écran ; le mobile garde le thème du join.
+- B6 — Aucun changement de l'interface moteur ni de la plateforme n'a été nécessaire pour le
+  sondage. Limites relevées (B2-B4-NOTES §15) : « tout le monde a voté » compte les joueurs
+  déconnectés ; la plateforme ne refuse pas les actions en pause (chaque moteur le fait) ; un
+  sondage en première manche donne un thème neutre.
+- B6 → C1 — `GET /api/games` et `GET /api/games/:slug` existent déjà (B6) : C1 les étend. Le
+  lanceur de la console ne liste encore que les quiz (remplacé par le catalogue en C1).
 
 ## Décisions
 
@@ -135,6 +141,8 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 - 2026-11-18 — Déploiement automatique : on déploie le commit exact validé par la CI
   (`workflow_run.head_sha`), un seul déploiement à la fois, et jamais un commit plus ancien que la
   version en place.
+- 2026-11-19 — `validate()` (API) utilise `safeParse` : les schémas de `@quiz-app/validation`
+  ne renvoient plus 500 au lieu de 400. Toutes les routes l'utilisent, plus d'aide locale.
 - 2026-11-19 — B2-B4 validé par l'utilisateur (après test navigateur de bout en bout, captures
   dans le scratchpad de session).
 - 2026-11-19 — La dernière question d'une manche quiz affiche sa révélation (`reveal`, avec

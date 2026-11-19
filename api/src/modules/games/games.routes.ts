@@ -8,6 +8,7 @@ import {
 import { requireAuth } from '../../shared/auth/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { param } from '../../shared/utils/index.js';
+import { validate } from '../../shared/validation/index.js';
 import { gamesService } from './games.service.js';
 
 /**
@@ -16,26 +17,6 @@ import { gamesService } from './games.service.js';
  * (catalogue) sans en créer de seconde pour la modification (convention 6).
  */
 const router = Router();
-
-/**
- * Comme `validate`, pour les schémas de `@quiz-app/validation` : leur `ZodError` vient d'une autre
- * copie du module zod (build CJS du paquet), que `instanceof` dans `validate` ne reconnaît pas.
- */
-function parse<T>(
-  schema: {
-    safeParse(
-      data: unknown,
-    ):
-      | { success: true; data: T }
-      | { success: false; error: { errors: { path: (string | number)[]; message: string }[] } };
-  },
-  data: unknown,
-): T {
-  const result = schema.safeParse(data);
-  if (result.success) return result.data;
-  const message = result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
-  throw new AppError(`Validation failed: ${message}`, 400, 'VALIDATION_ERROR');
-}
 
 function shapeGame(game: Game) {
   return {
@@ -56,7 +37,7 @@ function shapeGame(game: Game) {
 
 router.get('/', requireAuth(['super_admin']), async (req, res, next) => {
   try {
-    const query = parse(listGamesQuerySchema, req.query);
+    const query = validate(listGamesQuerySchema, req.query);
     const { items, total } = await gamesService.listGames(query);
     res.json({ items: items.map(shapeGame), total, page: query.page, limit: query.limit });
   } catch (error) {
@@ -66,7 +47,7 @@ router.get('/', requireAuth(['super_admin']), async (req, res, next) => {
 
 router.post('/', requireAuth(['super_admin']), async (req, res, next) => {
   try {
-    const body = parse(createGameBodySchema, req.body);
+    const body = validate(createGameBodySchema, req.body);
     const game = await gamesService.createGame(body);
     res.status(201).json(shapeGame(game));
   } catch (error) {
@@ -84,7 +65,7 @@ router.get('/:slug', requireAuth(['super_admin']), async (req, res, next) => {
 
 router.patch('/:slug', requireAuth(['super_admin']), async (req, res, next) => {
   try {
-    const body = parse(updateGameBodySchema, req.body);
+    const body = validate(updateGameBodySchema, req.body);
     res.json(shapeGame(await gamesService.updateGame(param(req, 'slug'), body)));
   } catch (error) {
     next(error);
