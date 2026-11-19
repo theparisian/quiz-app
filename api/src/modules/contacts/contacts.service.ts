@@ -1,6 +1,7 @@
 import { Prisma, type ConsentScope } from '@prisma/client';
 import {
   CONSENT_WORDING_VERSION,
+  contactInactivityCutoff,
   type ConsentOptionsResponse,
   type ContactsExportQuery,
   type ContactsStatsResponse,
@@ -168,8 +169,22 @@ async function recordPrizeFormConsents(input: {
       where: { id: contact.id, unsubscribedAllAt: { not: null } },
       data: { unsubscribedAllAt: null },
     });
+    // Activité de l'adresse : relance le délai d'inactivité (CONTACT_INACTIVITY_YEARS).
+    await tx.contact.update({ where: { id: contact.id }, data: { lastActivityAt: now } });
   });
   return targets.map((t) => t.scope);
+}
+
+/**
+ * Activité de l'adresse sans nouveau consentement (ex. email saisi pour un lot, cases
+ * facultatives décochées) : si un contact existe pour cette adresse, son délai d'inactivité
+ * repart de zéro. Ne crée jamais de contact.
+ */
+async function recordActivity(email: string, at: Date = new Date()): Promise<void> {
+  await prisma.contact.updateMany({
+    where: { email: normalizeEmail(email), lastActivityAt: { lt: at } },
+    data: { lastActivityAt: at },
+  });
 }
 
 /** Désinscription générale : tous les consentements du contact sont révoqués. */
@@ -187,11 +202,18 @@ async function unsubscribeAll(email: string): Promise<void> {
   logger.info({ contactId: contact.id.toString() }, 'Contact unsubscribed from all consents');
 }
 
-/** Consentement actif d'un contact non désinscrit (seuls ceux-là sortent dans un export). */
-const ACTIVE_CONSENT: Prisma.ContactConsentWhereInput = {
-  revokedAt: null,
-  contact: { unsubscribedAllAt: null },
-};
+/** Contact retenu dans les listes : non désinscrit, actif depuis moins de 3 ans (à `now`). */
+function activeContactWhere(now: Date = new Date()): Prisma.ContactWhereInput {
+  return { unsubscribedAllAt: null, lastActivityAt: { gte: contactInactivityCutoff(now) } };
+}
+
+/**
+ * Consentement actif d'un contact retenu (seuls ceux-là sortent dans un export ou un compte).
+ * Calculé à chaque lecture : aucune tâche de suppression n'est nécessaire.
+ */
+function activeConsentWhere(now: Date = new Date()): Prisma.ContactConsentWhereInput {
+  return { revokedAt: null, contact: activeContactWhere(now) };
+}
 
 function sharingNotAgreed(): AppError {
   return new AppError(
@@ -210,7 +232,7 @@ async function exportCsv(
   query: ContactsExportQuery,
   user: AuthUser,
 ): Promise<{ filename: string; csv: string }> {
-  const where: Prisma.ContactConsentWhereInput = { ...ACTIVE_CONSENT, scope: query.scope };
+  const where: Prisma.ContactConsentWhereInput = { ...activeConsentWhere(), scope: query.scope };
   let label = 'plateforme';
   let cinemaId: bigint | null = null;
   if (query.scope === 'cinema') {
@@ -271,42 +293,55 @@ async function exportCsv(
 }
 
 async function stats(): Promise<ContactsStatsResponse> {
-  const [contacts, unsubscribed, platform, byCinema, bySponsor, cinemas, sponsors, agreements] =
-    await Promise.all([
-      prisma.contact.count(),
-      prisma.contact.count({ where: { unsubscribedAllAt: { not: null } } }),
-      prisma.contactConsent.count({ where: { ...ACTIVE_CONSENT, scope: 'platform' } }),
-      prisma.contactConsent.groupBy({
-        by: ['cinemaId'],
-        where: { ...ACTIVE_CONSENT, scope: 'cinema' },
-        _count: { _all: true },
-      }),
-      prisma.contactConsent.groupBy({
-        by: ['sponsorId'],
-        where: { ...ACTIVE_CONSENT, scope: 'sponsor' },
-        _count: { _all: true },
-      }),
-      prisma.cinema.findMany({
-        where: { OR: [{ deletedAt: null }, { consents: { some: {} } }] },
-        select: { id: true, slug: true, name: true, emailSharingEnabled: true },
-        orderBy: { name: 'asc' },
-      }),
-      prisma.sponsor.findMany({
-        select: { id: true, slug: true, name: true },
-        orderBy: { name: 'asc' },
-      }),
-      prisma.campaign.groupBy({
-        by: ['sponsorId'],
-        where: { emailSharingEnabled: true },
-        _count: { _all: true },
-      }),
-    ]);
+  const now = new Date();
+  const active = activeConsentWhere(now);
+  const [
+    contacts,
+    unsubscribed,
+    inactive,
+    platform,
+    byCinema,
+    bySponsor,
+    cinemas,
+    sponsors,
+    agreements,
+  ] = await Promise.all([
+    prisma.contact.count(),
+    prisma.contact.count({ where: { unsubscribedAllAt: { not: null } } }),
+    prisma.contact.count({ where: { lastActivityAt: { lt: contactInactivityCutoff(now) } } }),
+    prisma.contactConsent.count({ where: { ...active, scope: 'platform' } }),
+    prisma.contactConsent.groupBy({
+      by: ['cinemaId'],
+      where: { ...active, scope: 'cinema' },
+      _count: { _all: true },
+    }),
+    prisma.contactConsent.groupBy({
+      by: ['sponsorId'],
+      where: { ...active, scope: 'sponsor' },
+      _count: { _all: true },
+    }),
+    prisma.cinema.findMany({
+      where: { OR: [{ deletedAt: null }, { consents: { some: {} } }] },
+      select: { id: true, slug: true, name: true, emailSharingEnabled: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.sponsor.findMany({
+      select: { id: true, slug: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.campaign.groupBy({
+      by: ['sponsorId'],
+      where: { emailSharingEnabled: true },
+      _count: { _all: true },
+    }),
+  ]);
   const cinemaCounts = new Map(byCinema.map((r) => [r.cinemaId?.toString(), r._count._all]));
   const sponsorCounts = new Map(bySponsor.map((r) => [r.sponsorId?.toString(), r._count._all]));
   const agreedSponsors = new Set(agreements.map((r) => r.sponsorId.toString()));
   return {
     contacts,
     unsubscribed,
+    inactive,
     platform,
     cinemas: cinemas.map((c) => ({
       slug: c.slug,
@@ -343,6 +378,8 @@ async function setCinemaSharing(slug: string, enabled: boolean, user: AuthUser) 
 export const contactsService = {
   consentOptions,
   recordPrizeFormConsents,
+  recordActivity,
+  activeContactWhere,
   unsubscribeAll,
   exportCsv,
   stats,

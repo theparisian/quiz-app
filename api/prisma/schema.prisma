@@ -650,9 +650,14 @@ model Contact {
   email             String    @unique @db.VarChar(255)
   createdAt         DateTime  @default(now()) @map("created_at")
   unsubscribedAllAt DateTime? @map("unsubscribed_all_at")
+  /// Dernière activité de l'adresse (consentement donné ou réactivé, email saisi pour un lot).
+  /// Sans activité depuis CONTACT_INACTIVITY_YEARS ans, le contact sort des exports et des
+  /// statistiques (filtre à la lecture) ; la ligne est conservée comme preuve du consentement.
+  lastActivityAt    DateTime  @default(now()) @map("last_activity_at")
 
   consents ContactConsent[]
 
+  @@index([lastActivityAt])
   @@map("contacts")
 }
 

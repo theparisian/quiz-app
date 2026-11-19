@@ -2,15 +2,17 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import type { ContactsStatsResponse } from '@quiz-app/validation';
+import { CONTACT_INACTIVITY_YEARS, type ContactsStatsResponse } from '@quiz-app/validation';
 import { api } from '../../../lib/api';
 import { getNavItem } from '../../../lib/nav-items';
 import { PageHeader } from '../../components/page-header';
 import { ContactsExportButton } from '../../components/contacts-export-button';
 
 /**
- * Contacts (C5) : consentements email actifs par périmètre. Un contact désinscrit ne compte
- * plus et ne sort dans aucun export. Les exports d'un cinéma ou d'un sponsor exigent l'accord.
+ * Contacts (C5) : consentements email actifs par périmètre. Un contact désinscrit, ou sans
+ * activité depuis CONTACT_INACTIVITY_YEARS ans, ne compte plus et ne sort dans aucun export
+ * (il reste en base comme preuve du consentement). Les exports d'un cinéma ou d'un sponsor
+ * exigent l'accord.
  */
 export default function ContactsPage() {
   const { data, isLoading, isError } = useQuery({
@@ -31,9 +33,13 @@ export default function ContactsPage() {
 
       {data && (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-4">
             <Tile label="Contacts" value={data.contacts} />
             <Tile label="Désinscrits (exclus des exports)" value={data.unsubscribed} />
+            <Tile
+              label={`Inactifs (plus de ${CONTACT_INACTIVITY_YEARS} ans, exclus des exports)`}
+              value={data.inactive}
+            />
             <div className="rounded-lg border bg-white p-4 shadow-sm">
               <p className="text-xs text-gray-500">Actus et jeux de Shh!</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">{data.platform}</p>

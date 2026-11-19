@@ -155,6 +155,14 @@ router.patch('/:id/email', async (req, res, next) => {
 
     const result = await prizesService.createForPlayer(playerId, data.email);
 
+    // Activité de l'adresse (même sans case cochée) : relance le délai d'inactivité d'un contact
+    // existant. Jamais bloquant pour le lot.
+    try {
+      await contactsService.recordActivity(data.email);
+    } catch (err) {
+      logger.error({ err, playerId: playerId.toString() }, 'Recording contact activity failed');
+    }
+
     // Consentements facultatifs (C5) : après l'attribution du lot, jamais bloquants pour lui.
     if (data.optInPlatform || data.optInCinema || data.optInSponsor) {
       try {

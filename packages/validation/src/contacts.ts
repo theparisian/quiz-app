@@ -5,6 +5,26 @@ import { z } from 'zod';
 // accord enregistré (cinéma : `emailSharingEnabled` du cinéma ; sponsor : celui d'une campagne)
 // ET case cochée par le joueur. Les exports sont réservés au super_admin.
 
+/**
+ * Rétention des contacts : un contact n'est jamais supprimé (preuve du consentement), mais sans
+ * activité depuis ce nombre d'années il sort de toutes les listes et de tous les exports. Toute
+ * nouvelle activité (consentement donné ou réactivé, email saisi pour un lot) relance le délai.
+ */
+export const CONTACT_INACTIVITY_YEARS = 3;
+
+/** Date avant laquelle la dernière activité d'un contact le rend inactif. */
+export function contactInactivityCutoff(now: Date = new Date()): Date {
+  const cutoff = new Date(now.getTime());
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - CONTACT_INACTIVITY_YEARS);
+  return cutoff;
+}
+
+/**
+ * Email saisi pour un lot sans case facultative cochée : effacé de `players` ce nombre de jours
+ * après la fin de la séance, sauf si l'adresse a un consentement actif.
+ */
+export const PRIZE_EMAIL_RETENTION_DAYS = 90;
+
 /** Version des libellés des cases affichées au joueur, enregistrée avec chaque consentement. */
 export const CONSENT_WORDING_VERSION = '2026-11';
 
@@ -56,10 +76,15 @@ export const contactsExportQuerySchema = z
   });
 export type ContactsExportQuery = z.infer<typeof contactsExportQuerySchema>;
 
-/** GET /api/contacts/stats (super_admin) : consentements actifs par périmètre. */
+/**
+ * GET /api/contacts/stats (super_admin) : consentements actifs par périmètre (contacts actifs
+ * depuis moins de CONTACT_INACTIVITY_YEARS ans et non désinscrits).
+ */
 export const contactsStatsResponseSchema = z.object({
   contacts: z.number().int(),
   unsubscribed: z.number().int(),
+  /** Contacts sans activité depuis CONTACT_INACTIVITY_YEARS ans (exclus des exports et comptes). */
+  inactive: z.number().int(),
   platform: z.number().int(),
   cinemas: z.array(
     z.object({

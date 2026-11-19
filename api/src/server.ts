@@ -23,6 +23,7 @@ import {
 import { rehydrateLobbyTimers, setLobbyTimerIo } from './modules/sessions/lobby-timer.service.js';
 import { requeuePendingPrizeEmailsOnBoot } from './shared/email/prize-email-queue.service.js';
 import { startNucOfflineMonitor } from './shared/nuc-monitor/index.js';
+import { startPlayerEmailPurgeJob } from './shared/retention/player-email-purge.js';
 
 initSentry();
 
@@ -49,11 +50,14 @@ setIoInstance(io);
 setLobbyTimerIo(io);
 
 let nucMonitorStop: (() => void) | undefined;
+let emailPurgeStop: (() => void) | undefined;
 
 async function gracefulShutdown(signal: string) {
   logger.info({ signal }, 'Graceful shutdown');
   nucMonitorStop?.();
   nucMonitorStop = undefined;
+  emailPurgeStop?.();
+  emailPurgeStop = undefined;
   await flushSentry(2000);
   httpServer.close(() => {
     logger.info('HTTP server closed');
@@ -73,6 +77,7 @@ void (async () => {
   await rehydrateLobbyTimers();
   await requeuePendingPrizeEmailsOnBoot();
   nucMonitorStop = startNucOfflineMonitor(io);
+  emailPurgeStop = startPlayerEmailPurgeJob();
 
   httpServer.listen(PORT, () => {
     logger.info({ port: PORT }, 'Server started');
