@@ -31,7 +31,7 @@ Toute décision prise en cours de route est ajoutée à la section « Décisions
 | 08 | B6 Sondage | B5 | — | fait (c44e304 + correctif validate) |
 | 09 | C1 Catalogue | B6, A1 | 0022_game_catalog | fait (2 commits C1) |
 | 10 | C2 Programmation | C1 | 0023_screen_programs | fait (04ab3f3) |
-| 11 | C3 Campagnes | C1, B5 | 0024 | à faire |
+| 11 | C3 Campagnes | C1, B5 | 0024_campaigns_deliveries | fait (ee5786b, 10160ee) |
 | 12 | C4 Sponsor | C3 | 0025 | à faire |
 | 13 | C5 Lots et consentements | C3, C4 | 0026 | à faire |
 
@@ -139,6 +139,12 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 - C2 — Un jeu déjà au programme d'une salle y reste même s'il quitte le catalogue (grisé
   « Retiré du catalogue ») ; seuls les ajouts doivent être disponibles. Le lancement l'ignore.
 - C2 — Page Programmation rafraîchie toutes les 15 s (pas de push socket entre fenêtres).
+- C3 — Interprétations retenues : une ligne de relevé par diffusion (manche) ; `finishers` =
+  participants encore actifs ; `playedAt` = début de manche ; preuve acceptée seulement pendant la
+  manche ; plafonds comptés sur les diffusions facturables ; jour = jour de Paris. Une campagne
+  exige que le jeu appartienne au sponsor de la campagne (ajout non prévu au prompt).
+- C3 — Relevé ouvert au cinema_admin (page console « Revenus ») ; saisie des entrées ouverte au
+  projectionniste. `prizesIssued` compte tous les lots de la session.
 
 ## Décisions
 
