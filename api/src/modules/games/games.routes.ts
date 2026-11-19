@@ -6,7 +6,6 @@ import {
   updateGameBodySchema,
 } from '@quiz-app/validation';
 import { requireAuth } from '../../shared/auth/index.js';
-import { AppError } from '../../shared/errors/app-error.js';
 import { param } from '../../shared/utils/index.js';
 import { validate } from '../../shared/validation/index.js';
 import { gamesService } from './games.service.js';
