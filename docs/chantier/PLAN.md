@@ -89,11 +89,11 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
 
 ## Points ouverts (hors périmètre, à arbitrer plus tard)
 
-- A1 — `GET /api/sessions/:id/players` est public et renvoie pseudos, scores et statuts de
+- [ACCEPTÉ par l'utilisateur] A1 — `GET /api/sessions/:id/players` est public et renvoie pseudos, scores et statuts de
   n'importe quelle session. À revoir (protéger par jeton joueur ou réduire les champs).
 - A1 — Le test existant « 403 for projectionist on another cinema » attendait 201 ; corrigé en 403.
 
-- A2 — `sessions.slug_short` est UNIQUE en base, mais le générateur n'évite que les codes des
+- [RÉSOLU 9565944] A2 — `sessions.slug_short` est UNIQUE en base, mais le générateur n'évite que les codes des
   sessions actives : la réutilisation d'un ancien code échoue (bug antérieur, à corriger).
 - A2 — Le plafond de joueurs est vérifié sans verrou : des joins simultanés peuvent le dépasser
   de quelques unités.
@@ -153,7 +153,8 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   l'acceptation remplaçait son rôle.
 - C5 — Fuite corrigée : `GET /api/cinemas/:slug/prizes` renvoyait l'email des gagnants au
   cinema_admin ; désormais réservé au super_admin.
-- C5 — À arbitrer : un cinema_admin peut passer un de ses gabarits en mode « codes » sans pouvoir
+- [RÉSOLU b962fde : lots sponsor = super_admin seul ; lots du cinéma = son cinema_admin, avec
+  page « Lots » dans la console] C5 — À arbitrer : un cinema_admin peut passer un de ses gabarits en mode « codes » sans pouvoir
   importer de codes (stock 0) ; pas d'interface pour modifier le mode d'un gabarit existant ; pages
   gabarits côté cinéma non adaptées. Codes comparés sans tenir compte de la casse. Pas de purge
   automatique des contacts (conservés jusqu'au retrait du consentement). Emails du personnel
@@ -179,6 +180,10 @@ Dernière migration existante au démarrage : `0018_audio`. Format des noms : `0
   version en place.
 - 2026-11-19 — `validate()` (API) utilise `safeParse` : les schémas de `@quiz-app/validation`
   ne renvoient plus 500 au lieu de 400. Toutes les routes l'utilisent, plus d'aide locale.
+- 2026-11-19 — Contacts : jamais supprimés (preuve du consentement) ; exclus des listes et exports
+  après 3 ans sans activité (consentement ou email de lot), toute activité remet le compteur à zéro.
+  Emails de lot sans consentement effacés 90 jours après la séance (tâche quotidienne). Fait en
+  500ab8c.
 - 2026-11-19 — Secret GitHub `VPS_KNOWN_HOSTS` ajouté par l'utilisateur ; `HEALTH_CHECK_TOKEN`
   et `CORS_ORIGINS` confirmés présents.
 - 2026-11-19 — Codes de séance : la référence d'une séance est son identifiant interne (jamais
