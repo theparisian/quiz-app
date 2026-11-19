@@ -4,6 +4,10 @@ import { sendEmail } from './index.js';
 import { logEvent } from '../events/event-log.service.js';
 import { logger } from '../logger/index.js';
 import { buildPrizeEmail } from './templates/prize-email.js';
+import {
+  FIRST_ROUND_SELECT,
+  sessionTitle,
+} from '../../modules/sessions/session-content.service.js';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -51,6 +55,7 @@ async function loadPrizeEmailContext(prizeId: bigint) {
         include: {
           screen: { include: { cinema: true } },
           quiz: true,
+          rounds: FIRST_ROUND_SELECT,
         },
       },
     },
@@ -73,7 +78,7 @@ async function sendPrizeEmailJob(prizeId: bigint): Promise<void> {
   const { subject, html, text } = buildPrizeEmail({
     pseudo: prize.player.pseudo,
     rank: prize.player.rankFinal ?? prize.rank,
-    quizTitle: prize.session.quiz.title,
+    quizTitle: sessionTitle(prize.session).title,
     cinemaName: prize.session.screen.cinema.name,
     cinemaLogoUrl: prize.session.screen.cinema.logoUrl,
     prizeLabel: prize.label,
@@ -204,7 +209,7 @@ export async function sendPrizeEmailNow(prizeId: bigint): Promise<'ok' | 'retry_
   const { subject, html, text } = buildPrizeEmail({
     pseudo: prize.player.pseudo,
     rank: prize.player.rankFinal ?? prize.rank,
-    quizTitle: prize.session.quiz.title,
+    quizTitle: sessionTitle(prize.session).title,
     cinemaName: prize.session.screen.cinema.name,
     cinemaLogoUrl: prize.session.screen.cinema.logoUrl,
     prizeLabel: prize.label,

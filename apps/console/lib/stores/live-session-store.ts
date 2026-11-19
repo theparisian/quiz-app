@@ -55,6 +55,16 @@ export interface QuizFull {
   questions: QuestionFull[];
 }
 
+/** Manche de la séance et son contenu console (`GET /:id/full`, B5). */
+export interface RoundFull {
+  roundId: string;
+  position: number;
+  state: string;
+  game: { slug: string; title: string; engineKey: string; kind: string };
+  /** Quiz complet (bonnes réponses comprises) si le jeu est un quiz, sinon null. */
+  content: QuizFull | null;
+}
+
 export interface PlayerLive {
   playerId: string;
   pseudo: string;
@@ -87,8 +97,10 @@ export interface LiveSessionState extends RoundFields {
   totalPlayers: number;
   lobbyRemainingMs: number | null;
 
-  /** Contenu authentifié de la séance (`GET /:id/full`), voir plus haut. */
+  /** Quiz de la première manche (`GET /:id/full`) : titre et couverture de l'en-tête. */
   quiz: QuizFull | null;
+  /** Manches et leur contenu authentifié (`GET /:id/full`), voir plus haut. */
+  rounds: RoundFull[];
 
   audioMuted: boolean;
 
@@ -129,7 +141,8 @@ export interface SessionFullResponse {
   cinemaName: string;
   backgroundMusicUrl: string | null;
   consolationPrizesClaimed?: number;
-  quiz: QuizFull;
+  quiz: QuizFull | null;
+  rounds?: RoundFull[];
   players: {
     id: string;
     pseudo: string;
@@ -158,6 +171,7 @@ const INITIAL: Omit<
   totalPlayers: 0,
   lobbyRemainingMs: null,
   quiz: null,
+  rounds: [],
   audioMuted: false,
   players: [],
   ...EMPTY_ROUND,
@@ -218,7 +232,11 @@ function validateView(
 /** Champs de manche d'un snapshot (`round`, `gameView`, `gameSeq`, règle 5). */
 function roundFieldsFromSnapshot(snap: Record<string, unknown>): RoundFields {
   const parsedRound = roundInfoSchema.safeParse(snap.round);
-  if (!parsedRound.success) return { ...EMPTY_ROUND };
+  if (!parsedRound.success) {
+    // Entracte entre deux manches : le classement de la manche terminée (B5).
+    const ended = roundEndedSchema.safeParse(snap.roundEnded);
+    return { ...EMPTY_ROUND, roundScoreboard: ended.success ? ended.data : null };
+  }
   const round = parsedRound.data;
   const gameSeq =
     typeof snap.gameSeq === 'number' && Number.isInteger(snap.gameSeq) && snap.gameSeq >= 0
@@ -274,6 +292,7 @@ export const useLiveSessionStore = create<LiveSessionState>((set, get) => ({
       state: session.state as SessionState,
       totalPlayers: session.totalPlayers,
       quiz: session.quiz,
+      rounds: session.rounds ?? [],
       screenId: session.screenId,
       screenName: session.screenName,
       cinemaName: session.cinemaName,
@@ -505,4 +524,54 @@ export function selectCanForceAdvance(
   if (s.gameViewInvalid || !rules) return true;
   if (s.gameView == null) return false;
   return rules.canForceAdvance(s.gameView);
+}
+
+/**
+ * Contenu console de la manche active (bonnes réponses du quiz de CETTE manche, B5). Séance
+ * sans manche connue (données anciennes) : le quiz de la séance.
+ */
+export function selectRoundContent(
+  s: Pick<LiveSessionState, 'round' | 'rounds' | 'quiz'>,
+): QuizFull | null {
+  if (!s.round) return null;
+  const match = s.rounds.find((r) => r.roundId === s.round!.roundId);
+  if (match) return match.content;
+  return s.rounds.length === 0 ? s.quiz : null;
+}
+
+/**
+ * Entracte entre deux manches : la manche affichée est terminée (`round:ended`) et une autre
+ * suit. Renvoie le classement de la manche terminée, sinon null.
+ */
+export function selectInterlude(
+  s: Pick<LiveSessionState, 'round' | 'roundScoreboard'>,
+): RoundEndedPayload | null {
+  const board = s.roundScoreboard;
+  if (!board || board.position >= board.totalRounds) return null;
+  if (s.round && s.round.roundId !== board.roundId) return null;
+  return board;
+}
+
+/** Une manche suit celle en cours (ou l'entracte) : « Passer à la manche suivante » a un sens. */
+export function selectHasNextRound(
+  s: Pick<LiveSessionState, 'round' | 'roundScoreboard'>,
+): boolean {
+  if (selectInterlude(s)) return true;
+  return !!s.round && s.round.position < s.round.totalRounds;
+}
+
+/**
+ * Manche affichée dans l'en-tête : « Manche 2/3 — <titre> » (manche en cours, ou la dernière
+ * terminée pendant l'entracte), ou null hors manche.
+ */
+export function selectRoundLabel(
+  s: Pick<LiveSessionState, 'round' | 'roundScoreboard' | 'rounds'>,
+): string | null {
+  if (s.round) {
+    return `Manche ${s.round.position}/${s.round.totalRounds} — ${s.round.game.title}`;
+  }
+  const board = s.roundScoreboard;
+  if (!board) return null;
+  const title = s.rounds.find((r) => r.roundId === board.roundId)?.game.title;
+  return `Manche ${board.position}/${board.totalRounds}${title ? ` — ${title}` : ''}`;
 }

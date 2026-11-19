@@ -326,3 +326,83 @@ describe('nuc store — manche', () => {
     expect(useNucStore.getState().uiState).toBe('game');
   });
 });
+
+describe('nuc store — plusieurs manches (B5)', () => {
+  const ROUND2: RoundInfo = { ...ROUND, roundId: '8', position: 2, totalRounds: 2 };
+  const BOARD = {
+    roundId: '7',
+    position: 1,
+    totalRounds: 2,
+    scoreboard: [
+      { playerId: '10', pseudo: 'Alice', avatarUrl: null, scoreTotal: 900, scoreThisRound: 900 },
+    ],
+  };
+
+  it('round 2 countdown keeps the round-end board on screen (no lobby), then the game', () => {
+    startLobby();
+    const s = useNucStore.getState();
+    s.applyEvent('round:started', { ...ROUND, totalRounds: 2 });
+    s.applyEvent('game:state', gameState(1, revealView()));
+    s.applyEvent('round:ended', BOARD);
+    expect(selectScreenDisplay(useNucStore.getState())).toBe('round_end');
+
+    s.applyEvent('round:started', ROUND2);
+    expect(useNucStore.getState().roundScoreboard).toEqual(BOARD);
+    s.applyEvent('game:state', gameState(1, countdownView(), '8'));
+    expect(useNucStore.getState().uiState).toBe('game');
+    expect(selectScreenDisplay(useNucStore.getState())).toBe('round_end');
+
+    s.applyEvent('game:state', gameState(2, questionView(), '8'));
+    expect(selectScreenDisplay(useNucStore.getState())).toBe('game');
+  });
+
+  it('session:theme_changed applies the backgrounds and sounds of the next round', () => {
+    startLobby();
+    useNucStore.getState().applyEvent('session:theme_changed', {
+      quiz: {
+        backgroundMediaUrl: 'https://cdn.example/bg2.jpg',
+        backgroundMediaType: 'image',
+        backgroundOverlayOpacity: 30,
+        lobbyBackgroundMediaUrl: null,
+        lobbyBackgroundMediaType: null,
+        lobbyBackgroundOverlayOpacity: 0,
+        brandingJson: null,
+      },
+      audio: null,
+    });
+    const st = useNucStore.getState();
+    expect(st.quizBackgroundMediaUrl).toBe('https://cdn.example/bg2.jpg');
+    expect(st.quizBackgroundOverlayOpacity).toBe(30);
+    expect(st.uiState).toBe('lobby');
+  });
+
+  it('a snapshot during the interlude shows the round-end board', () => {
+    useNucStore.getState().applySnapshot({
+      nuc: {
+        nucId: '3',
+        screenId: '4',
+        cinemaSlug: 'c',
+        cinemaName: 'Ciné',
+        cinemaLogoUrl: null,
+        backgroundMusicUrl: null,
+      },
+      session: {
+        sessionId: '1',
+        slugShort: 'ABCD',
+        joinToken: 'tok',
+        state: 'running',
+        totalPlayers: 1,
+      },
+      audioMuted: false,
+      players: [],
+      scoreboard: [],
+      round: null,
+      gameView: null,
+      gameSeq: 0,
+      roundEnded: BOARD,
+    });
+    const st = useNucStore.getState();
+    expect(st.uiState).toBe('round_end');
+    expect(st.roundScoreboard).toEqual(BOARD);
+  });
+});

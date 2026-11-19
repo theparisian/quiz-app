@@ -4,13 +4,12 @@ import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { logger } from '../../shared/logger/index.js';
-import { shapeQuizBackgroundPayload } from '../quizzes/quiz-background.js';
-import { resolveQuizAudioPayload } from '../quizzes/quiz-audio.js';
 import { assertTransition } from './session-state.service.js';
 import { resolvePrizeConfig } from '../prizes/prize-config.service.js';
 import { resolvePrizesPayload } from '../prizes/prize-display.service.js';
 import { getEngine } from '../games/engine-registry.js';
 import { ensureGameForQuiz } from '../games/games.service.js';
+import { resolveRoundThemeQuiz, shapeThemePayload } from './session-content.service.js';
 import type { RoundEndedPayload, RoundInfo } from '@quiz-app/validation';
 import type {
   Audience,
@@ -25,13 +24,23 @@ import type {
 
 /**
  * Plateforme d'exécution des séances : registre en mémoire, cycle de vie (lancement, pause,
- * reprise, abandon, son, fin avec classement et lots), réhydratation au démarrage et
- * construction du RoundContext de la manche active. Ce qui se passe pendant une manche
- * appartient au moteur de jeu (`modules/games/engines/<clé>`).
+ * reprise, abandon, son, fin avec classement et lots), enchaînement des manches (B5),
+ * réhydratation au démarrage et construction du RoundContext de la manche active. Ce qui se
+ * passe pendant une manche appartient au moteur de jeu (`modules/games/engines/<clé>`).
+ *
+ * Enchaînement : à la fin d'une manche (finish() du moteur, ou « passer la manche »), la
+ * plateforme émet `round:ended` ; s'il reste une manche en attente, elle attend
+ * ROUND_INTERLUDE_MS (entracte, gelé par la pause), puis émet `session:theme_changed` et
+ * `round:started` et démarre la manche suivante ; sinon elle termine la séance.
  */
 
 /** Écriture regroupée de l'ensemble des participants d'une manche. */
 const PARTICIPANTS_FLUSH_MS = 1000;
+
+/** Durée de l'entracte entre deux manches (classement de fin de manche affiché). */
+export function getRoundInterludeMs(): number {
+  return parseInt(process.env.ROUND_INTERLUDE_MS ?? '8000', 10);
+}
 
 export interface RuntimePlayerMeta {
   pseudo: string;
@@ -66,14 +75,27 @@ interface ActiveRound {
   cancelTimers: () => void;
 }
 
+/** Entracte entre deux manches. `handle` null : gelé (pause), `remainingMs` restant. */
+interface Interlude {
+  handle: ReturnType<typeof setTimeout> | null;
+  endsAt: number | null;
+  remainingMs: number;
+}
+
 interface RunningSession {
   sessionId: bigint;
   cinemaId: bigint;
   audioMuted: boolean;
+  /** Séance en pause (miroir de sessions.state, pour l'entracte et une manche lancée en pause). */
+  paused: boolean;
   players: Map<string, RoundPlayerMeta>;
   /** Étape courante de la manche (numéro de question du quiz), miroir de current_question_position. */
   progress: number | null;
+  /** Manche en cours, ou la dernière terminée pendant l'entracte (`finished`). */
   active: ActiveRound | null;
+  interlude: Interlude | null;
+  /** Dernier `round:ended` (repris par les snapshots pendant l'entracte). */
+  lastRoundEnded: RoundEndedPayload | null;
 }
 
 const runningSessions = new Map<string, RunningSession>();
@@ -141,10 +163,11 @@ type RoundRow = Prisma.SessionRoundGetPayload<{ include: typeof ROUND_INCLUDE }>
  * Manche 1 de la séance. Les séances créées hors de `sessionsService.create` (tests, données
  * anciennes) n'en ont pas : on la crée à la volée depuis le quiz de la séance (convention 9).
  */
-async function ensureFirstRound(sessionId: bigint, quizId: bigint): Promise<RoundRow> {
+async function ensureFirstRound(sessionId: bigint, quizId: bigint | null): Promise<RoundRow> {
   const where = { sessionId_position: { sessionId, position: 1 } };
   const existing = await prisma.sessionRound.findUnique({ where, include: ROUND_INCLUDE });
   if (existing) return existing;
+  if (quizId === null) throw new AppError('Session has no round', 409, 'SESSION_HAS_NO_ROUND');
   try {
     return await prisma.$transaction(async (tx) => {
       const game = await ensureGameForQuiz(quizId, tx);
@@ -215,7 +238,13 @@ async function flushRoundState(active: ActiveRound): Promise<void> {
   await active.writeChain;
 }
 
+function clearInterlude(rs: RunningSession) {
+  if (rs.interlude?.handle) clearTimeout(rs.interlude.handle);
+  rs.interlude = null;
+}
+
 function disposeActiveRound(rs: RunningSession) {
+  clearInterlude(rs);
   const active = rs.active;
   if (!active) return;
   clearParticipantsFlush(active);
@@ -389,7 +418,7 @@ async function startActiveRound(rs: RunningSession, active: ActiveRound) {
 /** Classement de fin de manche : joueurs actifs, points marqués pendant la manche. */
 async function buildRoundEnded(
   rs: RunningSession,
-  active: ActiveRound,
+  round: { roundId: bigint; position: number; totalRounds: number },
 ): Promise<RoundEndedPayload> {
   const [players, sums] = await Promise.all([
     prisma.player.findMany({
@@ -399,15 +428,15 @@ async function buildRoundEnded(
     }),
     prisma.scoreEvent.groupBy({
       by: ['playerId'],
-      where: { roundId: active.roundId },
+      where: { roundId: round.roundId },
       _sum: { points: true },
     }),
   ]);
   const thisRound = new Map(sums.map((s) => [s.playerId.toString(), s._sum.points ?? 0]));
   return {
-    roundId: active.info.roundId,
-    position: active.info.position,
-    totalRounds: active.info.totalRounds,
+    roundId: round.roundId.toString(),
+    position: round.position,
+    totalRounds: round.totalRounds,
     scoreboard: players.map((p) => ({
       playerId: p.id.toString(),
       pseudo: p.pseudo,
@@ -416,6 +445,32 @@ async function buildRoundEnded(
       scoreThisRound: thisRound.get(p.id.toString()) ?? 0,
     })),
   };
+}
+
+/**
+ * Clôt la manche active (`ended` en fin normale, `skipped` si le cinéma la passe) et émet
+ * `round:ended` avec le classement (points de la manche = somme de ses ScoreEvent).
+ */
+async function closeRound(
+  rs: RunningSession,
+  active: ActiveRound,
+  state: 'ended' | 'skipped',
+): Promise<void> {
+  active.finished = true;
+  active.round?.dispose();
+  active.cancelTimers();
+  await flushRoundState(active);
+  await prisma.sessionRound.update({
+    where: { id: active.roundId },
+    data: { state, endedAt: new Date() },
+  });
+  const payload = await buildRoundEnded(rs, {
+    roundId: active.roundId,
+    position: active.info.position,
+    totalRounds: active.info.totalRounds,
+  });
+  rs.lastRoundEnded = payload;
+  broadcastToSession(rs.sessionId, 'round:ended', payload);
 }
 
 /** Fin de manche signalée par le moteur (une seule fois). */
@@ -427,23 +482,143 @@ async function finishRound(rs: RunningSession, active: ActiveRound): Promise<voi
     );
     return;
   }
-  active.finished = true;
-  active.round?.dispose();
-  await flushRoundState(active);
-  await prisma.sessionRound.update({
-    where: { id: active.roundId },
-    data: { state: 'ended', endedAt: new Date() },
-  });
-  broadcastToSession(rs.sessionId, 'round:ended', await buildRoundEnded(rs, active));
+  await closeRound(rs, active, 'ended');
   await advanceOrEnd(rs.sessionId);
 }
 
 /**
- * Point d'extension des séances à plusieurs manches (B5) : après la fin d'une manche,
- * lance la suivante ou termine la séance. Une séance n'a qu'une manche pour l'instant.
+ * Après la fin d'une manche : s'il reste une manche en attente, entracte puis manche suivante ;
+ * sinon fin de la séance. Sans effet si la séance n'est plus en mémoire (abandonnée).
  */
 export async function advanceOrEnd(sessionId: bigint): Promise<void> {
-  await endSessionInternal(sessionId);
+  const rs = runningSessions.get(sessionKey(sessionId));
+  if (!rs) return;
+  const next = await prisma.sessionRound.findFirst({
+    where: { sessionId, state: 'pending' },
+    orderBy: { position: 'asc' },
+    select: { id: true },
+  });
+  if (runningSessions.get(sessionKey(sessionId)) !== rs) return;
+  if (!next) {
+    await endSessionInternal(sessionId);
+    return;
+  }
+  startInterlude(rs, getRoundInterludeMs());
+}
+
+function armInterlude(rs: RunningSession) {
+  const interlude = rs.interlude;
+  if (!interlude || interlude.handle) return;
+  interlude.endsAt = Date.now() + interlude.remainingMs;
+  interlude.handle = setTimeout(() => {
+    rs.interlude = null;
+    launchNextRound(rs).catch((err: unknown) => {
+      logger.error({ err, sessionId: rs.sessionId.toString() }, 'Launching next round failed');
+    });
+  }, interlude.remainingMs);
+}
+
+/** Entracte : la manche suivante part après `ms` (gelé tant que la séance est en pause). */
+function startInterlude(rs: RunningSession, ms: number) {
+  clearInterlude(rs);
+  rs.interlude = { handle: null, endsAt: null, remainingMs: Math.max(0, ms) };
+  if (!rs.paused) armInterlude(rs);
+}
+
+function freezeInterlude(rs: RunningSession) {
+  const interlude = rs.interlude;
+  if (!interlude?.handle) return;
+  clearTimeout(interlude.handle);
+  interlude.handle = null;
+  interlude.remainingMs = Math.max(0, (interlude.endsAt ?? Date.now()) - Date.now());
+  interlude.endsAt = null;
+}
+
+/**
+ * Lance la première manche en attente : création du moteur, `session:theme_changed` (habillage
+ * de la manche), `round:started` puis start(). Un joueur arrivé pendant la manche précédente
+ * participe normalement à celle-ci. Jeu impossible à lancer (ex. quiz vidé depuis) : la manche
+ * passe en `skipped` et la suivante est tentée.
+ */
+async function launchNextRound(rs: RunningSession): Promise<void> {
+  const key = sessionKey(rs.sessionId);
+  if (runningSessions.get(key) !== rs) return;
+  clearInterlude(rs);
+  const row = await prisma.sessionRound.findFirst({
+    where: { sessionId: rs.sessionId, state: 'pending' },
+    orderBy: { position: 'asc' },
+    include: ROUND_INCLUDE,
+  });
+  if (runningSessions.get(key) !== rs) return;
+  if (!row) {
+    await endSessionInternal(rs.sessionId);
+    return;
+  }
+
+  for (const meta of rs.players.values()) meta.joinedDuringRound = false;
+
+  let active: ActiveRound;
+  try {
+    active = await createActiveRound(rs, row);
+  } catch (err) {
+    logger.error(
+      { err, sessionId: rs.sessionId.toString(), roundId: row.id.toString() },
+      'Round could not be created: skipped',
+    );
+    logEvent({
+      level: 'error',
+      eventType: 'session.round_skipped',
+      sessionId: rs.sessionId,
+      cinemaId: rs.cinemaId,
+      payload: {
+        roundId: row.id.toString(),
+        position: row.position,
+        reason: err instanceof AppError ? err.code : 'round_create_failed',
+      },
+    });
+    await prisma.sessionRound.update({
+      where: { id: row.id },
+      data: { state: 'skipped', endedAt: new Date() },
+    });
+    await launchNextRound(rs);
+    return;
+  }
+  if (runningSessions.get(key) !== rs) {
+    active.round?.dispose();
+    active.cancelTimers();
+    return;
+  }
+
+  rs.active = active;
+  rs.progress = null;
+  rs.lastRoundEnded = null;
+  await prisma.$transaction([
+    prisma.sessionRound.update({
+      where: { id: row.id },
+      data: { state: 'running', startedAt: new Date() },
+    }),
+    // Nouvelle manche : aucune étape en cours (un retardataire n'est pas bloqué par l'étape de
+    // la manche précédente).
+    prisma.session.update({
+      where: { id: rs.sessionId },
+      data: { currentQuestionPosition: null },
+    }),
+  ]);
+
+  broadcastToSession(
+    rs.sessionId,
+    'session:theme_changed',
+    await shapeThemePayload(await resolveRoundThemeQuiz(rs.sessionId, row.id)),
+  );
+
+  logger.info(
+    { sessionId: rs.sessionId.toString(), position: row.position, engine: active.engineKey },
+    'Round started',
+  );
+
+  // Mise en pause pendant la création : la manche démarre en pause.
+  if (rs.paused) await active.round!.pause();
+  await startActiveRound(rs, active);
 }
 
 async function endSessionInternal(sessionId: bigint) {
@@ -558,43 +733,68 @@ type RehydrateSessionRow = Prisma.SessionGetPayload<{
 
 async function rehydrateSession(session: RehydrateSessionRow) {
   const sessionId = session.id;
-  const row = await ensureFirstRound(sessionId, session.quizId);
-
-  if (row.state === 'ended' || row.state === 'skipped') {
-    // Arrêt entre la fin de la manche et la fin de la séance : on termine la séance.
-    await advanceOrEnd(sessionId);
-    return;
-  }
+  await ensureFirstRound(sessionId, session.quizId);
+  const rounds = await prisma.sessionRound.findMany({
+    where: { sessionId },
+    orderBy: { position: 'asc' },
+    include: ROUND_INCLUDE,
+  });
+  const running = rounds.find((r) => r.state === 'running');
+  const pending = rounds.find((r) => r.state === 'pending');
 
   const rs: RunningSession = {
     sessionId,
     cinemaId: session.screen.cinemaId,
     audioMuted: session.audioMuted,
+    paused: session.state === 'paused',
     players: await loadActivePlayers(sessionId),
     progress: session.currentQuestionPosition,
     active: null,
+    interlude: null,
+    lastRoundEnded: null,
   };
-  const { participants, engine } = splitRoundState(row.stateJson);
-  const active = await createActiveRound(rs, row, {
-    stateJson: engine,
-    interruptedAt: new Date(),
-    participants,
-  });
-  rs.active = active;
 
-  if (row.state === 'pending') {
-    await prisma.sessionRound.update({
-      where: { id: row.id },
-      data: { state: 'running', startedAt: session.startedAt ?? new Date() },
-    });
+  if (!running && !pending) {
+    // Arrêt entre la fin de la dernière manche et la fin de la séance : on termine la séance.
+    runningSessions.set(sessionKey(sessionId), rs);
+    await endSessionInternal(sessionId);
+    return;
   }
 
-  runningSessions.set(sessionKey(sessionId), rs);
+  if (running) {
+    // Manche en cours : reprise avec son state_json.
+    const { participants, engine } = splitRoundState(running.stateJson);
+    const active = await createActiveRound(rs, running, {
+      stateJson: engine,
+      interruptedAt: new Date(),
+      participants,
+    });
+    rs.active = active;
+    runningSessions.set(sessionKey(sessionId), rs);
 
-  // Séance en pause : la manche reprend en pause (une question interrompue est tout de même
-  // close et notée), la suite attend la reprise par le projectionniste.
-  if (session.state === 'paused') await active.round!.pause();
-  await startActiveRound(rs, active);
+    // Séance en pause : la manche reprend en pause (une question interrompue est tout de même
+    // close et notée), la suite attend la reprise par le projectionniste.
+    if (rs.paused) await active.round!.pause();
+    await startActiveRound(rs, active);
+    return;
+  }
+
+  // Aucune manche en cours, il en reste : arrêt pendant l'entracte (ou avant la manche 1).
+  runningSessions.set(sessionKey(sessionId), rs);
+  const previous = [...rounds].reverse().find((r) => r.position < pending!.position);
+  if (previous) {
+    rs.lastRoundEnded = await buildRoundEnded(rs, {
+      roundId: previous.id,
+      position: previous.position,
+      totalRounds: rounds.length,
+    });
+  }
+  if (rs.paused) {
+    // Entracte gelé : la manche suivante part à la reprise.
+    startInterlude(rs, previous ? getRoundInterludeMs() : 0);
+    return;
+  }
+  await launchNextRound(rs);
 }
 
 /** Reconstruit en mémoire les séances interrompues par un redémarrage du serveur. */
@@ -664,10 +864,7 @@ export function getSessionRuntime() {
     async start(sessionId: bigint) {
       const session = await prisma.session.findUnique({
         where: { id: sessionId },
-        include: {
-          screen: { select: { cinemaId: true } },
-          quiz: { include: { questions: { select: { id: true } } } },
-        },
+        include: { screen: { select: { cinemaId: true } } },
       });
       if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
 
@@ -678,9 +875,12 @@ export function getSessionRuntime() {
         sessionId,
         cinemaId: session.screen.cinemaId,
         audioMuted: false,
+        paused: false,
         players: new Map(),
         progress: null,
         active: null,
+        interlude: null,
+        lastRoundEnded: null,
       };
       // Le moteur charge son contenu et refuse un jeu vide (QUIZ_EMPTY) avant tout changement.
       const active = await createActiveRound(rs, row);
@@ -711,11 +911,10 @@ export function getSessionRuntime() {
         if (!rs.players.has(id)) rs.players.set(id, meta);
       }
 
-      const totalQuestions = session.quiz.questions.length;
+      // Habillage et sons : jeu de la manche 1 (B5).
       broadcastToSession(sessionId, 'session:started', {
         sessionId: sessionId.toString(),
-        quiz: shapeQuizBackgroundPayload(session.quiz),
-        audio: await resolveQuizAudioPayload(session.quiz),
+        ...(await shapeThemePayload(await resolveRoundThemeQuiz(sessionId, row.id))),
       });
 
       broadcastToSession(sessionId, 'session:state_changed', {
@@ -731,7 +930,13 @@ export function getSessionRuntime() {
         eventType: 'session.started',
         sessionId,
         cinemaId: session.screen.cinemaId,
-        payload: { totalQuestions },
+        payload: {
+          totalRounds: active.info.totalRounds,
+          totalQuestions:
+            row.game.quizId !== null
+              ? await prisma.question.count({ where: { quizId: row.game.quizId } })
+              : 0,
+        },
       });
 
       await startActiveRound(rs, active);
@@ -743,6 +948,8 @@ export function getSessionRuntime() {
       assertTransition(session.state, 'paused');
 
       const rs = getRunning(sessionId);
+      rs.paused = true;
+      freezeInterlude(rs);
       await rs.active?.round?.pause();
 
       await prisma.session.update({
@@ -768,6 +975,8 @@ export function getSessionRuntime() {
       assertTransition(session.state, 'running');
 
       const rs = getRunning(sessionId);
+      rs.paused = false;
+      armInterlude(rs);
       await rs.active?.round?.resume();
 
       await prisma.session.update({
@@ -791,6 +1000,44 @@ export function getSessionRuntime() {
     async forceAdvance(sessionId: bigint) {
       const rs = getRunning(sessionId);
       await rs.active?.round?.forceAdvance();
+    },
+
+    /**
+     * « Passer à la manche suivante » : la manche en cours passe en `skipped` (points déjà
+     * marqués conservés), puis enchaînement normal (entracte, manche suivante ou fin). Pendant
+     * l'entracte : la manche suivante part tout de suite.
+     */
+    async skipRound(sessionId: bigint) {
+      const rs = getRunning(sessionId);
+      const session = await prisma.session.findUnique({
+        where: { id: sessionId },
+        select: { state: true },
+      });
+      if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
+      if (session.state !== 'running') {
+        throw new AppError('Session is not running', 409, 'SESSION_NOT_RUNNING');
+      }
+      if (rs.interlude) {
+        await launchNextRound(rs);
+        return;
+      }
+      const active = rs.active;
+      if (!active?.round || !active.started || active.finished) {
+        throw new AppError('No active round', 409, 'NO_ACTIVE_ROUND');
+      }
+      logger.info(
+        { sessionId: sessionId.toString(), position: active.position },
+        'Round skipped by the cinema',
+      );
+      logEvent({
+        level: 'info',
+        eventType: 'session.round_skipped',
+        sessionId,
+        cinemaId: rs.cinemaId,
+        payload: { roundId: active.roundId.toString(), position: active.position, reason: 'skip' },
+      });
+      await closeRound(rs, active, 'skipped');
+      await advanceOrEnd(sessionId);
     },
 
     async abortSession(sessionId: bigint, reason?: string) {
@@ -904,15 +1151,23 @@ export function getSessionRuntime() {
      * courante du destinataire (`round.snapshot`) et le `seq` de sa dernière vue émise.
      */
     roundSnapshot(sessionId: bigint, audience: Audience, playerId?: bigint): RoundSnapshotFields {
-      const active = runningSessions.get(sessionKey(sessionId))?.active;
+      const rs = runningSessions.get(sessionKey(sessionId));
+      const active = rs?.active;
       if (!active?.round || !active.started || active.finished) {
-        return { round: null, gameView: null, gameSeq: 0 };
+        // Entracte : le classement de la manche terminée (écrans de fin de manche).
+        return { round: null, gameView: null, gameSeq: 0, roundEnded: rs?.lastRoundEnded ?? null };
       }
       return {
         round: active.info,
         gameView: active.round.snapshot(audience, playerId),
         gameSeq: active.seq.get(seqKey(audience, playerId)) ?? 0,
+        roundEnded: null,
       };
+    },
+
+    /** Manche en cours, ou dernière terminée pendant l'entracte (habillage d'écran), ou null. */
+    currentRoundId(sessionId: bigint): bigint | null {
+      return runningSessions.get(sessionKey(sessionId))?.active?.roundId ?? null;
     },
 
     isRunning(sessionId: bigint): boolean {
@@ -936,4 +1191,6 @@ export interface RoundSnapshotFields {
   round: RoundInfo | null;
   gameView: unknown;
   gameSeq: number;
+  /** Pendant l'entracte : le `round:ended` de la manche terminée ; sinon null. */
+  roundEnded: RoundEndedPayload | null;
 }

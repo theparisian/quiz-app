@@ -7,6 +7,7 @@ import { containsBadWord } from '../../shared/moderation/bad-words.js';
 import { getSessionRuntime } from '../sessions/session-runtime.service.js';
 import { notifyLobbyPlayerJoined } from '../sessions/lobby-timer.service.js';
 import { buildPlayerJoinSnapshot } from '../sessions/session-resume.service.js';
+import { resolveLobbyQuiz } from '../sessions/session-content.service.js';
 import type { JoinSessionInput } from './players.schemas.js';
 
 function normalizePseudo(raw: string): string {
@@ -69,7 +70,6 @@ export function maxPlayersForCapacity(capacity: number | null): number {
 
 const JOIN_SESSION_INCLUDE = {
   screen: { select: { cinemaId: true, capacity: true } },
-  quiz: { select: { avatarsEnabled: true, avatarLibraryId: true } },
 } as const;
 
 export const playersService = {
@@ -126,9 +126,11 @@ export const playersService = {
       ? resolveJoinedQuestionPositionAtJoin(session, session.id)
       : null;
 
+    // Avatars : configuration du jeu de la première manche (lobby, B5).
+    const lobbyQuiz = await resolveLobbyQuiz(session.id);
     const { avatarId, avatarUrl } = await resolveAvatarForJoin(
-      session.quiz.avatarsEnabled,
-      session.quiz.avatarLibraryId,
+      lobbyQuiz?.avatarsEnabled ?? false,
+      lobbyQuiz?.avatarLibraryId ?? null,
       input.avatarId,
     );
 

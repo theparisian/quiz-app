@@ -1,7 +1,6 @@
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import { shapeQuizBackgroundPayload } from '../quizzes/quiz-background.js';
-import { resolveQuizAudioPayload } from '../quizzes/quiz-audio.js';
+import { resolveRoundThemeQuiz, shapeThemePayload } from './session-content.service.js';
 import { getSessionRuntime } from './session-runtime.service.js';
 import { getLobbyTimerRemainingMs } from './lobby-timer.service.js';
 import {
@@ -69,7 +68,6 @@ async function prizeAvailabilityByRank(sessionId: bigint): Promise<Record<string
 async function loadSession(sessionId: bigint) {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
-    include: { quiz: true },
   });
   if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
   return session;
@@ -192,9 +190,11 @@ export async function buildNucStateSnapshot(params: {
       audioMuted: session.audioMuted,
     },
     audioMuted: session.audioMuted,
-    // Habillage et sons de la séance (plateforme : lobby, musique, fin).
-    quiz: shapeQuizBackgroundPayload(session.quiz),
-    audio: await resolveQuizAudioPayload(session.quiz),
+    // Habillage et sons de la séance (plateforme : lobby, musique, fin) : jeu de la manche en
+    // cours s'il a un quiz, sinon celui de la première manche (B5).
+    ...(await shapeThemePayload(
+      await resolveRoundThemeQuiz(session.id, getSessionRuntime().currentRoundId(session.id)),
+    )),
     players: byArrival.map(playerListEntry),
     scoreboard: ranked.slice(0, session.state === 'ended' ? 3 : 5).map(boardEntry),
     ...lobbyTimerField(session.id, session.state),

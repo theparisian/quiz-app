@@ -11,6 +11,7 @@ import { useNucStore } from '@/lib/stores/nuc-store';
  */
 const SESSION_EVENTS = [
   'session:started',
+  'session:theme_changed',
   'session:paused',
   'session:resumed',
   'session:audio_muted',

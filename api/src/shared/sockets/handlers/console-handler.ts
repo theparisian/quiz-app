@@ -227,6 +227,21 @@ export function setupConsoleHandlers(io: Server): void {
       }
     });
 
+    // B5 : la manche en cours passe en `skipped`, puis enchaînement normal.
+    socket.on('console:skip_round', async () => {
+      const cd = socket.data as SocketConsoleData | undefined;
+      if (!cd || cd.type !== 'console') return;
+      try {
+        await getSessionRuntime().skipRound(cd.sessionId);
+      } catch (err: unknown) {
+        const error = err as { code?: string; message?: string };
+        socket.emit('error', {
+          code: error.code ?? 'SKIP_ROUND_ERROR',
+          message: error.message ?? 'Failed to skip round',
+        });
+      }
+    });
+
     socket.on('console:abort', async (data: unknown) => {
       const cd = socket.data as SocketConsoleData | undefined;
       if (!cd || cd.type !== 'console') return;

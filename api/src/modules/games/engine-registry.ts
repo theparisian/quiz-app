@@ -11,6 +11,11 @@ export function registerEngine(engine: GameEngine): void {
   engines.set(engine.key, engine);
 }
 
+/** Un moteur est enregistré pour cette clé. */
+export function hasEngine(key: string): boolean {
+  return engines.has(key);
+}
+
 export function getEngine(key: string): GameEngine {
   const engine = engines.get(key);
   if (!engine) throw new AppError(`Unknown game engine: ${key}`, 500, 'ENGINE_NOT_FOUND');

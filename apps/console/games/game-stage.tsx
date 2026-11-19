@@ -1,12 +1,12 @@
 'use client';
 
-import { useLiveSessionStore } from '@/lib/stores/live-session-store';
+import { selectRoundContent, useLiveSessionStore } from '@/lib/stores/live-session-store';
 import { getGameRenderer } from './registry';
 import UnknownGame from './unknown-game';
 
 /**
  * Zone de jeu de la console : choisit le composant du moteur (`round.engineKey`) et lui passe
- * la dernière vue validée, plus le contenu authentifié de la séance (`GET /:id/full`). Vue
+ * la dernière vue validée, plus le contenu authentifié de la manche active (`GET /:id/full`). Vue
  * invalide ou moteur inconnu : repli sobre (le store a déjà signalé le problème à Sentry).
  */
 export function GameStage() {
@@ -14,7 +14,7 @@ export function GameStage() {
   const gameView = useLiveSessionStore((s) => s.gameView);
   const gameViewInvalid = useLiveSessionStore((s) => s.gameViewInvalid);
   const clockOffsetMs = useLiveSessionStore((s) => s.clockOffsetMs);
-  const content = useLiveSessionStore((s) => s.quiz);
+  const content = useLiveSessionStore(selectRoundContent);
 
   if (!round) return null;
   const Renderer = getGameRenderer(round.engineKey);

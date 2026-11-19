@@ -3,6 +3,7 @@ import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import type { AuthUser } from '../../shared/auth/middleware.js';
 import { endOfTodayParisExclusive, startOfTodayParis } from '../../shared/time/paris-calendar.js';
+import { FIRST_ROUND_SELECT, sessionTitle } from '../sessions/session-content.service.js';
 
 /** `null` = pas de restriction (super_admin). Sinon filtre tenant. */
 export type CinemaScope = bigint | null;
@@ -208,7 +209,8 @@ export const dashboardService = {
         totalPlayers: true,
         createdAt: true,
         winnerPlayerId: true,
-        quiz: { select: { title: true } },
+        quiz: { select: { title: true, slug: true } },
+        rounds: FIRST_ROUND_SELECT,
         screen: {
           select: {
             name: true,
@@ -233,7 +235,7 @@ export const dashboardService = {
         id: r.id.toString(),
         cinemaName: r.screen.cinema.name,
         screenName: r.screen.name,
-        quizTitle: r.quiz.title,
+        quizTitle: sessionTitle(r).title,
         totalPlayers: r.totalPlayers,
         state: r.state,
         createdAt: r.createdAt.toISOString(),

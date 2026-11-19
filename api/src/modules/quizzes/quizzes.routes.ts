@@ -116,6 +116,7 @@ export function shapeQuizSummary(item: {
   status: string;
   language: string;
   coverImageUrl: string | null;
+  durationEstimateSeconds: number | null;
   createdAt: Date;
   sponsor: { slug: string; name: string } | null;
   createdBy: { id: bigint; displayName: string | null; email: string | null };
@@ -129,6 +130,8 @@ export function shapeQuizSummary(item: {
     status: item.status,
     language: item.language,
     coverImageUrl: item.coverImageUrl,
+    // Durée totale estimée des séances à plusieurs manches (console, B5).
+    durationEstimateSeconds: item.durationEstimateSeconds,
     createdAt: item.createdAt.toISOString(),
     sponsor: item.sponsor,
     createdBy: {

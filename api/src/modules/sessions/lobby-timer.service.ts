@@ -4,6 +4,7 @@ import { prisma } from '../../shared/db/index.js';
 import { logger } from '../../shared/logger/index.js';
 import { logEvent } from '../../shared/events/event-log.service.js';
 import { getSessionRuntime } from './session-runtime.service.js';
+import { resolveLobbyQuiz } from './session-content.service.js';
 
 const BROADCAST_INTERVAL_MS = 1000;
 const SESSION_NAMESPACES = ['/player', '/console', '/mobile'] as const;
@@ -177,15 +178,16 @@ export async function rehydrateLobbyTimers(): Promise<void> {
     select: {
       id: true,
       createdAt: true,
-      quiz: { select: { brandingJson: true } },
       _count: { select: { players: { where: { status: 'active' } } } },
     },
   });
 
   for (const s of sessions) {
+    // Configuration du jeu de la première manche (B5).
+    const lobbyQuiz = await resolveLobbyQuiz(s.id);
     startLobbyTimer({
       sessionId: s.id,
-      brandingJson: s.quiz.brandingJson,
+      brandingJson: lobbyQuiz?.brandingJson ?? null,
       createdAt: s.createdAt,
       currentPlayers: s._count.players,
     });

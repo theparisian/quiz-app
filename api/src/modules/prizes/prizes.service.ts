@@ -13,6 +13,7 @@ import {
   enqueuePrizeEmail,
   sendPrizeEmailNow,
 } from '../../shared/email/prize-email-queue.service.js';
+import { FIRST_ROUND_SELECT, sessionTitle } from '../sessions/session-content.service.js';
 
 function prizeNotConfiguredMessage(isConsolationAttempt: boolean): string {
   if (isConsolationAttempt) {
@@ -308,7 +309,8 @@ export const prizesService = {
             select: {
               endedAt: true,
               slugShort: true,
-              quiz: { select: { title: true } },
+              quiz: { select: { title: true, slug: true } },
+              rounds: FIRST_ROUND_SELECT,
             },
           },
         },
@@ -336,7 +338,7 @@ export const prizesService = {
           playerPseudo: p.player.pseudo,
           playerEmail: p.player.emailForPrize,
           sessionSlugShort: p.session.slugShort,
-          quizTitle: p.session.quiz.title,
+          quizTitle: sessionTitle(p.session).title,
           sessionEndedAt: p.session.endedAt?.toISOString() ?? null,
           redeemFullUrl,
         };

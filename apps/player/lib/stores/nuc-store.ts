@@ -236,7 +236,11 @@ function validateView(
 /** Champs de manche d'un snapshot (`round`, `gameView`, `gameSeq`, règle 5). */
 function roundFieldsFromSnapshot(snap: Record<string, unknown>): RoundFields {
   const parsedRound = roundInfoSchema.safeParse(snap.round);
-  if (!parsedRound.success) return { ...EMPTY_ROUND };
+  if (!parsedRound.success) {
+    // Entracte entre deux manches : le classement de la manche terminée (B5).
+    const ended = roundEndedSchema.safeParse(snap.roundEnded);
+    return { ...EMPTY_ROUND, roundScoreboard: ended.success ? ended.data : null };
+  }
   const round = parsedRound.data;
   const gameSeq =
     typeof snap.gameSeq === 'number' && Number.isInteger(snap.gameSeq) && snap.gameSeq >= 0
@@ -264,12 +268,16 @@ function isTerminal(ui: NucUiState): boolean {
  * directeur audio (musique), pour qu'ils ne divergent jamais.
  */
 export function selectScreenDisplay(
-  s: Pick<NucState, 'uiState' | 'round' | 'gameView' | 'gameViewInvalid'>,
+  s: Pick<NucState, 'uiState' | 'round' | 'gameView' | 'gameViewInvalid' | 'roundScoreboard'>,
 ): NucDisplay {
   if (s.uiState !== 'game') return s.uiState;
   if (s.gameViewInvalid || s.gameView == null || !s.round) return 'game';
   const rules = getScreenRules(s.round.engineKey);
-  return rules?.showsLobby(s.gameView) ? 'lobby' : 'game';
+  if (!rules?.showsLobby(s.gameView)) return 'game';
+  // Le lobby n'appartient qu'à la première manche ; ensuite le classement de la manche
+  // précédente reste affiché jusqu'au jeu (B5).
+  if (s.round.position > 1) return s.roundScoreboard ? 'round_end' : 'game';
+  return 'lobby';
 }
 
 const initialState = {
@@ -433,8 +441,16 @@ export const useNucStore = create<NucState>((set, get) => ({
         });
         return;
       default:
-        // running / paused : la manche en cours, ou le lobby tant qu'aucune vue n'existe.
-        set({ ...base, uiState: hasGame(roundFields) ? 'game' : 'lobby' });
+        // running / paused : la manche en cours, le classement de l'entracte entre deux
+        // manches, ou le lobby tant qu'aucune vue n'existe.
+        set({
+          ...base,
+          uiState: hasGame(roundFields)
+            ? 'game'
+            : roundFields.roundScoreboard
+              ? 'round_end'
+              : 'lobby',
+        });
     }
   },
 
@@ -450,6 +466,11 @@ export const useNucStore = create<NucState>((set, get) => ({
           audio: readAudio(p) ?? state.audio,
           ...readQuizBackground(p),
         });
+        break;
+
+      case 'session:theme_changed':
+        // Manche suivante (B5) : habillage et sons de son jeu, sans changer l'écran affiché.
+        set({ audio: readAudio(p) ?? state.audio, ...readQuizBackground(p) });
         break;
 
       case 'session:lobby_timer_update':
@@ -481,11 +502,12 @@ export const useNucStore = create<NucState>((set, get) => ({
       case 'round:started': {
         const parsed = roundInfoSchema.safeParse(payload);
         if (!parsed.success) return;
-        // Nouvelle manche : la vue précédente et son seq n'ont plus de sens.
+        // Nouvelle manche : la vue précédente et son seq n'ont plus de sens. Le classement de la
+        // manche précédente reste affiché pendant le compte à rebours (`selectScreenDisplay`).
         if (state.round?.roundId === parsed.data.roundId) {
           set({ round: parsed.data });
         } else {
-          set({ ...EMPTY_ROUND, round: parsed.data });
+          set({ ...EMPTY_ROUND, round: parsed.data, roundScoreboard: state.roundScoreboard });
         }
         break;
       }

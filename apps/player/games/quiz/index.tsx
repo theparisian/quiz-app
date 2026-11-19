@@ -283,7 +283,9 @@ export default function QuizScreenGame({ view, clockOffsetMs }: GameRendererProp
 
             {countdown !== null && (
               <div className="pb-8 text-center text-xl text-gray-400">
-                Question suivante dans {countdown}...
+                {reveal.questionIndex + 1 >= reveal.totalQuestions
+                  ? `Résultats dans ${countdown}...`
+                  : `Question suivante dans ${countdown}...`}
               </div>
             )}
           </div>

@@ -6,7 +6,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { useLiveSession } from '@/hooks/use-live-session';
-import { useLiveSessionStore, type SessionFullResponse } from '@/lib/stores/live-session-store';
+import {
+  selectInterlude,
+  useLiveSessionStore,
+  type SessionFullResponse,
+} from '@/lib/stores/live-session-store';
 import { GameStage } from '@/games/game-stage';
 import { LobbyView } from './lobby-view';
 import { LiveHeader } from './live-header';
@@ -15,6 +19,8 @@ import { ControlsPanel } from './controls-panel';
 import { EndedView } from './ended-view';
 import { AbortedView } from './aborted-view';
 import { ConfirmAbortModal } from '../confirm-abort-modal';
+import { ConfirmSkipRoundModal } from '../confirm-skip-round-modal';
+import { InterludeView } from './interlude-view';
 import { LiveConnectionBanner } from './connection-banner';
 import { SessionPrizesReminder } from './session-prizes-reminder';
 
@@ -50,11 +56,13 @@ export function LiveConsole({
   const queryClient = useQueryClient();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [abortModalOpen, setAbortModalOpen] = useState(false);
+  const [skipModalOpen, setSkipModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   const state = useLiveSessionStore((s) => s.state);
   const slugShort = useLiveSessionStore((s) => s.slugShort);
   const quiz = useLiveSessionStore((s) => s.quiz);
+  const interlude = useLiveSessionStore(selectInterlude) !== null;
   const hydrateFromSession = useLiveSessionStore((s) => s.hydrateFromSession);
   const reset = useLiveSessionStore((s) => s.reset);
 
@@ -166,12 +174,13 @@ export function LiveConsole({
         {state === 'running' && (
           <div className="space-y-4">
             <LiveHeader onToggleMute={() => doAction(`/api/sessions/${sessionId}/toggle-mute`)} />
-            <GameStage />
+            {interlude ? <InterludeView /> : <GameStage />}
             <PlayersList />
             <ControlsPanel
               onPause={() => doAction(`/api/sessions/${sessionId}/pause`)}
               onResume={() => doAction(`/api/sessions/${sessionId}/resume`)}
               onForceAdvance={() => doAction(`/api/sessions/${sessionId}/force-advance`)}
+              onSkipRound={() => setSkipModalOpen(true)}
               onAbort={() => setAbortModalOpen(true)}
             />
           </div>
@@ -213,6 +222,17 @@ export function LiveConsole({
 
         {state === 'aborted' && <AbortedView onExit={onExit} exitLabel={exitLabel} />}
       </div>
+
+      <ConfirmSkipRoundModal
+        open={skipModalOpen}
+        duringInterlude={interlude}
+        onClose={() => setSkipModalOpen(false)}
+        onConfirm={() => {
+          setSkipModalOpen(false);
+          void doAction(`/api/sessions/${sessionId}/skip-round`);
+        }}
+        loading={actionLoading}
+      />
 
       <ConfirmAbortModal
         open={abortModalOpen}

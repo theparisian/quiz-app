@@ -1,6 +1,8 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../shared/db/index.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import type { AuthUser } from '../../shared/auth/middleware.js';
+import { sessionTitle } from './session-content.service.js';
 
 /**
  * Rapport de session pour l'interface super-admin (case study commercial).
@@ -39,6 +41,8 @@ interface AnswerOptionReport {
 
 interface QuestionReport {
   id: string;
+  /** Manche (quiz) de la question (B5). */
+  roundPosition: number;
   position: number;
   text: string;
   imageUrl: string | null;
@@ -49,6 +53,17 @@ interface QuestionReport {
   correctRate: number | null;
   avgResponseTimeMs: number | null;
   options: AnswerOptionReport[];
+}
+
+interface RoundReport {
+  position: number;
+  gameTitle: string;
+  engineKey: string;
+  state: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  /** Joueurs dont au moins une action a été acceptée pendant la manche (convention 7). */
+  participants: number;
 }
 
 interface PodiumEntry {
@@ -82,11 +97,13 @@ export interface SessionReport {
   };
   completionRate: number | null;
   avgResponseTimeMs: number | null;
+  rounds: RoundReport[];
   questions: QuestionReport[];
+  /** Dans l'ordre de `questions` (même index : la manche est dans `questions[i].roundPosition`). */
   retention: Array<{ position: number; respondents: number }>;
   synthesis: {
-    easiestQuestion: { position: number; text: string; correctRate: number } | null;
-    hardestQuestion: { position: number; text: string; correctRate: number } | null;
+    easiestQuestion: SynthesisQuestion | null;
+    hardestQuestion: SynthesisQuestion | null;
     avgResponseTimeMs: number | null;
   };
   podium: PodiumEntry[];
@@ -102,6 +119,13 @@ export interface SessionReport {
   };
 }
 
+interface SynthesisQuestion {
+  roundPosition: number;
+  position: number;
+  text: string;
+  correctRate: number;
+}
+
 function ratio(numerator: number, denominator: number): number | null {
   if (denominator <= 0) return null;
   return numerator / denominator;
@@ -113,11 +137,49 @@ function mean(values: number[]): number | null {
   return Math.round(sum / values.length);
 }
 
-/** Un joueur est « éligible » à une question s'il était présent à ce moment. */
-function isEligibleForPosition(joinedQuestionPosition: number | null, position: number): boolean {
-  if (joinedQuestionPosition === null) return true; // arrivé au lobby → toutes les questions
-  return joinedQuestionPosition <= position;
+/**
+ * Un joueur est « éligible » à une question s'il était présent à ce moment. Un retardataire
+ * (joinedQuestionPosition non null) arrivé pendant la manche R joue normalement les manches
+ * suivantes ; dans la manche R, les questions à partir de celle de son arrivée.
+ */
+function isEligibleForQuestion(
+  player: { joinedQuestionPosition: number | null; joinedRound: number },
+  roundPosition: number,
+  position: number,
+): boolean {
+  if (player.joinedQuestionPosition === null) return true; // arrivé au lobby → toutes les questions
+  if (roundPosition !== player.joinedRound) return roundPosition > player.joinedRound;
+  return player.joinedQuestionPosition <= position;
 }
+
+/** Nombre de participants enregistrés dans session_rounds.state_json (clé plateforme). */
+function participantsCount(stateJson: unknown): number {
+  if (stateJson && typeof stateJson === 'object' && 'platform' in stateJson) {
+    const platform = (stateJson as { platform?: { participants?: unknown } }).platform;
+    if (Array.isArray(platform?.participants)) return platform.participants.length;
+  }
+  return 0;
+}
+
+const REPORT_QUIZ_SELECT = {
+  id: true,
+  slug: true,
+  title: true,
+  sponsor: { select: { name: true, logoUrl: true } },
+  questions: {
+    orderBy: { position: 'asc' },
+    select: {
+      id: true,
+      position: true,
+      text: true,
+      imageUrl: true,
+      answers: {
+        orderBy: { position: 'asc' },
+        select: { id: true, position: true, text: true, isCorrect: true },
+      },
+    },
+  },
+} satisfies Prisma.QuizSelect;
 
 /**
  * Charge et calcule le rapport complet d'une session terminée (ended ou aborted).
@@ -126,23 +188,17 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
     include: {
-      quiz: {
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          sponsor: { select: { name: true, logoUrl: true } },
-          questions: {
-            orderBy: { position: 'asc' },
+      quiz: { select: REPORT_QUIZ_SELECT },
+      rounds: {
+        orderBy: { position: 'asc' },
+        include: {
+          game: {
             select: {
-              id: true,
-              position: true,
-              text: true,
-              imageUrl: true,
-              answers: {
-                orderBy: { position: 'asc' },
-                select: { id: true, position: true, text: true, isCorrect: true },
-              },
+              title: true,
+              slug: true,
+              engineKey: true,
+              sponsor: { select: { name: true, logoUrl: true } },
+              quiz: { select: REPORT_QUIZ_SELECT },
             },
           },
         },
@@ -157,6 +213,7 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
           pseudo: true,
           scoreTotal: true,
           rankFinal: true,
+          joinedAt: true,
           joinedQuestionPosition: true,
           emailForPrize: true,
           avatar: { select: { imageUrl: true } },
@@ -212,12 +269,45 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
   const lobbyJoined = total - lateJoined;
   const active = answeredPlayerIds.size;
 
+  // ── Manches ──────────────────────────────────────────────────────────────────
+  const rounds: RoundReport[] = session.rounds.map((r) => ({
+    position: r.position,
+    gameTitle: r.game.title,
+    engineKey: r.game.engineKey,
+    state: r.state,
+    startedAt: r.startedAt?.toISOString() ?? null,
+    endedAt: r.endedAt?.toISOString() ?? null,
+    participants: participantsCount(r.stateJson),
+  }));
+
+  // Manche d'arrivée d'un retardataire : la dernière commencée avant son arrivée.
+  const playersWithRound = session.players.map((p) => {
+    let joinedRound = 1;
+    for (const r of session.rounds) {
+      if (r.startedAt && r.startedAt.getTime() <= p.joinedAt.getTime()) joinedRound = r.position;
+    }
+    return { joinedQuestionPosition: p.joinedQuestionPosition, joinedRound };
+  });
+
+  // Questions des manches quiz, dans l'ordre (séance sans manche : quiz de la séance).
+  const quizRounds =
+    session.rounds.length > 0
+      ? session.rounds.flatMap((r) =>
+          r.game.quiz ? [{ roundPosition: r.position, quiz: r.game.quiz }] : [],
+        )
+      : session.quiz
+        ? [{ roundPosition: 1, quiz: session.quiz }]
+        : [];
+  const allQuestions = quizRounds.flatMap((r) =>
+    r.quiz.questions.map((q) => ({ ...q, roundPosition: r.roundPosition })),
+  );
+
   // ── Par question + rétention ─────────────────────────────────────────────────
   const questions: QuestionReport[] = [];
-  const retention: Array<{ position: number; respondents: number }> = [];
+  const retention: SessionReport['retention'] = [];
   const allResponseTimes: number[] = [];
 
-  for (const q of session.quiz.questions) {
+  for (const q of allQuestions) {
     const qAnswers = answersByQuestion.get(q.id.toString()) ?? [];
     const respondents = qAnswers.length;
     const correctCount = qAnswers.filter((a) => a.isCorrect).length;
@@ -226,8 +316,8 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
       .filter((t): t is number => t !== null && t !== undefined);
     for (const t of times) allResponseTimes.push(t);
 
-    const eligible = session.players.filter((p) =>
-      isEligibleForPosition(p.joinedQuestionPosition, q.position),
+    const eligible = playersWithRound.filter((p) =>
+      isEligibleForQuestion(p, q.roundPosition, q.position),
     ).length;
 
     const countByAnswerId = new Map<string, number>();
@@ -239,6 +329,7 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
 
     questions.push({
       id: q.id.toString(),
+      roundPosition: q.roundPosition,
       position: q.position,
       text: q.text,
       imageUrl: q.imageUrl,
@@ -271,9 +362,14 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
   // ── Synthèse ─────────────────────────────────────────────────────────────────
   const ranked = questions
     .filter((q) => q.correctRate !== null)
-    .map((q) => ({ position: q.position, text: q.text, correctRate: q.correctRate as number }));
-  let easiestQuestion: SessionReport['synthesis']['easiestQuestion'] = null;
-  let hardestQuestion: SessionReport['synthesis']['hardestQuestion'] = null;
+    .map((q) => ({
+      roundPosition: q.roundPosition,
+      position: q.position,
+      text: q.text,
+      correctRate: q.correctRate as number,
+    }));
+  let easiestQuestion: SynthesisQuestion | null = null;
+  let hardestQuestion: SynthesisQuestion | null = null;
   if (ranked.length > 0) {
     easiestQuestion = ranked.reduce((best, q) => (q.correctRate > best.correctRate ? q : best));
     hardestQuestion = ranked.reduce((worst, q) => (q.correctRate < worst.correctRate ? q : worst));
@@ -304,6 +400,13 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
   const emailSentCount = session.prizes.filter((p) => p.emailSentAt !== null).length;
   const redeemedCount = session.prizes.filter((p) => p.redeemedAt !== null).length;
 
+  const title = sessionTitle(session);
+  // Sponsor : celui de la première manche sponsorisée (séance sans manche : quiz de la séance).
+  const sponsor =
+    session.rounds.length > 0
+      ? (session.rounds.find((r) => r.game.sponsor !== null)?.game.sponsor ?? null)
+      : (session.quiz?.sponsor ?? null);
+
   return {
     session: {
       id: session.id.toString(),
@@ -312,18 +415,17 @@ export async function buildSessionReport(sessionId: bigint): Promise<SessionRepo
       createdAt: session.createdAt.toISOString(),
       startedAt: session.startedAt?.toISOString() ?? null,
       endedAt: session.endedAt?.toISOString() ?? null,
-      quizTitle: session.quiz.title,
-      quizSlug: session.quiz.slug,
+      quizTitle: title.title,
+      quizSlug: title.slug,
       cinemaName: session.screen.cinema.name,
       cinemaSlug: session.screen.cinema.slug,
       screenName: session.screen.name,
-      sponsor: session.quiz.sponsor
-        ? { name: session.quiz.sponsor.name, logoUrl: session.quiz.sponsor.logoUrl }
-        : null,
+      sponsor: sponsor ? { name: sponsor.name, logoUrl: sponsor.logoUrl } : null,
     },
     players: { total, lobbyJoined, lateJoined, active },
     completionRate,
     avgResponseTimeMs: mean(allResponseTimes),
+    rounds,
     questions,
     retention,
     synthesis: {
@@ -382,6 +484,12 @@ export async function listReportableSessions(scope: CinemaScope): Promise<Report
       createdAt: true,
       endedAt: true,
       quiz: { select: { title: true, slug: true, sponsor: { select: { name: true } } } },
+      rounds: {
+        orderBy: { position: 'asc' },
+        select: {
+          game: { select: { title: true, slug: true, sponsor: { select: { name: true } } } },
+        },
+      },
       screen: { select: { name: true, cinema: { select: { name: true, slug: true } } } },
       players: {
         where: { status: { not: 'kicked' } },
@@ -451,12 +559,15 @@ export async function listReportableSessions(scope: CinemaScope): Promise<Report
       state: s.state as TerminalState,
       createdAt: s.createdAt.toISOString(),
       endedAt: s.endedAt?.toISOString() ?? null,
-      quizTitle: s.quiz.title,
-      quizSlug: s.quiz.slug,
+      quizTitle: sessionTitle(s).title,
+      quizSlug: sessionTitle(s).slug,
       cinemaName: s.screen.cinema.name,
       cinemaSlug: s.screen.cinema.slug,
       screenName: s.screen.name,
-      sponsorName: s.quiz.sponsor?.name ?? null,
+      sponsorName:
+        (s.rounds.length > 0
+          ? s.rounds.find((r) => r.game.sponsor !== null)?.game.sponsor?.name
+          : s.quiz?.sponsor?.name) ?? null,
       players: s.players.length,
       lateJoined: s.players.filter((p) => p.joinedQuestionPosition !== null).length,
       completionRate,

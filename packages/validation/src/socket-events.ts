@@ -101,6 +101,25 @@ export const sessionStartedSchema = z.object({
   audio: resolvedQuizAudioSchema.optional(),
 });
 
+/**
+ * Habillage d'écran et sons de la manche qui commence (B5), émis avant son `round:started` à
+ * partir de la manche 2 : quiz de la manche s'il en a un, sinon celui de la première manche.
+ * Même forme que `session:started` (`quiz` = fonds et branding, `audio` = sons résolus).
+ */
+export const sessionThemeChangedSchema = z.object({
+  quiz: z.object({
+    backgroundMediaUrl: z.string().nullable(),
+    backgroundMediaType: z.string().nullable(),
+    backgroundOverlayOpacity: z.number(),
+    lobbyBackgroundMediaUrl: z.string().nullable(),
+    lobbyBackgroundMediaType: z.string().nullable(),
+    lobbyBackgroundOverlayOpacity: z.number(),
+    brandingJson: z.unknown(),
+  }),
+  audio: resolvedQuizAudioSchema,
+});
+export type SessionThemeChangedPayload = z.infer<typeof sessionThemeChangedSchema>;
+
 export const sessionLobbyTimerUpdateSchema = z.object({
   remainingMs: z.number().int(),
 });
@@ -228,6 +247,8 @@ export const snapshotRoundFieldsSchema = z.object({
   gameView: z.unknown(),
   /** `seq` de la dernière vue émise vers ce destinataire (0 si aucune). */
   gameSeq: z.number().int().nonnegative(),
+  /** Entracte entre deux manches (B5) : le `round:ended` de la manche terminée, sinon null. */
+  roundEnded: roundEndedSchema.nullable().optional(),
 });
 export type SnapshotRoundFields = z.infer<typeof snapshotRoundFieldsSchema>;
 

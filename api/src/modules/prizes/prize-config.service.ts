@@ -125,9 +125,25 @@ export async function resolvePrizeConfig(
     include: {
       screen: { include: { cinema: true } },
       quiz: { include: { sponsor: true } },
+      rounds: {
+        orderBy: { position: 'asc' },
+        select: {
+          game: { select: { quiz: { select: { prizesConfig: true } }, sponsor: true } },
+        },
+      },
     },
   });
   if (!session) return null;
+
+  // Séance à plusieurs manches (B5) : lots du jeu de la première manche, sponsor de la première
+  // manche sponsorisée. Séance sans manche : quiz de la séance.
+  const hasRounds = session.rounds.length > 0;
+  const prizesConfig = hasRounds
+    ? (session.rounds[0]!.game.quiz?.prizesConfig ?? null)
+    : (session.quiz?.prizesConfig ?? null);
+  const sponsor = hasRounds
+    ? (session.rounds.find((r) => r.game.sponsor !== null)?.game.sponsor ?? null)
+    : (session.quiz?.sponsor ?? null);
 
   const cinemaId = session.screen.cinemaId;
   const opts: ResolvePrizeOptions = {
@@ -141,11 +157,10 @@ export async function resolvePrizeConfig(
     if (superEntry) return superEntry;
   }
 
-  const quizResult = await resolveFromQuizConfig(session.quiz.prizesConfig, key, opts);
+  const quizResult = await resolveFromQuizConfig(prizesConfig, key, opts);
   if (quizResult === 'none') return null;
   if (quizResult !== 'inherit') return quizResult;
 
-  const sponsor = session.quiz.sponsor;
   if (sponsor?.prizesConfig != null) {
     const entry = await resolveFromLegacyConfig(sponsor.prizesConfig, key);
     if (entry) return entry;

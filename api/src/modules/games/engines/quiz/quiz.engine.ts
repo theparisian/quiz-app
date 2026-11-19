@@ -263,12 +263,9 @@ export class QuizRound implements GameRound {
       this.currentQuestionStartedAt === null &&
       this.currentQuestionIndex >= 0
     ) {
-      if (this.currentQuestionIndex + 1 < this.questions.length) {
-        this.scheduleNextQuestion();
-      } else {
-        // Dernière question close pendant la pause (reprise après redémarrage) : fin de manche.
-        void this.complete();
-      }
+      // Révélation (dernière question comprise) : affichage complet, puis la suite ou la fin
+      // de manche.
+      this.scheduleNextQuestion();
     }
 
     if (this.currentQuestionIndex === -1 && !this.questionEnded) {
@@ -415,6 +412,7 @@ export class QuizRound implements GameRound {
     });
   }
 
+  /** Fin de l'affichage des résultats : question suivante, ou fin de manche après la dernière. */
   private scheduleNextQuestion(): void {
     const displayMs = getResultsDisplayMs();
     this.resultsEndsAt = this.ctx.now() + displayMs;
@@ -439,12 +437,14 @@ export class QuizRound implements GameRound {
   private async nextQuestion(): Promise<void> {
     if (this.disposed || this.finished) return;
     this.cancelTimers();
-    this.currentQuestionIndex += 1;
 
-    if (this.currentQuestionIndex >= this.questions.length) {
+    // Après la révélation de la dernière question : fin de manche (l'index reste sur la
+    // dernière question pour la vue `done`).
+    if (this.currentQuestionIndex + 1 >= this.questions.length) {
       await this.complete();
       return;
     }
+    this.currentQuestionIndex += 1;
 
     const question = this.questions[this.currentQuestionIndex]!;
     this.currentQuestionStartedAt = this.ctx.now();
@@ -644,9 +644,9 @@ export class QuizRound implements GameRound {
     await this.persist();
     if (this.disposed) return;
 
-    const hasNext = this.currentQuestionIndex + 1 < this.questions.length;
+    // Révélation affichée RESULTS_DISPLAY_MS, dernière question comprise (puis fin de manche).
     // En pause (reprise d'une séance en pause, clôture forcée) : resume() enchaînera.
-    if (hasNext && !this.paused) this.scheduleNextQuestion();
+    if (!this.paused) this.scheduleNextQuestion();
 
     this.emitAll();
     this.ctx.emitCue('screen', QUIZ_CUES.questionClosed, {
@@ -663,8 +663,6 @@ export class QuizRound implements GameRound {
       },
       'Question ended',
     );
-
-    if (!hasNext) await this.complete();
   }
 
   /**
@@ -749,8 +747,6 @@ export class QuizRound implements GameRound {
       return { ...none, endsAt: this.iso(startedAt + this.currentQuestionTimeLimitMs) };
     }
     if (phase === 'reveal') {
-      const hasNext = this.currentQuestionIndex + 1 < this.questions.length;
-      if (!hasNext) return none;
       // En pause, la reprise relance l'affichage des résultats en entier.
       if (this.paused) return { endsAt: null, pausedRemainingMs: getResultsDisplayMs() };
       return this.resultsEndsAt != null ? { ...none, endsAt: this.iso(this.resultsEndsAt) } : none;

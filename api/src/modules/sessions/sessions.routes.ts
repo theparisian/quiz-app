@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
 import { pseudoSuggestionsResponseSchema } from '@quiz-app/validation';
 import { requireAuth } from '../../shared/auth/index.js';
 import {
@@ -23,7 +24,8 @@ import {
   listSessionsQuerySchema,
   abortSessionSchema,
 } from './sessions.schemas.js';
-import { sessionsService } from './sessions.service.js';
+import { SESSION_DETAIL_INCLUDE, sessionsService } from './sessions.service.js';
+import { resolveLobbyQuiz, sessionTitle } from './session-content.service.js';
 import { getSessionRuntime } from './session-runtime.service.js';
 import { clearLobbyTimer } from './lobby-timer.service.js';
 import {
@@ -45,23 +47,16 @@ router.use('/by-token', unknownCodeLimit);
 const ADMIN_ROLES = ['super_admin', 'cinema_admin', 'projectionist'] as const;
 const REPORT_ROLES = ['super_admin', 'cinema_admin'] as const;
 
-function shapeSessionDetail(s: {
-  id: bigint;
-  slugShort: string;
-  state: string;
-  currentQuestionPosition: number | null;
-  totalPlayers: number;
-  winnerPlayerId: bigint | null;
-  createdAt: Date;
-  startedAt: Date | null;
-  endedAt: Date | null;
-  quiz: { id: bigint; title: string; slug: string; questions: unknown[] };
-  screen: {
-    id: bigint;
-    name: string;
-    cinema: { name: string; slug: string; backgroundMusicUrl?: string | null };
-  };
-}) {
+type SessionDetailRow = Prisma.SessionGetPayload<{ include: typeof SESSION_DETAIL_INCLUDE }>;
+type QuizWithQuestions = NonNullable<SessionDetailRow['quiz']>;
+
+function shapeSessionDetail(s: SessionDetailRow) {
+  const title = sessionTitle(s);
+  // Questions de toutes les manches quiz (séance sans manche : quiz de la séance).
+  const totalQuestions =
+    s.rounds.length > 0
+      ? s.rounds.reduce((acc, r) => acc + (r.game.quiz?.questions.length ?? 0), 0)
+      : (s.quiz?.questions.length ?? 0);
   return {
     id: s.id.toString(),
     slugShort: s.slugShort,
@@ -69,18 +64,56 @@ function shapeSessionDetail(s: {
     currentQuestionPosition: s.currentQuestionPosition,
     totalPlayers: s.totalPlayers,
     winnerPlayerId: s.winnerPlayerId?.toString() ?? null,
-    totalQuestions: s.quiz.questions.length,
-    quizTitle: s.quiz.title,
-    quizSlug: s.quiz.slug,
+    totalQuestions,
+    quizTitle: title.title,
+    quizSlug: title.slug,
+    totalRounds: s.rounds.length,
+    rounds: s.rounds.map((r) => ({
+      roundId: r.id.toString(),
+      position: r.position,
+      state: r.state,
+      game: {
+        slug: r.game.slug,
+        title: r.game.title,
+        engineKey: r.game.engineKey,
+        kind: r.game.kind,
+        durationEstimateSeconds: r.game.durationEstimateSeconds,
+      },
+    })),
     screenId: s.screen.id.toString(),
     screenName: s.screen.name,
     cinemaName: s.screen.cinema.name,
     cinemaSlug: s.screen.cinema.slug,
-    backgroundMusicUrl:
-      ((s.screen.cinema as Record<string, unknown>).backgroundMusicUrl as string | null) ?? null,
+    backgroundMusicUrl: s.screen.cinema.backgroundMusicUrl ?? null,
     createdAt: s.createdAt.toISOString(),
     startedAt: s.startedAt?.toISOString() ?? null,
     endedAt: s.endedAt?.toISOString() ?? null,
+  };
+}
+
+/** Contenu console d'un quiz, bonnes réponses comprises (routes authentifiées seulement). */
+function shapeQuizContent(quiz: QuizWithQuestions) {
+  return {
+    id: quiz.id.toString(),
+    slug: quiz.slug,
+    title: quiz.title,
+    coverImageUrl: quiz.coverImageUrl,
+    questions: quiz.questions.map((q) => ({
+      id: q.id.toString(),
+      position: q.position,
+      text: q.text,
+      imageUrl: q.imageUrl,
+      timeLimitSeconds: q.timeLimitSeconds,
+      pointsMax: q.pointsMax,
+      pointsFloor: q.pointsFloor,
+      explanation: q.explanation,
+      answers: q.answers.map((a) => ({
+        id: a.id.toString(),
+        position: a.position,
+        text: a.text,
+        isCorrect: a.isCorrect,
+      })),
+    })),
   };
 }
 
@@ -175,33 +208,28 @@ router.get('/:id/full', requireAuth([...ADMIN_ROLES]), async (req, res, next) =>
         hasPlayerEmail: !!p.player.emailForPrize,
       }));
     const consolationPrizesClaimed = prizes.filter((p) => p.isConsolation).length;
+    const lobbyQuiz =
+      session.rounds.length > 0 ? (session.rounds[0]!.game.quiz ?? null) : session.quiz;
     res.json({
       ...shapeSessionDetail(session),
       projectionistUserId: session.projectionistUserId?.toString() ?? null,
       top3Prizes,
       consolationPrizesClaimed,
-      quiz: {
-        id: session.quiz.id.toString(),
-        slug: session.quiz.slug,
-        title: session.quiz.title,
-        coverImageUrl: session.quiz.coverImageUrl,
-        questions: session.quiz.questions.map((q) => ({
-          id: q.id.toString(),
-          position: q.position,
-          text: q.text,
-          imageUrl: q.imageUrl,
-          timeLimitSeconds: q.timeLimitSeconds,
-          pointsMax: q.pointsMax,
-          pointsFloor: q.pointsFloor,
-          explanation: q.explanation,
-          answers: q.answers.map((a) => ({
-            id: a.id.toString(),
-            position: a.position,
-            text: a.text,
-            isCorrect: a.isCorrect,
-          })),
-        })),
-      },
+      // Quiz de la première manche (en-tête de la console) ; contenu de chaque manche dans
+      // `rounds[].content` (la console utilise celui de la manche active, B5).
+      quiz: lobbyQuiz ? shapeQuizContent(lobbyQuiz) : null,
+      rounds: session.rounds.map((r) => ({
+        roundId: r.id.toString(),
+        position: r.position,
+        state: r.state,
+        game: {
+          slug: r.game.slug,
+          title: r.game.title,
+          engineKey: r.game.engineKey,
+          kind: r.game.kind,
+        },
+        content: r.game.quiz ? shapeQuizContent(r.game.quiz) : null,
+      })),
       players: session.players.map((p) => ({
         id: p.id.toString(),
         pseudo: p.pseudo,
@@ -218,27 +246,24 @@ router.get('/:id/full', requireAuth([...ADMIN_ROLES]), async (req, res, next) =>
 
 /** Réponse publique commune à by-code et by-token (sans questions ni réponses). */
 function shapePublicSession(session: Awaited<ReturnType<typeof sessionsService.getBySlugShort>>) {
-  const quiz = session.quiz as {
-    title: string;
-    type: string;
-    brandingJson: Record<string, unknown> | null;
-    coverImageUrl: string | null;
-    sponsor: { name: string; logoUrl: string | null } | null;
-  };
+  // Lobby : jeu de la première manche (son quiz pour l'habillage), sinon quiz de la séance.
+  const firstGame = session.rounds[0]?.game ?? null;
+  const quiz = firstGame ? firstGame.quiz : session.quiz;
+  const sponsor = firstGame ? firstGame.sponsor : (session.quiz?.sponsor ?? null);
   return {
     sessionId: session.id.toString(),
     slugShort: session.slugShort,
     state: session.state,
     cinema: {
       name: session.screen.cinema.name,
-      logoUrl: (session.screen.cinema as { logoUrl?: string | null }).logoUrl ?? null,
+      logoUrl: session.screen.cinema.logoUrl ?? null,
     },
     quiz: {
-      title: quiz.title,
-      type: quiz.type,
-      brandingJson: quiz.brandingJson,
-      coverImageUrl: quiz.coverImageUrl,
-      sponsor: quiz.sponsor ? { name: quiz.sponsor.name, logoUrl: quiz.sponsor.logoUrl } : null,
+      title: firstGame?.title ?? quiz?.title ?? '',
+      type: quiz?.type ?? (firstGame?.kind === 'sponsored' ? 'sponsored' : 'standard'),
+      brandingJson: (quiz?.brandingJson as Record<string, unknown> | null | undefined) ?? null,
+      coverImageUrl: firstGame?.coverImageUrl ?? quiz?.coverImageUrl ?? null,
+      sponsor: sponsor ? { name: sponsor.name, logoUrl: sponsor.logoUrl } : null,
     },
     totalPlayers: session.totalPlayers,
   };
@@ -268,17 +293,19 @@ router.get('/by-code/:slugShort/avatars', async (req, res, next) => {
     const session = await prisma.session.findFirst({
       where: { slugShort },
       orderBy: { createdAt: 'desc' },
-      select: { quiz: { select: { avatarsEnabled: true, avatarLibraryId: true } } },
+      select: { id: true },
     });
     if (!session) throw new AppError('Session not found', 404, 'SESSION_NOT_FOUND');
 
-    if (!session.quiz.avatarsEnabled || session.quiz.avatarLibraryId == null) {
+    // Avatars : configuration du jeu de la première manche (lobby).
+    const lobbyQuiz = await resolveLobbyQuiz(session.id);
+    if (!lobbyQuiz?.avatarsEnabled || lobbyQuiz.avatarLibraryId == null) {
       res.json({ enabled: false, avatars: [] });
       return;
     }
 
     const avatars = await prisma.avatar.findMany({
-      where: { libraryId: session.quiz.avatarLibraryId },
+      where: { libraryId: lobbyQuiz.avatarLibraryId },
       orderBy: { position: 'asc' },
       select: { id: true, imageUrl: true, label: true },
     });
@@ -391,6 +418,17 @@ router.post('/:id/force-advance', requireAuth([...ADMIN_ROLES]), async (req, res
   }
 });
 
+router.post('/:id/skip-round', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
+  try {
+    const sessionId = BigInt(param(req, 'id'));
+    await assertCanAccessSession(req.user!, sessionId);
+    await getSessionRuntime().skipRound(sessionId);
+    res.json({ message: 'Round skipped' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/:id/abort', requireAuth([...ADMIN_ROLES]), async (req, res, next) => {
   try {
     const sessionId = BigInt(param(req, 'id'));
@@ -434,8 +472,8 @@ sessionsNestedRouter.get(
           slugShort: s.slugShort,
           state: s.state,
           totalPlayers: s.totalPlayers,
-          quizTitle: s.quiz.title,
-          quizSlug: s.quiz.slug,
+          quizTitle: sessionTitle(s).title,
+          quizSlug: sessionTitle(s).slug,
           playersCount: s._count.players,
           createdAt: s.createdAt.toISOString(),
           startedAt: s.startedAt?.toISOString() ?? null,
@@ -491,8 +529,8 @@ sessionsNestedRouter.get(
           slugShort: s.slugShort,
           state: s.state,
           totalPlayers: s.totalPlayers,
-          quizTitle: s.quiz.title,
-          quizSlug: s.quiz.slug,
+          quizTitle: sessionTitle(s).title,
+          quizSlug: sessionTitle(s).slug,
           screenId: (s as unknown as { screen: { id: bigint; name: string } }).screen.id.toString(),
           screenName: (s as unknown as { screen: { id: bigint; name: string } }).screen.name,
           playersCount: s._count.players,

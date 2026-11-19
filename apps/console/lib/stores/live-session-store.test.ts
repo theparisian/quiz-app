@@ -6,8 +6,15 @@ vi.mock('@/lib/report-issue', () => ({
   reportGameIssue: (...args: unknown[]) => reportGameIssue(...args),
 }));
 
-const { useLiveSessionStore, selectCanForceAdvance, selectProgressLabel } =
-  await import('./live-session-store');
+const {
+  useLiveSessionStore,
+  selectCanForceAdvance,
+  selectProgressLabel,
+  selectRoundContent,
+  selectInterlude,
+  selectHasNextRound,
+  selectRoundLabel,
+} = await import('./live-session-store');
 
 const ROUND: RoundInfo = {
   roundId: '7',
@@ -294,5 +301,113 @@ describe('live-session-store — manche', () => {
     expect(s.audioMuted).toBe(true);
     expect(s.finalScoreboard?.[0]?.pseudo).toBe('Alice');
     expect(s.round).toBeNull();
+  });
+});
+
+describe('live-session-store — plusieurs manches (B5)', () => {
+  const ROUND2: RoundInfo = {
+    roundId: '8',
+    position: 2,
+    totalRounds: 2,
+    engineKey: 'quiz',
+    game: { slug: 'quiz-musique', title: 'Quiz musique', kind: 'internal', sponsor: null },
+  };
+  const content = (id: string) => ({
+    id,
+    slug: `quiz-${id}`,
+    title: `Quiz ${id}`,
+    coverImageUrl: null,
+    questions: [],
+  });
+
+  function hydrate() {
+    useLiveSessionStore.getState().hydrateFromSession({
+      id: '1',
+      slugShort: 'ABCD',
+      state: 'running',
+      totalPlayers: 0,
+      screenId: '3',
+      screenName: 'S1',
+      cinemaName: 'Ciné',
+      backgroundMusicUrl: null,
+      quiz: content('A'),
+      rounds: [
+        {
+          roundId: '7',
+          position: 1,
+          state: 'running',
+          game: { slug: 'quiz-cine', title: 'Quiz ciné', engineKey: 'quiz', kind: 'internal' },
+          content: content('A'),
+        },
+        {
+          roundId: '8',
+          position: 2,
+          state: 'pending',
+          game: {
+            slug: 'quiz-musique',
+            title: 'Quiz musique',
+            engineKey: 'quiz',
+            kind: 'internal',
+          },
+          content: content('B'),
+        },
+      ],
+      players: [],
+    });
+  }
+
+  it('the console content is the one of the active round', () => {
+    hydrate();
+    apply('round:started', { ...ROUND, totalRounds: 2 });
+    expect(selectRoundContent(useLiveSessionStore.getState())?.id).toBe('A');
+    apply('round:started', ROUND2);
+    expect(selectRoundContent(useLiveSessionStore.getState())?.id).toBe('B');
+  });
+
+  it('legacy session without rounds: the session quiz is the content', () => {
+    hydrate();
+    useLiveSessionStore.setState({ rounds: [] });
+    apply('round:started', ROUND);
+    expect(selectRoundContent(useLiveSessionStore.getState())?.id).toBe('A');
+  });
+
+  it('header label, interlude after round:ended, next round button', () => {
+    hydrate();
+    apply('round:started', { ...ROUND, totalRounds: 2 });
+    const st = () => useLiveSessionStore.getState();
+    expect(selectRoundLabel(st())).toBe('Manche 1/2 — Quiz ciné');
+    expect(selectInterlude(st())).toBeNull();
+    expect(selectHasNextRound(st())).toBe(true);
+
+    apply('round:ended', { roundId: '7', position: 1, totalRounds: 2, scoreboard: [] });
+    expect(selectInterlude(st())).toMatchObject({ position: 1 });
+    expect(selectHasNextRound(st())).toBe(true);
+
+    apply('round:started', ROUND2);
+    expect(selectInterlude(st())).toBeNull();
+    expect(selectRoundLabel(st())).toBe('Manche 2/2 — Quiz musique');
+    // Dernière manche : pas de manche suivante.
+    expect(selectHasNextRound(st())).toBe(false);
+  });
+
+  it('a snapshot during the interlude restores the round-end board', () => {
+    hydrate();
+    useLiveSessionStore.getState().applySocketSnapshot({
+      session: {
+        sessionId: '1',
+        slugShort: 'ABCD',
+        state: 'running',
+        totalPlayers: 0,
+        audioMuted: false,
+      },
+      players: [],
+      round: null,
+      gameView: null,
+      gameSeq: 0,
+      roundEnded: { roundId: '7', position: 1, totalRounds: 2, scoreboard: [] },
+    });
+    const st = useLiveSessionStore.getState();
+    expect(selectInterlude(st)).toMatchObject({ roundId: '7' });
+    expect(selectRoundLabel(st)).toBe('Manche 1/2 — Quiz ciné');
   });
 });

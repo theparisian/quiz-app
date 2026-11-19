@@ -349,3 +349,41 @@ describe('usePlayerStore', () => {
     expect(s.gameSeq).toBe(2);
   });
 });
+
+describe('usePlayerStore — plusieurs manches (B5)', () => {
+  const BOARD = {
+    roundId: '7',
+    position: 1,
+    totalRounds: 2,
+    scoreboard: [
+      { playerId: 'p1', pseudo: 'Alice', avatarUrl: null, scoreTotal: 400, scoreThisRound: 400 },
+    ],
+  };
+
+  beforeEach(() => {
+    store().reset();
+    store().applySnapshot(snapshot('lobby'));
+  });
+
+  it('round end screen during the interlude, then the next round takes over', () => {
+    store().applyEvent('round:started', { ...ROUND, totalRounds: 2 });
+    store().applyEvent('game:state', gameState(1, questionView()));
+    store().applyEvent('round:ended', BOARD);
+    expect(store().uiState).toBe('round_end');
+    expect(store().roundScoreboard?.scoreboard[0]?.scoreThisRound).toBe(400);
+    expect(store().scoreTotal).toBe(400);
+
+    const next = { ...ROUND, roundId: '8', position: 2, totalRounds: 2 };
+    store().applyEvent('round:started', next);
+    store().applyEvent('game:state', { ...gameState(1, questionView()), roundId: '8' });
+    expect(store().uiState).toBe('game');
+    expect(store().round?.roundId).toBe('8');
+  });
+
+  it('a snapshot during the interlude (reload) shows the round end screen', () => {
+    store().reset();
+    store().applySnapshot(snapshot('running', { roundEnded: BOARD }));
+    expect(store().uiState).toBe('round_end');
+    expect(store().roundScoreboard).toEqual(BOARD);
+  });
+});

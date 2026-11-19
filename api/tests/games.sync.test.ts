@@ -269,7 +269,7 @@ describe('sessions: création par quizSlug ou gameSlugs → une manche', () => {
     expect(session.rounds[0]!.position).toBe(1);
   });
 
-  it('gameSlugs : plusieurs jeux ou moteur non quiz → 400 GAME_NOT_SUPPORTED_YET', async () => {
+  it('gameSlugs : jeu en double → 400 DUPLICATE_GAME ; moteur non enregistré → 400 GAME_NOT_SUPPORTED_YET', async () => {
     const { game } = await publishedQuizWithGame(`multi-${Date.now()}`);
     const poll = await prisma.game.create({
       data: {
@@ -283,7 +283,7 @@ describe('sessions: création par quizSlug ou gameSlugs → une manche', () => {
     const two = await authed(request(app).post('/api/sessions'), token)
       .send({ gameSlugs: [game.slug, game.slug], screenId: screenId.toString() })
       .expect(400);
-    expect(two.body.error.code).toBe('GAME_NOT_SUPPORTED_YET');
+    expect(two.body.error.code).toBe('DUPLICATE_GAME');
 
     const other = await authed(request(app).post('/api/sessions'), token)
       .send({ gameSlugs: [poll.slug], screenId: screenId.toString() })

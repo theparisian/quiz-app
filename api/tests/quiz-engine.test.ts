@@ -345,6 +345,34 @@ describe('quiz engine (fake RoundContext, simulated clock)', () => {
     // Joueur retiré par la plateforme (exclu / parti) : refusé.
     players.delete(alice.toString());
     f.advance(TIME_LIMIT_MS + TOLERANCE_MS);
+    await waitFor(() => f.countScreen('reveal', 1) === 1);
+
+    // Dernière question : sa révélation s'affiche comme les autres (échéance complète) avant
+    // la fin de manche ; la pause la fige.
+    const lastReveal = f.lastScreen()!;
+    expect(lastReveal).toMatchObject({
+      phase: 'reveal',
+      questionIndex: 1,
+      pausedRemainingMs: null,
+    });
+    expect(Date.parse(lastReveal.endsAt!) - f.now()).toBe(RESULTS_MS);
+    expect(f.finishCalls()).toBe(0);
+    f.advance(RESULTS_MS / 2);
+    await r.pause();
+    expect(f.lastScreen()).toMatchObject({
+      phase: 'reveal',
+      questionIndex: 1,
+      endsAt: null,
+      pausedRemainingMs: RESULTS_MS,
+    });
+    f.advance(60_000);
+    expect(f.finishCalls()).toBe(0);
+    await r.resume();
+    const resumedReveal = f.lastScreen()!;
+    expect(Date.parse(resumedReveal.endsAt!) - f.now()).toBe(RESULTS_MS);
+    f.advance(RESULTS_MS - 1);
+    expect(f.finishCalls()).toBe(0);
+    f.advance(1);
     await waitFor(() => f.finishCalls() === 1);
 
     const expectedBob2 = computeScore({
@@ -369,13 +397,8 @@ describe('quiz engine (fake RoundContext, simulated clock)', () => {
       },
     ]);
 
-    // Dernière question : pas d'échéance de question suivante, fin de manche une seule fois.
-    const lastReveal = f
-      .screenViews()
-      .filter((v) => v.phase === 'reveal')
-      .at(-1)!;
-    expect(lastReveal).toMatchObject({ questionIndex: 1, endsAt: null, pausedRemainingMs: null });
-    expect(f.lastScreen()).toMatchObject({ phase: 'done' });
+    // Fin de manche une seule fois ; la vue `done` reste sur la dernière question.
+    expect(f.lastScreen()).toMatchObject({ phase: 'done', questionIndex: 1 });
     await r.forceAdvance();
     f.advance(60_000);
     expect(f.finishCalls()).toBe(1);
@@ -524,6 +547,9 @@ describe('quiz engine (fake RoundContext, simulated clock)', () => {
     await r.resume();
     checkSnapshots();
     f.advance(TIME_LIMIT_MS + TOLERANCE_MS);
+    await waitFor(() => f.countScreen('reveal', 1) === 1);
+    checkSnapshots();
+    f.advance(RESULTS_MS);
     await waitFor(() => f.finishCalls() === 1);
     return { f, alice, bob, late };
   }

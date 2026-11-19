@@ -160,7 +160,11 @@ function validateView(
 /** Champs de manche d'un snapshot (`round`, `gameView`, `gameSeq`, règle 5). */
 function roundFieldsFromSnapshot(snap: Record<string, unknown>): RoundFields {
   const parsedRound = roundInfoSchema.safeParse(snap.round);
-  if (!parsedRound.success) return { ...EMPTY_ROUND };
+  if (!parsedRound.success) {
+    // Entracte entre deux manches : le classement de la manche terminée (B5).
+    const ended = roundEndedSchema.safeParse(snap.roundEnded);
+    return { ...EMPTY_ROUND, roundScoreboard: ended.success ? ended.data : null };
+  }
   const round = parsedRound.data;
   const gameSeq =
     typeof snap.gameSeq === 'number' && Number.isInteger(snap.gameSeq) && snap.gameSeq >= 0
@@ -219,6 +223,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     let uiState: PlayerUiState = 'lobby';
     if (sessionState === 'paused') uiState = 'paused';
     else if (hasGame(roundFields)) uiState = 'game';
+    else if (roundFields.roundScoreboard) uiState = 'round_end';
 
     set({
       playerId: data.playerId,
@@ -317,7 +322,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         set({ ...base, uiState: 'paused' });
         return;
       default:
-        set({ ...base, uiState: hasGame(base) ? 'game' : 'lobby' });
+        // Entracte entre deux manches (B5) : le classement de la manche terminée.
+        set({
+          ...base,
+          uiState: hasGame(base) ? 'game' : base.roundScoreboard ? 'round_end' : 'lobby',
+        });
     }
   },
 
@@ -355,11 +364,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       case 'round:started': {
         const parsed = roundInfoSchema.safeParse(payload);
         if (!parsed.success) return;
-        // Nouvelle manche : la vue précédente et son seq n'ont plus de sens.
+        // Nouvelle manche : la vue précédente et son seq n'ont plus de sens. Le classement de la
+        // manche précédente reste affiché jusqu'à la première vue (B5).
         if (state.round?.roundId === parsed.data.roundId) {
           set({ round: parsed.data });
         } else {
-          set({ ...EMPTY_ROUND, round: parsed.data });
+          set({ ...EMPTY_ROUND, round: parsed.data, roundScoreboard: state.roundScoreboard });
         }
         break;
       }

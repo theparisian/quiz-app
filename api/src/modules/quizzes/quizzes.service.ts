@@ -901,6 +901,7 @@ export const quizzesService = {
           status: true,
           language: true,
           coverImageUrl: true,
+          durationEstimateSeconds: true,
           createdAt: true,
           sponsor: { select: { slug: true, name: true } },
           createdBy: { select: { id: true, displayName: true, email: true } },

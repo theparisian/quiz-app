@@ -869,3 +869,49 @@ Ce qui, dans le quiz, a résisté à l'interface ou reste propre au quiz dans la
 8. **Classement de fin de manche** : `round:ended` est calculé par la plateforme depuis
    `score_events` ; le quiz garde son propre classement de révélation (`scoreThisQuestion`) dans
    ses vues.
+
+## 14. B5 — Séances à plusieurs manches (état pour les unités suivantes)
+
+- **Données** : migration `0021_session_quiz_nullable` (`sessions.quiz_id` nullable, FK
+  inchangée `ON DELETE RESTRICT`). `quiz_id` = quiz de la première manche de moteur quiz, null
+  sinon. `sessionsService.create` : `gameSlugs` 1 à 5 jeux publiés, moteur enregistré
+  (`hasEngine`, sinon 400 `GAME_NOT_SUPPORTED_YET`), doublons 400 `DUPLICATE_GAME` ; manches
+  `pending`, positions 1..n. Un seul jeu = `quizSlug` (parcours historique, la console l'utilise).
+- **Lecture du contenu** : `sessions/session-content.service.ts`. Lobby (fonds/sons de lobby,
+  timer, avatars, lots) = jeu de la **première** manche (`resolveLobbyQuiz`) ; habillage pendant
+  une manche = quiz de la manche active s'il en a un, sinon première manche
+  (`resolveRoundThemeQuiz`) ; titres de listes = jeu de la manche 1 (`sessionTitle`). Lots :
+  `prizesConfig` du quiz de la première manche, sponsor de la première manche ayant un sponsor.
+  Séance sans manche (convention 9) : `sessions.quiz_id`.
+- **Enchaînement** (`session-runtime.service.ts`) : `finish()` → `closeRound` (`ended`,
+  `round:ended`) → `advanceOrEnd` : manche `pending` restante → entracte `ROUND_INTERLUDE_MS`
+  (défaut 8000, gelé par la pause : temps restant repris au resume) → `launchNextRound` :
+  `session:theme_changed { quiz, audio }` puis `round:started` puis `start()`. Sinon
+  `endSessionInternal` (un seul `session:ended`). Jeu impossible à créer → manche `skipped`, la
+  suivante est tentée. Au lancement d'une manche : `joinedDuringRound` remis à false,
+  `current_question_position` remis à null.
+- **Passer la manche** : `console:skip_round` (socket) et `POST /api/sessions/:id/skip-round`
+  (la console utilise le REST comme pour les autres actions). Séance `running` exigée (409
+  `SESSION_NOT_RUNNING`). En manche : `skipped` + `round:ended` + enchaînement normal ; pendant
+  l'entracte : la manche suivante part tout de suite.
+- **Abandon** : manche en cours et suivantes `skipped` (inchangé), entracte annulé.
+- **Réhydratation** : manche `running` → reprise avec son `state_json` ; sinon manche `pending`
+  → lancée tout de suite (séance en pause : entracte gelé, lancée au resume) ; sinon fin de séance.
+- **Snapshots** : `roundEnded` (payload `round:ended` de la manche terminée) pendant l'entracte,
+  null sinon (`snapshotRoundFieldsSchema.roundEnded`, optionnel). Les trois clients l'utilisent
+  pour réafficher le classement de fin de manche après un rechargement.
+- **Quiz** : la révélation de la dernière question a son échéance (`RESULTS_DISPLAY_MS`) comme
+  les autres ; la fin de manche suit. Écran : « Résultats dans N… » pour la dernière question.
+- **Écran** : à partir de la manche 2, le compte à rebours du quiz garde le classement de fin de
+  manche au lieu du lobby (`selectScreenDisplay`) ; `round:started` conserve `roundScoreboard`
+  (écran et mobile) jusqu'à la première vue.
+- **Console** : `GET /:id/full` renvoie `rounds[] { roundId, position, state, game, content }`
+  (contenu quiz, bonnes réponses comprises) et `quiz` = quiz de la première manche (nullable) ;
+  `GameStage` reçoit le contenu de la manche active (`selectRoundContent`). En-tête
+  « Manche N/M — titre », vue d'entracte, bouton « Passer à la manche suivante » (confirmation)
+  affiché s'il reste une manche. Lanceur : sélection multiple ordonnée (5 max), durée totale
+  estimée (`durationEstimateSeconds` du quiz, ajouté à `GET /api/quizzes`, sinon 30 s par
+  question).
+- **Rapport** : `rounds[]` (position, titre, moteur, état, dates, participants) ; questions de
+  toutes les manches quiz avec `roundPosition` ; un retardataire de la manche R est éligible à
+  toutes les questions des manches suivantes (manche d'arrivée déduite de `joinedAt`).
