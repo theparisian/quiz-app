@@ -42,23 +42,89 @@ function ordinal(rank: number): string {
   return rank === 1 ? '1er' : `${rank}e`;
 }
 
-/** Points de progression : un par étage, allumés selon le nombre d'étages bien placés. */
+/** Animations des points de progression (impact quand un étage passe à la bonne place). */
+const DOTS_CSS = `
+@keyframes burger-dot-hit {
+  0% { transform: scale(0.4); }
+  30% { transform: scale(2) rotate(-12deg); }
+  45% { transform: scale(1.6) rotate(10deg) translateX(-2px); }
+  60% { transform: scale(1.5) rotate(-8deg) translateX(2px); }
+  75% { transform: scale(1.35) rotate(4deg); }
+  100% { transform: scale(1.15) rotate(0); }
+}
+@keyframes burger-dot-ring {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+@keyframes burger-label-hit {
+  0%, 100% { transform: scale(1); }
+  35% { transform: scale(1.15); }
+}`;
+
+/**
+ * Points de progression : un par étage, verts quand l'étage est bien placé. Un point qui
+ * s'allume « tape » (grossit, tremble, onde verte) pour attirer l'œil pendant la course.
+ */
 function ProgressDots({ correct, total }: { correct: number; total: number }) {
+  const prev = useRef(correct);
+  const [hit, setHit] = useState({ from: correct, to: correct, n: 0 });
+
+  useEffect(() => {
+    const from = prev.current;
+    prev.current = correct;
+    if (correct > from) {
+      setHit((h) => ({ from, to: correct, n: h.n + 1 }));
+      try {
+        navigator.vibrate?.(15);
+      } catch {
+        // Pas de vibreur.
+      }
+    }
+  }, [correct]);
+
   return (
-    <div
-      className="flex items-center gap-1.5"
-      aria-label={`${correct} étages sur ${total} bien placés`}
-    >
-      {Array.from({ length: total }, (_, i) => (
-        <span
-          key={i}
-          className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
-            i < correct
-              ? 'scale-110 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,.8)]'
-              : 'bg-white/15'
-          }`}
-        />
-      ))}
+    <div className="flex flex-col gap-1.5">
+      <style>{DOTS_CSS}</style>
+      <span
+        key={`label-${hit.n}`}
+        className={`origin-left text-xs font-bold uppercase tracking-wider ${
+          correct > 0 ? 'text-green-400' : 'text-white/50'
+        }`}
+        style={hit.n > 0 ? { animation: 'burger-label-hit 450ms ease-out' } : undefined}
+      >
+        Bien placés · {correct}/{total}
+      </span>
+      <div
+        className="flex items-center gap-2"
+        aria-label={`${correct} étages sur ${total} bien placés`}
+      >
+        {Array.from({ length: total }, (_, i) => {
+          const on = i < correct;
+          const justHit = hit.n > 0 && i >= hit.from && i < hit.to;
+          return (
+            <span key={justHit ? `${i}-${hit.n}` : i} className="relative flex h-3.5 w-3.5">
+              {justHit && (
+                <span
+                  className="absolute inset-0 rounded-full bg-green-400"
+                  style={{ animation: 'burger-dot-ring 600ms ease-out forwards' }}
+                />
+              )}
+              <span
+                className={`relative h-3.5 w-3.5 rounded-full transition-colors duration-200 ${
+                  on ? 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,.9)]' : 'bg-white/15'
+                }`}
+                style={
+                  justHit
+                    ? { animation: 'burger-dot-hit 650ms cubic-bezier(.3,1.5,.5,1) forwards' }
+                    : on
+                      ? { transform: 'scale(1.15)' }
+                      : undefined
+                }
+              />
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -216,9 +282,6 @@ export default function BurgerMobileGame({
     <>
       <header className="flex shrink-0 items-center justify-between gap-3 px-4 pb-2 pt-3">
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium uppercase tracking-wider text-white/50">
-            Bien placés · {view.me.correctCount}/{view.totalLayers}
-          </span>
           <ProgressDots correct={view.me.correctCount} total={view.totalLayers} />
         </div>
         <span
