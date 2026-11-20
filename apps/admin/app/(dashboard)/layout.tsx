@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import { SignOut } from '@phosphor-icons/react';
 import { AppLogo } from '@quiz-app/ui';
 import { useAuth } from '../../lib/auth';
-import { NAV_ITEMS } from '../../lib/nav-items';
+import { NAV_ITEMS, isNavItemActive } from '../../lib/nav-items';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -38,8 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <nav className="flex-1 space-y-1 px-2 py-3">
           {NAV_ITEMS.map((item) => {
-            const isActive =
-              pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+            const isActive = isNavItemActive(item, pathname);
             const ItemIcon = item.icon;
             return (
               <Link

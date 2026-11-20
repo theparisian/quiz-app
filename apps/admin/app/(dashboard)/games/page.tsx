@@ -16,6 +16,7 @@ import {
   type CatalogGameListResponse,
   type CatalogGameRow,
 } from '../../../lib/games-api';
+import { GamesTabs } from '../../components/games-tabs';
 import { PageHeader } from '../../components/page-header';
 
 const PAGE_SIZE = 25;
@@ -71,6 +72,7 @@ export default function GamesCatalogPage() {
 
   return (
     <div>
+      <GamesTabs />
       <PageHeader
         icon={getNavItem('/games')!.icon}
         title="Catalogue"

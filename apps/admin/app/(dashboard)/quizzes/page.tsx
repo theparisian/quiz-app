@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MagnifyingGlass, Image as ImageIcon, Plus } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 import { resolveMediaUrl } from '../../../lib/media-url';
+import { GamesTabs } from '../../components/games-tabs';
 import { PageHeader } from '../../components/page-header';
 import { getNavItem } from '../../../lib/nav-items';
 
@@ -110,6 +111,7 @@ export default function QuizzesPage() {
 
   return (
     <div>
+      <GamesTabs />
       <PageHeader
         icon={getNavItem('/quizzes')!.icon}
         title="Quizz"

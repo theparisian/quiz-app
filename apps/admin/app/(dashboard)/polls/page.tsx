@@ -7,6 +7,7 @@ import { POLL_ENGINE_KEY } from '@quiz-app/validation';
 import { api } from '../../../lib/api';
 import { getNavItem } from '../../../lib/nav-items';
 import { GAME_STATUS_LABEL, type GameRow } from '../../../lib/poll-api';
+import { GamesTabs } from '../../components/games-tabs';
 import { PageHeader } from '../../components/page-header';
 
 /** Liste des sondages (jeux de moteur `poll`), avec création et modification. */
@@ -21,6 +22,7 @@ export default function PollsPage() {
 
   return (
     <div>
+      <GamesTabs />
       <PageHeader
         icon={getNavItem('/polls')!.icon}
         title="Sondages"
