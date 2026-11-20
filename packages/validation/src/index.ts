@@ -9,4 +9,5 @@ export * from './contacts';
 export * from './games/quiz';
 export * from './games/poll';
 export * from './games/burger';
+export * from './games/tower';
 export * from './paris-day';

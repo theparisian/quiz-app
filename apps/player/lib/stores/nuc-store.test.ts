@@ -517,6 +517,57 @@ describe('nuc store — moteur burger', () => {
   });
 });
 
+describe('nuc store — moteur tour de livres', () => {
+  const TOWER_ROUND: RoundInfo = {
+    ...ROUND,
+    roundId: '15',
+    engineKey: 'tower',
+    game: { slug: 'tour', title: 'Tour de livres', kind: 'internal', sponsor: null },
+  };
+  const build = {
+    phase: 'build',
+    endsAt: new Date(Date.now() + 30_000).toISOString(),
+    pausedRemainingMs: null,
+    durationMs: 60000,
+    countdownMs: 5000,
+    seed: 42,
+    totalPlayers: 2,
+    topHeight: 4.5,
+    racers: [
+      {
+        playerId: '1',
+        pseudo: 'Léa',
+        avatarUrl: null,
+        books: [{ k: 'roman', x: 0 }],
+        heightCm: 4.5,
+        bestHeightCm: 4.5,
+        collapses: 0,
+        rank: 1,
+        points: null,
+      },
+    ],
+  };
+  const towerState = (seq: number, view: unknown) => ({
+    ...gameState(seq, view, TOWER_ROUND.roundId),
+    engineKey: 'tower',
+  });
+
+  it('validates the tower view with the tower schema; the build replaces the lobby', () => {
+    const s = useNucStore.getState();
+    s.setSessionContext({ sessionId: '1', slugShort: 'ABCD', joinToken: 'tok' });
+    s.applyEvent('session:started', { sessionId: '1', audio: null });
+    s.applyEvent('round:started', TOWER_ROUND);
+    s.applyEvent('game:state', towerState(1, build));
+    expect(selectScreenDisplay(useNucStore.getState())).toBe('game');
+    expect(useNucStore.getState().gameView).toMatchObject({ phase: 'build' });
+
+    // Une vue de quiz sur une manche tour : invalide, repli.
+    s.applyEvent('game:state', towerState(2, questionView()));
+    expect(useNucStore.getState().gameViewInvalid).toBe(true);
+    expect(reportGameIssue).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('nuc store — sponsor (C4)', () => {
   const SPONSOR = {
     name: 'Popcorn & Co',

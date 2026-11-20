@@ -1,5 +1,7 @@
 import {
   BURGER_ENGINE_KEY,
+  TOWER_ENGINE_KEY,
+  towerScreenViewSchema,
   POLL_ENGINE_KEY,
   QUIZ_ENGINE_KEY,
   burgerScreenViewSchema,
@@ -17,6 +19,7 @@ export const GAME_VIEW_SCHEMAS: Record<string, GameViewSchema> = {
   [QUIZ_ENGINE_KEY]: quizScreenViewSchema,
   [POLL_ENGINE_KEY]: pollScreenViewSchema,
   [BURGER_ENGINE_KEY]: burgerScreenViewSchema,
+  [TOWER_ENGINE_KEY]: towerScreenViewSchema,
 };
 
 export function getGameViewSchema(engineKey: string): GameViewSchema | null {

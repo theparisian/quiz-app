@@ -528,6 +528,65 @@ describe('usePlayerStore — moteur burger', () => {
   });
 });
 
+describe('usePlayerStore — moteur tour de livres', () => {
+  const TOWER_ROUND: RoundInfo = {
+    ...ROUND,
+    roundId: '14',
+    engineKey: 'tower',
+    game: { slug: 'tour', title: 'Tour de livres', kind: 'internal', sponsor: null },
+  };
+  const build = {
+    phase: 'build',
+    endsAt: new Date(Date.now() + 30_000).toISOString(),
+    pausedRemainingMs: null,
+    durationMs: 60000,
+    countdownMs: 5000,
+    seed: 42,
+    totalPlayers: 2,
+    topHeight: 9.5,
+    me: {
+      books: [
+        { k: 'roman', x: 0 },
+        { k: 'poche', x: 2.5 },
+      ],
+      drops: 2,
+      heightCm: 7.5,
+      bestHeightCm: 7.5,
+      collapses: 0,
+      rank: null,
+      points: null,
+    },
+  };
+  const towerState = (seq: number, view: unknown) => ({
+    roundId: TOWER_ROUND.roundId,
+    engineKey: 'tower',
+    seq,
+    serverNow: new Date().toISOString(),
+    view,
+  });
+
+  beforeEach(() => {
+    store().reset();
+    reportGameIssue.mockClear();
+    store().applySnapshot(snapshot('lobby'));
+  });
+
+  it('applies tower views validated by the tower schema; an unknown book kind is invalid', () => {
+    store().applyEvent('round:started', TOWER_ROUND);
+    store().applyEvent('game:state', towerState(1, build));
+    expect(store().uiState).toBe('game');
+    expect(store().gameView).toMatchObject({ phase: 'build', me: { drops: 2 } });
+    expect(store().gameViewInvalid).toBe(false);
+
+    store().applyEvent(
+      'game:state',
+      towerState(2, { ...build, me: { ...build.me, books: [{ k: 'kindle', x: 0 }] } }),
+    );
+    expect(store().gameViewInvalid).toBe(true);
+    expect(reportGameIssue).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('usePlayerStore — sponsor (C4)', () => {
   const SPONSOR = { name: 'Popcorn & Co', logoUrl: null, brandColorPrimary: null };
 

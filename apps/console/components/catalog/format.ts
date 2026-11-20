@@ -17,6 +17,7 @@ export const ENGINE_LABEL: Record<string, string> = {
   quiz: 'Quiz',
   poll: 'Sondage',
   burger: 'Burger',
+  tower: 'Tour de livres',
 };
 
 /** « Vous rapporte 4,00 € par séance » / « … par participant » (campagne active, C3). */
