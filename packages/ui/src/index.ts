@@ -18,3 +18,5 @@ export {
   BurgerStack,
 } from './burger';
 export type { BurgerLayerVisual, BurgerPiece, BurgerStackProps } from './burger';
+export { BookFace, BookTower, TOWER_BASE_THICKNESS_CM, TOWER_KEYFRAMES_CSS } from './tower';
+export type { BookTowerProps } from './tower';

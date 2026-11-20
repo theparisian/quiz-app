@@ -1,6 +1,7 @@
 import { AppError } from '../../shared/errors/app-error.js';
 import type { GameEngine } from './engine.types.js';
 import { burgerEngine } from './engines/burger/burger.engine.js';
+import { towerEngine } from './engines/tower/tower.engine.js';
 import { pollEngine } from './engines/poll/poll.engine.js';
 import { quizEngine } from './engines/quiz/quiz.engine.js';
 
@@ -27,3 +28,4 @@ export function getEngine(key: string): GameEngine {
 registerEngine(quizEngine);
 registerEngine(pollEngine);
 registerEngine(burgerEngine);
+registerEngine(towerEngine);

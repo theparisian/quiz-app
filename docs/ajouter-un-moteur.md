@@ -21,7 +21,11 @@ exemple, plus court, qui n'utilise que le protocole générique (aucun cue, aucu
 mini-jeu burger (`burger`) en est un troisième : une course de vitesse à actions répétées
 (`reorder`, l'ordre complet à chaque dépôt), un cue (`player_finished`) et un secret gardé côté
 serveur (la recette, qui ne figure jamais dans `@quiz-app/validation` puisque ce paquet part dans le
-code des clients). Les chemins sont donnés avec `<clé>` pour un
+code des clients). La tour de livres (`tower`) en est un quatrième : un jeu d'équilibre dont la
+règle physique (`towerSettle`, centre de gravité au-dessus du support, marge qui grandit avec la
+charge) vit dans `@quiz-app/validation` pour que le téléphone prédise et anime chaque lâcher sans
+attendre, le serveur tranchant avec exactement la même fonction (action `drop` : `{ index, x }`,
+l'index refusant les lâchers rejoués). Les chemins sont donnés avec `<clé>` pour un
 nouveau moteur (ex. `poll`).
 
 ---

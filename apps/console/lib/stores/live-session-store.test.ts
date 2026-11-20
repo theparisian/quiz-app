@@ -501,3 +501,38 @@ describe('live-session-store — moteur burger', () => {
     expect(useLiveSessionStore.getState().gameViewInvalid).toBe(true);
   });
 });
+
+describe('live-session-store — moteur tour de livres', () => {
+  it('tower views validated by the tower schema, tower rules for the header and force-advance', () => {
+    startRunning();
+    apply('round:started', { ...ROUND, roundId: '16', engineKey: 'tower' });
+    const view = {
+      phase: 'build',
+      endsAt: new Date(Date.now() + 30_000).toISOString(),
+      pausedRemainingMs: null,
+      durationMs: 60000,
+      countdownMs: 5000,
+      seed: 42,
+      totalPlayers: 2,
+      topHeight: 0,
+      racers: [],
+    };
+    apply('game:state', { ...gameState(1, view, '16'), engineKey: 'tower' });
+    let s = useLiveSessionStore.getState();
+    expect(s.gameViewInvalid).toBe(false);
+    expect(selectProgressLabel(s)).toBe('Tour de livres — construction en cours');
+    expect(selectCanForceAdvance(s)).toBe(true);
+
+    apply('game:state', {
+      ...gameState(2, { ...view, phase: 'done', endsAt: null }, '16'),
+      engineKey: 'tower',
+    });
+    s = useLiveSessionStore.getState();
+    expect(s.gameViewInvalid).toBe(false);
+    expect(selectCanForceAdvance(s)).toBe(false);
+
+    // Une vue de quiz sur une manche tour : repli.
+    apply('game:state', { ...gameState(3, questionView(), '16'), engineKey: 'tower' });
+    expect(useLiveSessionStore.getState().gameViewInvalid).toBe(true);
+  });
+});

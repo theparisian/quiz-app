@@ -1,9 +1,12 @@
 import { Prisma, type Game, type PrismaClient, type QuizType } from '@prisma/client';
 import {
   BURGER_ENGINE_KEY,
+  TOWER_ENGINE_KEY,
   POLL_ENGINE_KEY,
   burgerConfigSchema,
   burgerDurationEstimateSeconds,
+  towerConfigSchema,
+  towerDurationEstimateSeconds,
   pollConfigSchema,
   pollDurationEstimateSeconds,
   type CreateGameBody,
@@ -94,9 +97,9 @@ export async function ensureGameForQuiz(
 
 /**
  * Chemins de l'admin sous `/games/` qui ne sont pas des slugs (`/games/new-poll`,
- * `/games/new-burger`) : refusés comme slug de jeu pour ne pas masquer une page.
+ * `/games/new-burger`, `/games/new-tower`) : refusés comme slug de jeu pour ne pas masquer une page.
  */
-const RESERVED_GAME_SLUGS = new Set(['new-poll', 'new-burger']);
+const RESERVED_GAME_SLUGS = new Set(['new-poll', 'new-burger', 'new-tower']);
 
 function slugify(title: string): string {
   return title
@@ -164,6 +167,20 @@ const CONFIG_PARSERS: Record<string, (json: unknown) => ParsedGameConfig> = {
       durationEstimateSeconds: burgerDurationEstimateSeconds(parsed.data),
     };
   },
+  // 400 TOWER_CONFIG_INVALID ; un contenu absent prend les réglages par défaut.
+  [TOWER_ENGINE_KEY]: (json) => {
+    const parsed = towerConfigSchema.safeParse(json ?? {});
+    if (!parsed.success) {
+      const message = parsed.error.errors
+        .map((e) => `${e.path.join('.')}: ${e.message}`)
+        .join(', ');
+      throw new AppError(`Invalid tower configuration: ${message}`, 400, 'TOWER_CONFIG_INVALID');
+    }
+    return {
+      config: parsed.data,
+      durationEstimateSeconds: towerDurationEstimateSeconds(parsed.data),
+    };
+  },
 };
 
 function parseGameConfig(engineKey: string, json: unknown): ParsedGameConfig {
@@ -172,7 +189,7 @@ function parseGameConfig(engineKey: string, json: unknown): ParsedGameConfig {
   return parse(json);
 }
 
-/** Seuls les jeux hors quiz à contenu `configJson` (sondage, burger) passent par /api/games. */
+/** Seuls les jeux hors quiz à contenu `configJson` (sondage, burger, tour de livres) passent par /api/games. */
 function assertEditableEngine(engineKey: string): void {
   if (engineKey === QUIZ_ENGINE_KEY) {
     throw new AppError('Quiz games are managed by the quiz editor', 400, 'GAME_MANAGED_BY_QUIZ');
@@ -188,7 +205,7 @@ async function getGameOrThrow(slug: string): Promise<Game> {
   return game;
 }
 
-/** POST /api/games : jeu hors quiz (sondage, burger) en brouillon. Slug donné : 409 SLUG_TAKEN s'il est pris. */
+/** POST /api/games : jeu hors quiz (sondage, burger, tour de livres) en brouillon. Slug donné : 409 SLUG_TAKEN s'il est pris. */
 async function createGame(input: CreateGameBody): Promise<Game> {
   assertEditableEngine(input.engineKey);
   const { config, durationEstimateSeconds } = parseGameConfig(input.engineKey, input.configJson);

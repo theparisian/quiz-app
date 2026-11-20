@@ -2,6 +2,7 @@ import { usePlayerStore } from '@/lib/stores/player-store';
 import type {
   BurgerLayerId,
   BurgerMobileView,
+  TowerMobileView,
   PollMobileView,
   QuizMobileView,
   RoundInfo,
@@ -64,7 +65,10 @@ export type DevPlayScreen =
   | 'burger_countdown'
   | 'burger_build'
   | 'burger_finished'
-  | 'burger_results';
+  | 'burger_results'
+  | 'tower_countdown'
+  | 'tower_build'
+  | 'tower_results';
 
 export const DEV_PLAY_SCREENS: { id: DevPlayScreen; label: string }[] = [
   { id: 'lobby', label: 'Lobby' },
@@ -86,6 +90,9 @@ export const DEV_PLAY_SCREENS: { id: DevPlayScreen; label: string }[] = [
   { id: 'burger_build', label: 'Burger course' },
   { id: 'burger_finished', label: 'Burger fini' },
   { id: 'burger_results', label: 'Burger résultats' },
+  { id: 'tower_countdown', label: 'Tour départ' },
+  { id: 'tower_build', label: 'Tour construction' },
+  { id: 'tower_results', label: 'Tour résultats' },
 ];
 
 const DEFAULT_SCREEN: DevPlayScreen = 'lobby';
@@ -251,6 +258,62 @@ function burgerView(screen: 'countdown' | 'build' | 'finished' | 'results'): Bur
         endsAt: inSeconds(8000),
         recipe: DEMO_BURGER_RECIPE,
         me: { order: DEMO_BURGER_RECIPE, correctCount: 8, finishMs: 18400, rank: 3, points: 847 },
+      };
+  }
+}
+
+const DEV_TOWER_ROUND: RoundInfo = {
+  roundId: '4',
+  position: 1,
+  totalRounds: 1,
+  engineKey: 'tower',
+  game: { slug: 'tour-demo', title: 'Tour de livres — Démo', kind: 'internal', sponsor: null },
+};
+
+function towerView(screen: 'countdown' | 'build' | 'results'): TowerMobileView {
+  const common = {
+    pausedRemainingMs: null,
+    durationMs: 60000,
+    countdownMs: 5000,
+    seed: 20261120,
+    totalPlayers: 38,
+    topHeight: screen === 'countdown' ? 0 : 64,
+  };
+  const none = {
+    books: [],
+    drops: 0,
+    heightCm: 0,
+    bestHeightCm: 0,
+    collapses: 0,
+    rank: null,
+    points: null,
+  };
+  const built = {
+    books: [
+      { k: 'atlas' as const, x: 0 },
+      { k: 'roman' as const, x: -3.4 },
+      { k: 'manga' as const, x: 1.2 },
+      { k: 'polar' as const, x: 4.1 },
+      { k: 'bd' as const, x: 0.8 },
+    ],
+    drops: 7,
+    heightCm: 20.5,
+    bestHeightCm: 27,
+    collapses: 1,
+  };
+  switch (screen) {
+    case 'countdown':
+      return { phase: 'countdown', ...common, endsAt: inSeconds(5000), me: none };
+    case 'build':
+      // Long délai : le temps de jouer. La tour démarre vide (la démo n'a pas de serveur : les
+      // lâchers sont refusés et la tour se recale sur cette vue).
+      return { phase: 'build', ...common, endsAt: inSeconds(10 * 60_000), me: none };
+    case 'results':
+      return {
+        phase: 'results',
+        ...common,
+        endsAt: inSeconds(8000),
+        me: { ...built, rank: 4, points: 103 },
       };
   }
 }
@@ -429,6 +492,14 @@ export function seedDevPlayScreen(screen: DevPlayScreen): void {
     case 'burger_results': {
       const sub = screen.slice('burger_'.length) as 'countdown' | 'build' | 'finished' | 'results';
       store.applySnapshot(gameSnapshot('running', burgerView(sub), DEV_BURGER_ROUND));
+      break;
+    }
+
+    case 'tower_countdown':
+    case 'tower_build':
+    case 'tower_results': {
+      const sub = screen.slice('tower_'.length) as 'countdown' | 'build' | 'results';
+      store.applySnapshot(gameSnapshot('running', towerView(sub), DEV_TOWER_ROUND));
       break;
     }
   }
