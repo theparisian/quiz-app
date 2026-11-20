@@ -313,22 +313,34 @@ describe('tower engine (fake RoundContext, simulated clock)', () => {
     }
   });
 
-  it('a collapse emits a cue and keeps the remaining tower; the player keeps building', async () => {
+  it('a collapse keeps the remaining tower, emits a cue for big ones; the player keeps building', async () => {
     const { f, r } = await build([1n]);
     await stack(f, r, 1n, 4);
-    // Trois livres de plus, de plus en plus à droite : l'ensemble finit par basculer.
-    let fallen = 0;
+    // Trois livres de plus, de plus en plus à droite : quelque chose finit par tomber (le livre
+    // lâché seul, ou toute une pile selon les livres tirés).
+    let res = { fallen: 0, drops: 0, heightCm: 0 };
+    let before = f.lastMobile(1n).me;
     for (const x of [12, 24, 30]) {
       await f.advance(300);
-      fallen = (await drop(r, 1n, f.lastMobile(1n).me.drops, x)).fallen;
-      if (fallen > 0) break;
+      before = f.lastMobile(1n).me;
+      res = await drop(r, 1n, before.drops, x);
+      if (res.fallen > 0) break;
     }
-    expect(fallen).toBeGreaterThan(0);
+    expect(res.fallen).toBeGreaterThan(0);
     const me = f.lastMobile(1n).me;
-    expect(me.books.length).toBeGreaterThanOrEqual(1);
-    expect(me.bestHeightCm).toBeGreaterThan(me.heightCm);
+    expect(me.books).toHaveLength(before.books.length + 1 - res.fallen);
+    expect(me.heightCm).toBe(res.heightCm);
+    expect(me.bestHeightCm).toBeGreaterThanOrEqual(me.heightCm);
+    // Plusieurs livres à terre : un effondrement, la tour a baissé.
+    if (res.fallen > 1) {
+      expect(me.collapses).toBe(1);
+      expect(me.bestHeightCm).toBeGreaterThan(me.heightCm);
+    }
+    expect(f.cues).toEqual(res.fallen >= 3 ? ['tower_collapsed'] : []);
     await f.advance(300);
-    await expect(drop(r, 1n, me.drops, 0)).resolves.toMatchObject({ fallen: 0 });
+    await expect(drop(r, 1n, me.drops, me.books.at(-1)?.x ?? 0)).resolves.toMatchObject({
+      drops: me.drops + 1,
+    });
   });
 
   it('refuses stale indexes, too-fast drops, out-of-range x, unknown actions and drops while paused', async () => {
