@@ -8,6 +8,7 @@ import { api } from '../../../lib/api';
 import { getNavItem } from '../../../lib/nav-items';
 import { GAME_STATUS_LABEL } from '../../../lib/poll-api';
 import type { BurgerGameRow } from '../../../lib/burger-api';
+import { GamesTabs } from '../../components/games-tabs';
 import { PageHeader } from '../../components/page-header';
 
 /** Liste des mini-jeux burger, avec création et modification. */
@@ -22,6 +23,7 @@ export default function BurgersPage() {
 
   return (
     <div>
+      <GamesTabs />
       <PageHeader
         icon={getNavItem('/burgers')!.icon}
         title="Burger express"

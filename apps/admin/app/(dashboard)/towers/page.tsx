@@ -8,6 +8,7 @@ import { api } from '../../../lib/api';
 import { getNavItem } from '../../../lib/nav-items';
 import { GAME_STATUS_LABEL } from '../../../lib/poll-api';
 import type { TowerGameRow } from '../../../lib/tower-api';
+import { GamesTabs } from '../../components/games-tabs';
 import { PageHeader } from '../../components/page-header';
 
 /** Liste des mini-jeux tour de livres, avec création et modification. */
@@ -22,6 +23,7 @@ export default function TowersPage() {
 
   return (
     <div>
+      <GamesTabs />
       <PageHeader
         icon={getNavItem('/towers')!.icon}
         title="Tour de livres"
