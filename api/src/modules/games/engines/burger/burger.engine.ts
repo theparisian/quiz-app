@@ -496,8 +496,8 @@ export class BurgerRound implements GameRound {
           pseudo: meta?.pseudo ?? '',
           avatarUrl: meta?.avatarUrl ?? null,
           correctCount: racer.correct,
-          // Triés par identifiant : on voit QUELS étages sont posés, jamais OÙ.
-          placedLayers: racer.order.filter((id, idx) => BURGER_RECIPE[idx] === id).sort(),
+          // Étages bien placés, du bas vers le haut (le grand écran montre le vrai burger).
+          placedLayers: racer.order.filter((id, idx) => BURGER_RECIPE[idx] === id),
           finishMs: racer.finishMs,
           rank: i + 1,
           points: this.phase === 'results' || this.phase === 'done' ? racer.points : null,

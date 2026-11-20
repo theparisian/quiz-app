@@ -68,24 +68,3 @@ export function centerOut(i: number, count: number): number {
   const pos = Math.round(mid + offset);
   return Math.max(0, Math.min(count - 1, pos));
 }
-
-/**
- * Ordre d'affichage des étages posés d'un concurrent pendant la course. Les pains restent en bas
- * et en haut ; les étages du milieu sont dans un ordre décoratif FIXE, qui n'est pas la recette :
- * la salle voit le burger grandir sans pouvoir lire la solution sur le grand écran.
- */
-export const DISPLAY_ORDER = [
-  'bun_bottom',
-  'lettuce',
-  'onion',
-  'patty_cheese',
-  'pickles',
-  'tomato',
-  'sauce',
-  'bun_top',
-] as const;
-
-export function displayLayers(placed: readonly string[]): string[] {
-  const set = new Set(placed);
-  return DISPLAY_ORDER.filter((id) => set.has(id));
-}

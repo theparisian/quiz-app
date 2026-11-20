@@ -13,7 +13,7 @@ import { BURGER_KEYFRAMES_CSS, BurgerStack, useCountdown } from '@quiz-app/ui';
 import PlayerAvatar from '@/components/shared/player-avatar';
 import { subscribeGameCues } from '@/lib/game-cues';
 import type { GameRendererProps } from '../types';
-import { displayLayers, slotFor } from './scene';
+import { slotFor } from './scene';
 
 /** Largeur d'un burger au premier plan (px, avant l'échelle de profondeur). */
 const CARD_BURGER_PX = 230;
@@ -64,7 +64,7 @@ function RacerCard({ racer, total }: { racer: BurgerRacer; total: number }) {
   const slot = slotFor(racer.rank - 1);
   if (!slot) return null;
   const done = racer.finishMs !== null;
-  const layers = displayLayers(racer.placedLayers);
+  const layers = racer.placedLayers;
   return (
     <div
       className="absolute flex flex-col items-center"
@@ -184,8 +184,8 @@ function Backdrop() {
 /**
  * Rendu écran cinéma du burger : ne dépend que de la vue.
  * - Départ : consignes et burger éclaté qui flotte (ordre alphabétique, pas la recette).
- * - Course : scène en profondeur, les plus avancés devant ; chaque burger grandit avec les
- *   étages bien placés (dans un ordre décoratif, jamais celui de la recette).
+ * - Course : scène en profondeur, les plus avancés devant ; chaque burger se monte avec les
+ *   étages bien placés, à leur vraie place.
  * - Résultats : le bon burger se monte étage par étage, à côté du classement.
  */
 export default function BurgerScreenGame({

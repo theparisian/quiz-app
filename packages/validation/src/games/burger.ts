@@ -12,8 +12,9 @@ import { z } from 'zod';
  * - la recette (côté serveur uniquement, `burger.engine.ts`) n'apparaît dans aucune vue avant `results` ;
  * - une vue mobile ne contient que l'ordre du joueur et son nombre d'étages bien placés, jamais
  *   lesquels ;
- * - la vue écran montre quels étages chaque joueur a bien placés (`placedLayers`, triés par
- *   identifiant), jamais à quelle position : on voit le burger « monter » sans lire la recette.
+ * - la vue écran montre, pour chaque joueur, ses étages bien placés dans l'ordre du burger (bas
+ *   vers le haut) : la salle voit les burgers se monter. C'est une course de vitesse, la solution
+ *   visible au grand écran n'est pas un problème.
  */
 
 export const BURGER_ENGINE_KEY = 'burger';
@@ -121,7 +122,7 @@ export const burgerRacerSchema = z.object({
   pseudo: z.string(),
   avatarUrl: z.string().nullable(),
   correctCount: z.number().int().nonnegative(),
-  /** Étages bien placés, triés par identifiant (jamais dans l'ordre de la recette). */
+  /** Étages bien placés, du bas vers le haut (positions de la recette). */
   placedLayers: z.array(burgerLayerIdSchema),
   /** Temps de course (ms) si le burger est terminé. */
   finishMs: z.number().int().nonnegative().nullable(),

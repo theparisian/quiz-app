@@ -338,14 +338,14 @@ describe('burger engine (fake RoundContext, simulated clock)', () => {
     expect(f.finishCalls()).toBe(1);
   });
 
-  it('confidentiality: no recipe before results; the screen shows which layers, never where', async () => {
+  it('confidentiality: no recipe field before results; the screen shows placed layers in burger order', async () => {
     const { f, r, start } = await race([1n, 2n]);
     await reorder(r, 1n, withFirstCorrect(start, 4));
     await f.advance(250);
     const screen = f.lastScreen();
     if (screen.phase !== 'build') throw new Error('unreachable');
     const placed = screen.racers.find((x) => x.playerId === '1')!.placedLayers;
-    expect(placed).toEqual([...BURGER_RECIPE.slice(0, 4)].sort());
+    expect(placed).toEqual(BURGER_RECIPE.slice(0, 4));
     for (const s of f.states) {
       if (s.view.phase === 'results' || s.view.phase === 'done') continue;
       expect(s.view).not.toHaveProperty('recipe');

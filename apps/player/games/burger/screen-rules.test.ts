@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BurgerScreenView } from '@quiz-app/validation';
 import { burgerScreenRules } from './screen-rules';
-import { DEPTH_ROWS, centerOut, displayLayers, slotFor } from './scene';
+import { DEPTH_ROWS, centerOut, slotFor } from './scene';
 
 const NOW = 1_700_000_000_000;
 
@@ -67,33 +67,5 @@ describe('burger scene', () => {
       const positions = Array.from({ length: row.count }, (_, i) => centerOut(i, row.count));
       expect(new Set(positions).size).toBe(row.count);
     }
-  });
-
-  it('displayLayers keeps the buns at the ends and never shows the recipe order', () => {
-    expect(displayLayers(['bun_top', 'tomato', 'bun_bottom'])).toEqual([
-      'bun_bottom',
-      'tomato',
-      'bun_top',
-    ]);
-    const all = displayLayers([
-      'bun_bottom',
-      'sauce',
-      'lettuce',
-      'tomato',
-      'patty_cheese',
-      'onion',
-      'pickles',
-      'bun_top',
-    ]);
-    expect(all).not.toEqual([
-      'bun_bottom',
-      'sauce',
-      'lettuce',
-      'tomato',
-      'patty_cheese',
-      'onion',
-      'pickles',
-      'bun_top',
-    ]);
   });
 });
