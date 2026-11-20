@@ -1,4 +1,5 @@
-import { POLL_ENGINE_KEY, QUIZ_ENGINE_KEY } from '@quiz-app/validation';
+import { BURGER_ENGINE_KEY, POLL_ENGINE_KEY, QUIZ_ENGINE_KEY } from '@quiz-app/validation';
+import { burgerConsoleRules } from './burger/console-rules';
 import { pollConsoleRules } from './poll/console-rules';
 import { quizConsoleRules } from './quiz/console-rules';
 import type { ConsoleGameRules } from './types';
@@ -11,6 +12,7 @@ import type { ConsoleGameRules } from './types';
 export const GAME_CONSOLE_RULES: Record<string, ConsoleGameRules<any>> = {
   [QUIZ_ENGINE_KEY]: quizConsoleRules,
   [POLL_ENGINE_KEY]: pollConsoleRules,
+  [BURGER_ENGINE_KEY]: burgerConsoleRules,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -465,6 +465,69 @@ describe('usePlayerStore — moteur sondage (B6)', () => {
   });
 });
 
+describe('usePlayerStore — moteur burger', () => {
+  const BURGER_ROUND: RoundInfo = {
+    ...ROUND,
+    roundId: '11',
+    engineKey: 'burger',
+    game: { slug: 'burger', title: 'Burger', kind: 'internal', sponsor: null },
+  };
+  const build = {
+    phase: 'build',
+    endsAt: new Date(Date.now() + 30_000).toISOString(),
+    pausedRemainingMs: null,
+    durationMs: 60000,
+    countdownMs: 4000,
+    totalLayers: 8,
+    totalPlayers: 2,
+    finishedCount: 0,
+    me: {
+      order: [
+        'pickles',
+        'bun_top',
+        'tomato',
+        'sauce',
+        'onion',
+        'lettuce',
+        'bun_bottom',
+        'patty_cheese',
+      ],
+      correctCount: 0,
+      finishMs: null,
+      rank: null,
+      points: null,
+    },
+  };
+  const burgerState = (seq: number, view: unknown) => ({
+    roundId: BURGER_ROUND.roundId,
+    engineKey: 'burger',
+    seq,
+    serverNow: new Date().toISOString(),
+    view,
+  });
+
+  beforeEach(() => {
+    store().reset();
+    reportGameIssue.mockClear();
+    store().applySnapshot(snapshot('lobby'));
+  });
+
+  it('applies burger views validated by the burger schema; an unknown layer is invalid', () => {
+    store().applyEvent('round:started', BURGER_ROUND);
+    store().applyEvent('game:state', burgerState(1, build));
+    expect(store().uiState).toBe('game');
+    expect(store().gameView).toMatchObject({ phase: 'build', me: { correctCount: 0 } });
+    expect(store().gameViewInvalid).toBe(false);
+
+    store().applyEvent(
+      'game:state',
+      burgerState(2, { ...build, me: { ...build.me, order: ['bacon'] } }),
+    );
+    expect(store().gameViewInvalid).toBe(true);
+    expect(reportGameIssue).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('usePlayerStore — sponsor (C4)', () => {
   const SPONSOR = { name: 'Popcorn & Co', logoUrl: null, brandColorPrimary: null };
 
